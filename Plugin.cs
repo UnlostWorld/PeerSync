@@ -30,6 +30,7 @@ public sealed class Plugin : IDalamudPlugin
 	public static string? LocalCharacterId;
 	public static string? CharacterName;
 	public static string? World;
+	public static string Status = "";
 
 	public readonly WindowSystem WindowSystem = new("StudioSync");
 	private MainWindow MainWindow { get; init; }
@@ -57,6 +58,7 @@ public sealed class Plugin : IDalamudPlugin
 	public void Dispose()
 	{
 		Log.Information("Stopping...");
+		Status = "Stopped";
 		shuttingDown = true;
 
 		AddressChange addressChange = new();
@@ -88,6 +90,7 @@ public sealed class Plugin : IDalamudPlugin
 
 			LocalCharacterId = null;
 			Plugin.Log.Information("Starting...");
+			Status = "Starting...";
 			while (string.IsNullOrEmpty(LocalCharacterId))
 			{
 				await Framework.Delay(500);
@@ -106,6 +109,7 @@ public sealed class Plugin : IDalamudPlugin
 				string? password = Configuration.Current.GetPassword(CharacterName, World);
 				if (password == null)
 				{
+					Status = "No password set for this character.";
 					Plugin.Log.Information("No password set for this character.");
 					return;
 				}
@@ -115,6 +119,7 @@ public sealed class Plugin : IDalamudPlugin
 		}
 		catch (Exception ex)
 		{
+			Status = "Failed to connect to studio sync";
 			Plugin.Log.Error(ex, $"Failed to connect to studio sync");
 			return;
 		}
@@ -127,9 +132,10 @@ public sealed class Plugin : IDalamudPlugin
 		int port;
 		try
 		{
-			Plugin.Log.Information($"Beginning NAT discovery...");
+			Status = "NAT discovery...";
+			Plugin.Log.Information($"NAT discovery...");
 
-			CancellationTokenSource cts = new CancellationTokenSource(10000);
+			CancellationTokenSource cts = new CancellationTokenSource(5000);
 			INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync();
 			address = await device.GetExternalIPAsync();
 			if (address == null)
@@ -138,17 +144,19 @@ public sealed class Plugin : IDalamudPlugin
 			Plugin.Log.Information($"The external IP Address is: {address} ");
 
 			port = Configuration.Current.Port;
+			Status = "Opening port...";
 			Plugin.Log.Information($"Opening port...");
 			await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, 1600, port, "Studio Sync"));
 			Plugin.Log.Information($"Opened Port: {port} ");
 		}
 		catch (Exception ex)
 		{
+			Status = "Failed NAT discorvery";
 			Plugin.Log.Error(ex, $"Failed NAT discorvery");
 			return;
 		}
 
-
+		Status = "Connecting to Studio Online...";
 		Plugin.Log.Information("Connecting to Studio Online...");
 
 		try
@@ -159,10 +167,12 @@ public sealed class Plugin : IDalamudPlugin
 			addressChange.Port = port;
 			string message = await addressChange.Send();
 
+			Status = $"Connected: {message}";
 			Plugin.Log.Info($"{message} {CharacterName}@{World} ({LocalCharacterId})");
 		}
 		catch (Exception ex)
 		{
+			Status = "Failed to connect to Studio Online";
 			Plugin.Log.Error(ex, $"Failed to connect to Studio Online");
 			return;
 		}

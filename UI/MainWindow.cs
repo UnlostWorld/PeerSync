@@ -27,13 +27,37 @@ public class MainWindow : Window, IDisposable
 
 	public override void Draw()
 	{
-		if (Plugin.CharacterName == null || Plugin.World == null)
-			return;
+		ImGui.Text(Plugin.Status);
 
-		ImGui.LabelText("Character", $"{Plugin.CharacterName} @ {Plugin.World}");
+		if (ImGui.BeginTabBar("##tabs"))
+		{
+			if (ImGui.BeginTabItem("Character"))
+			{
+				if (Plugin.CharacterName != null && Plugin.World != null)
+				{
+					StUi.TextBlock("Character", $"{Plugin.CharacterName} @ {Plugin.World}");
 
-		string password = Configuration.Current.GetPassword(Plugin.CharacterName, Plugin.World) ?? string.Empty;
-		if (ImGui.InputText("Password", ref password))
-			Configuration.Current.SetPassword(Plugin.CharacterName, Plugin.World, password);
+					string password = Configuration.Current.GetPassword(Plugin.CharacterName, Plugin.World) ?? string.Empty;
+					if (StUi.TextBox("Password", ref password))
+						Configuration.Current.SetPassword(Plugin.CharacterName, Plugin.World, password);
+
+					StUi.TextBlockLarge("Identifier", Plugin.LocalCharacterId ?? "");
+				}
+
+				ImGui.EndTabItem();
+			}
+
+			if (ImGui.BeginTabItem("Something Else"))
+			{
+			}
+
+			ImGui.EndTabBar();
+		}
+
+		ImGui.Separator();
+		if (ImGui.Button("Apply"))
+		{
+			// TODO: Restart plugin.
+		}
 	}
 }

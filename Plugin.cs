@@ -4,11 +4,13 @@ namespace StudioSync;
 
 using Dalamud.Game;
 using Dalamud.Game.ClientState.Objects.SubKinds;
+using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using SharpOpenNat;
 using StudioOnline.Sync;
+using StudioSync.UI;
 using System;
 using System.Net;
 using System.Threading;
@@ -25,18 +27,24 @@ public sealed class Plugin : IDalamudPlugin
 	[PluginService] public static IFramework Framework { get; private set; } = null!;
 	[PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
 
+	public static string? LocalCharacterId;
+	public static string? CharacterName;
+	public static string? World;
+
+	public readonly WindowSystem WindowSystem = new("StudioSync");
+	private MainWindow MainWindow { get; init; }
+
 	private static bool shuttingDown = false;
-	private string? localCharacterId;
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
-		/*CommandInfo command = new(this.OnCommand);
-		command.HelpMessage = "Toggle Studio Sync";
-		command.ShowInHelp = true;
-		CommandManager.AddHandler("/sync", command);*/
+		MainWindow = new MainWindow();
+		WindowSystem.AddWindow(MainWindow);
 
+		MainWindow.IsOpen = true;
+
+		PluginInterface.UiBuilder.Draw += this.OnDalamudDrawUI;
 		PluginInterface.UiBuilder.OpenMainUi += this.OnDalamudOpenMainUi;
-		PluginInterface.UiBuilder.OpenConfigUi += this.OnDalamudOpenConfigUi;
 
 		shuttingDown = false;
 		Task.Run(this.InitializeAsync);
@@ -52,7 +60,7 @@ public sealed class Plugin : IDalamudPlugin
 		shuttingDown = true;
 
 		AddressChange addressChange = new();
-		addressChange.Id = localCharacterId;
+		addressChange.Id = LocalCharacterId;
 		Task.Run(addressChange.Send);
 
 		Framework.Update -= this.OnFrameworkUpdate;
@@ -60,10 +68,12 @@ public sealed class Plugin : IDalamudPlugin
 
 	private void OnDalamudOpenMainUi()
 	{
+		MainWindow.Toggle();
 	}
 
-	private void OnDalamudOpenConfigUi()
+	private void OnDalamudDrawUI()
 	{
+		WindowSystem.Draw();
 	}
 
 	private async Task InitializeAsync()
@@ -71,16 +81,14 @@ public sealed class Plugin : IDalamudPlugin
 		if (shuttingDown)
 			return;
 
-		string characterName = string.Empty;
-		string world = string.Empty;
-
 		// Get local character id
 		try
 		{
 			await Framework.RunOnUpdate();
 
+			LocalCharacterId = null;
 			Plugin.Log.Information("Starting...");
-			while (string.IsNullOrEmpty(this.localCharacterId))
+			while (string.IsNullOrEmpty(LocalCharacterId))
 			{
 				await Framework.Delay(500);
 				if (shuttingDown)
@@ -93,16 +101,16 @@ public sealed class Plugin : IDalamudPlugin
 				if (player == null)
 					continue;
 
-				characterName = player.Name.ToString();
-				world = player.HomeWorld.Value.Name.ToString();
-				string? password = Configuration.Current.GetPassword(characterName, world);
+				CharacterName = player.Name.ToString();
+				World = player.HomeWorld.Value.Name.ToString();
+				string? password = Configuration.Current.GetPassword(CharacterName, World);
 				if (password == null)
 				{
-					await Framework.Delay(5000);
-					continue;
+					Plugin.Log.Information("No password set for this character.");
+					return;
 				}
 
-				this.localCharacterId = CharacterSync.GetSyncId(characterName, world, password);
+				LocalCharacterId = CharacterSync.GetSyncId(CharacterName, World, password);
 			}
 		}
 		catch (Exception ex)
@@ -136,22 +144,28 @@ public sealed class Plugin : IDalamudPlugin
 		}
 		catch (Exception ex)
 		{
-			Plugin.Log.Error(ex, $"Failed to open port");
+			Plugin.Log.Error(ex, $"Failed NAT discorvery");
 			return;
 		}
 
 
 		Plugin.Log.Information("Connecting to Studio Online...");
 
-		AddressChange addressChange = new();
-		addressChange.Id = localCharacterId;
-		addressChange.Address = address.ToString();
-		addressChange.Port = port;
-		string message = await addressChange.Send();
+		try
+		{
+			AddressChange addressChange = new();
+			addressChange.Id = LocalCharacterId;
+			addressChange.Address = address.ToString();
+			addressChange.Port = port;
+			string message = await addressChange.Send();
 
-		Plugin.Log.Info($"{message} {characterName}@{world} ({localCharacterId})");
-
-		////new CharacterSync("P'dhamyan Cirha", "Sophia", "boobs");
+			Plugin.Log.Info($"{message} {CharacterName}@{World} ({LocalCharacterId})");
+		}
+		catch (Exception ex)
+		{
+			Plugin.Log.Error(ex, $"Failed to connect to Studio Online");
+			return;
+		}
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)

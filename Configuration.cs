@@ -35,10 +35,18 @@ public partial class Configuration : IPluginConfiguration
 		return password;
 	}
 
-	public void SetPassword(string characterName, string world, string password)
+	public void SetPassword(string characterName, string world, string? password)
 	{
 		string id = $"{characterName}@{world}";
-		this.Passwords[id] = password;
+
+		if (password != null)
+		{
+			this.Passwords[id] = password;
+		}
+		else
+		{
+			this.Passwords.Remove(id);
+		}
 		this.Save();
 	}
 }

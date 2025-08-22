@@ -4,16 +4,16 @@ namespace StudioSync;
 
 using Dalamud.Game;
 using Dalamud.Game.ClientState.Objects.SubKinds;
+using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using SharpOpenNat;
 using StudioOnline.Sync;
 using StudioSync.UI;
 using System;
-using System.Net;
-using System.Threading;
+using System.Collections.Generic;
+using System.Security.AccessControl;
 using System.Threading.Tasks;
 
 public sealed class Plugin : IDalamudPlugin
@@ -35,7 +35,9 @@ public sealed class Plugin : IDalamudPlugin
 	public readonly WindowSystem WindowSystem = new("StudioSync");
 	private MainWindow MainWindow { get; init; }
 
+	private bool connected = false;
 	private static bool shuttingDown = false;
+	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
@@ -61,10 +63,6 @@ public sealed class Plugin : IDalamudPlugin
 		Status = "Stopped";
 		shuttingDown = true;
 
-		AddressChange addressChange = new();
-		addressChange.Id = LocalCharacterId;
-		Task.Run(addressChange.Send);
-
 		Framework.Update -= this.OnFrameworkUpdate;
 	}
 
@@ -78,8 +76,11 @@ public sealed class Plugin : IDalamudPlugin
 		WindowSystem.Draw();
 	}
 
+
 	private async Task InitializeAsync()
 	{
+		this.connected = false;
+
 		if (shuttingDown)
 			return;
 
@@ -127,58 +128,76 @@ public sealed class Plugin : IDalamudPlugin
 		if (shuttingDown)
 			return;
 
-		// Open port
-		IPAddress? address;
-		int port;
-		try
-		{
-			Status = "NAT discovery...";
-			Plugin.Log.Information($"NAT discovery...");
-
-			CancellationTokenSource cts = new CancellationTokenSource(5000);
-			INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync();
-			address = await device.GetExternalIPAsync();
-			if (address == null)
-				throw new Exception("Failed to get external IP address");
-
-			Plugin.Log.Information($"The external IP Address is: {address} ");
-
-			port = Configuration.Current.Port;
-			Status = "Opening port...";
-			Plugin.Log.Information($"Opening port...");
-			await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, 1600, port, "Studio Sync"));
-			Plugin.Log.Information($"Opened Port: {port} ");
-		}
-		catch (Exception ex)
-		{
-			Status = "Failed NAT discorvery";
-			Plugin.Log.Error(ex, $"Failed NAT discorvery");
-			return;
-		}
-
 		Status = "Connecting to Studio Online...";
 		Plugin.Log.Information("Connecting to Studio Online...");
 
-		try
+		while (!shuttingDown)
 		{
-			AddressChange addressChange = new();
-			addressChange.Id = LocalCharacterId;
-			addressChange.Address = address.ToString();
-			addressChange.Port = port;
-			string message = await addressChange.Send();
+			try
+			{
+				SyncHeartbeat heartbeat = new();
+				heartbeat.Identifier = LocalCharacterId;
+				heartbeat.Port = Configuration.Current.Port;
+				await heartbeat.Send();
 
-			Status = $"Connected: {message}";
-			Plugin.Log.Info($"{message} {CharacterName}@{World} ({LocalCharacterId})");
-		}
-		catch (Exception ex)
-		{
-			Status = "Failed to connect to Studio Online";
-			Plugin.Log.Error(ex, $"Failed to connect to Studio Online");
-			return;
+				Status = $"Connected";
+				this.connected = true;
+				await Task.Delay(10000);
+			}
+			catch (Exception ex)
+			{
+				Status = "Failed to connect to Studio Online";
+				Plugin.Log.Error(ex, $"Failed to connect to Studio Online");
+				return;
+			}
 		}
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)
 	{
+		if (!this.connected)
+			return;
+
+		// Update characters, remove missing characters
+		HashSet<string> toRemove = new();
+		foreach ((string identifier, CharacterSync sync) in this.checkedCharacters)
+		{
+			bool isValid = sync.Update();
+			if (!isValid)
+			{
+				toRemove.Add(identifier);
+				sync.Dispose();
+			}
+		}
+
+		foreach (string identifier in toRemove)
+		{
+			this.checkedCharacters.Remove(identifier);
+		}
+
+		// Find new characters
+		foreach (IBattleChara battleChara in Plugin.ObjectTable.PlayerObjects)
+		{
+			if (battleChara is IPlayerCharacter character)
+			{
+				if (character == ClientState.LocalPlayer)
+					continue;
+
+				string characterName = character.Name.ToString();
+				string world = character.HomeWorld.Value.Name.ToString();
+				string compoundName = $"{characterName}@{world}";
+
+				if (this.checkedCharacters.ContainsKey(compoundName))
+					continue;
+
+				string? password = Configuration.Current.GetPassword(characterName, world);
+				if (password == null)
+					continue;
+
+				CharacterSync sync = new(characterName, world, password);
+				sync.ObjectTableIndex = character.ObjectIndex;
+				this.checkedCharacters.Add(compoundName, sync);
+			}
+		}
 	}
 }

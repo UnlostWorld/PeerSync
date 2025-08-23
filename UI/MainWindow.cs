@@ -49,7 +49,7 @@ public class MainWindow : Window, IDisposable
 
 			if (ImGui.BeginTabItem("All Pairs"))
 			{
-				ImGui.BeginTable("#pairstable", 4);
+				ImGui.BeginTable("#pairstable", 3);
 				foreach (Configuration.Pair pair in Configuration.Current.Pairs)
 				{
 					CharacterSync? sync = null;
@@ -60,8 +60,6 @@ public class MainWindow : Window, IDisposable
 					ImGui.Text(pair.CharacterName);
 					ImGui.TableNextColumn();
 					ImGui.Text(pair.World);
-					ImGui.TableNextColumn();
-					ImGui.Text(pair.Password);
 					ImGui.TableNextColumn();
 					ImGui.Text(sync?.Status ?? "");
 

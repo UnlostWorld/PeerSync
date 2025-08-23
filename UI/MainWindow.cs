@@ -31,11 +31,11 @@ public class MainWindow : Window, IDisposable
 
 		if (ImGui.BeginTabBar("##tabs"))
 		{
-			if (ImGui.BeginTabItem("Character"))
+			if (ImGui.BeginTabItem("Current Character"))
 			{
 				if (Plugin.CharacterName != null && Plugin.World != null)
 				{
-					StUi.TextBlock("Character", $"{Plugin.CharacterName} @ {Plugin.World}");
+					StUi.TextBlock("Name", $"{Plugin.CharacterName} @ {Plugin.World}");
 
 					string password = Configuration.Current.GetPassword(Plugin.CharacterName, Plugin.World) ?? string.Empty;
 					if (StUi.TextBox("Password", ref password))
@@ -47,17 +47,22 @@ public class MainWindow : Window, IDisposable
 				ImGui.EndTabItem();
 			}
 
-			if (ImGui.BeginTabItem("Something Else"))
+			if (ImGui.BeginTabItem("All Pairs"))
 			{
+				ImGui.BeginTable("#pairstable", 2);
+				foreach ((string name, string password) in Configuration.Current.Passwords)
+				{
+					ImGui.TableNextColumn();
+					ImGui.Text(name);
+					ImGui.TableNextColumn();
+					ImGui.Text(password);
+					ImGui.TableNextRow();
+				}
+
+				ImGui.EndTable();
 			}
 
 			ImGui.EndTabBar();
-		}
-
-		ImGui.Separator();
-		if (ImGui.Button("Apply"))
-		{
-			// TODO: Restart plugin.
 		}
 	}
 }

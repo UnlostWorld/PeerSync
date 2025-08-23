@@ -65,6 +65,11 @@ public sealed class Plugin : IDalamudPlugin
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
 
 		Framework.Update += this.OnFrameworkUpdate;
+
+		if (Configuration.Current.Port <= 0)
+		{
+			Configuration.Current.Port = (ushort)(32500 + Random.Shared.Next(99));
+		}
 	}
 
 	public string Name => "Studio Sync";

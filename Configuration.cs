@@ -7,21 +7,25 @@ using System.Collections.Generic;
 
 public partial class Configuration : IPluginConfiguration
 {
+	private static Configuration? current;
+
 	public static Configuration Current
 	{
 		get
 		{
-			Configuration? config = Plugin.PluginInterface.GetPluginConfig() as Configuration;
-			if (config == null)
-				config = new();
+			if (current == null)
+				current = Plugin.PluginInterface.GetPluginConfig() as Configuration;
 
-			return config;
+			if (current == null)
+				current = new();
+
+			return current;
 		}
 	}
 
 	public int Version { get; set; } = 1;
 	public List<Pair> Pairs { get; init; } = new();
-	public int Port { get; set; } = 1701;
+	public ushort Port { get; set; } = 0;
 
 	public void Save()
 	{

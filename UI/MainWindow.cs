@@ -39,9 +39,9 @@ public class MainWindow : Window, IDisposable
 
 					string password = Configuration.Current.GetPassword(Plugin.CharacterName, Plugin.World) ?? string.Empty;
 					if (StUi.TextBox("Password", ref password))
+					{
 						Configuration.Current.SetPassword(Plugin.CharacterName, Plugin.World, password);
-
-					StUi.TextBlockLarge("Identifier", Plugin.LocalCharacterId ?? "");
+					}
 				}
 
 				ImGui.EndTabItem();
@@ -67,6 +67,20 @@ public class MainWindow : Window, IDisposable
 				}
 
 				ImGui.EndTable();
+				ImGui.EndTabItem();
+			}
+
+			if (ImGui.BeginTabItem("Settings"))
+			{
+				int port = Configuration.Current.Port;
+				if (ImGui.InputInt("Port", ref port))
+				{
+					Configuration.Current.Port = (ushort)port;
+					Configuration.Current.Save();
+				}
+
+
+				ImGui.EndTabItem();
 			}
 
 			ImGui.EndTabBar();

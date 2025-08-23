@@ -30,6 +30,8 @@ public sealed class Plugin : IDalamudPlugin
 	[PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
 	[PluginService] public static IContextMenu ContextMenu { get; private set; } = null!;
 
+	public static Plugin Instance { get; private set; } = null!;
+
 	public static string? LocalCharacterId;
 	public static string? CharacterName;
 	public static string? World;
@@ -45,6 +47,7 @@ public sealed class Plugin : IDalamudPlugin
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
+		Instance = this;
 		MainWindow = new MainWindow();
 		PairWindow = new PairWindow();
 
@@ -65,6 +68,15 @@ public sealed class Plugin : IDalamudPlugin
 	}
 
 	public string Name => "Studio Sync";
+
+	public CharacterSync? GetCharacterSync(string characterName, string world)
+	{
+		string compoundName = $"{characterName}@{world}";
+		if (!this.checkedCharacters.ContainsKey(compoundName))
+			return null;
+
+		return this.checkedCharacters[compoundName];
+	}
 
 	public void Dispose()
 	{

@@ -20,7 +20,7 @@ public partial class Configuration : IPluginConfiguration
 	}
 
 	public int Version { get; set; } = 1;
-	public Dictionary<string, string> Passwords { get; init; } = new();
+	public List<Pair> Pairs { get; init; } = new();
 	public int Port { get; set; } = 1701;
 
 	public void Save()
@@ -31,22 +31,43 @@ public partial class Configuration : IPluginConfiguration
 	public string? GetPassword(string characterName, string world)
 	{
 		string id = $"{characterName}@{world}";
-		this.Passwords.TryGetValue(id, out string? password);
-		return password;
+		foreach (Pair pair in this.Pairs)
+		{
+			if (pair.CharacterName == characterName && pair.World == world)
+			{
+				return pair.Password;
+			}
+		}
+
+		return null;
 	}
 
 	public void SetPassword(string characterName, string world, string? password)
 	{
 		string id = $"{characterName}@{world}";
 
-		if (password != null)
+		foreach (Pair pair in this.Pairs)
 		{
-			this.Passwords[id] = password;
+			if (pair.CharacterName == characterName && pair.World == world)
+			{
+				pair.Password = password;
+				this.Save();
+				return;
+			}
 		}
-		else
-		{
-			this.Passwords.Remove(id);
-		}
+
+		Pair newPair = new();
+		newPair.CharacterName = characterName;
+		newPair.World = world;
+		newPair.Password = password;
+		this.Pairs.Add(newPair);
 		this.Save();
+	}
+
+	public class Pair
+	{
+		public string? CharacterName { get; set; }
+		public string? World { get; set; }
+		public string? Password { get; set; }
 	}
 }

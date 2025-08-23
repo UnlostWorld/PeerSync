@@ -17,6 +17,8 @@ public class CharacterSync : IDisposable
 	public readonly string World;
 	public readonly string Id;
 
+	public string Status { get; private set; } = string.Empty;
+
 	private IPAddress? address;
 	private int? port;
 	private bool disposed = false;
@@ -74,6 +76,7 @@ public class CharacterSync : IDisposable
 	{
 		try
 		{
+			this.Status = "Searching";
 			SyncStatus request = new();
 			request.Identifier = this.Id;
 			SyncStatus? response = await request.Send();
@@ -86,6 +89,8 @@ public class CharacterSync : IDisposable
 
 			this.address = IPAddress.Parse(response.Address);
 			this.port = response.Port;
+
+			this.Status = this.address == null ? "Offline" : "Online";
 
 			Plugin.Log?.Info($"Got address for Sync: {this.CharacterName}@{this.World} : {this.address}:{this.port}");
 		}

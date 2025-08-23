@@ -49,13 +49,22 @@ public class MainWindow : Window, IDisposable
 
 			if (ImGui.BeginTabItem("All Pairs"))
 			{
-				ImGui.BeginTable("#pairstable", 2);
-				foreach ((string name, string password) in Configuration.Current.Passwords)
+				ImGui.BeginTable("#pairstable", 4);
+				foreach (Configuration.Pair pair in Configuration.Current.Pairs)
 				{
+					CharacterSync? sync = null;
+					if (pair.CharacterName != null && pair.World != null)
+						sync = Plugin.Instance.GetCharacterSync(pair.CharacterName, pair.World);
+
 					ImGui.TableNextColumn();
-					ImGui.Text(name);
+					ImGui.Text(pair.CharacterName);
 					ImGui.TableNextColumn();
-					ImGui.Text(password);
+					ImGui.Text(pair.World);
+					ImGui.TableNextColumn();
+					ImGui.Text(pair.Password);
+					ImGui.TableNextColumn();
+					ImGui.Text(sync?.Status ?? "");
+
 					ImGui.TableNextRow();
 				}
 

@@ -71,6 +71,8 @@ public sealed class Plugin : IDalamudPlugin
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
 
 		Framework.Update += this.OnFrameworkUpdate;
+
+
 	}
 
 	public string Name => "Studio Sync";
@@ -91,6 +93,8 @@ public sealed class Plugin : IDalamudPlugin
 		shuttingDown = true;
 
 		Framework.Update -= this.OnFrameworkUpdate;
+
+		NetworkComms.CloseAllConnections();
 	}
 
 	private void OnDalamudOpenMainUi()
@@ -172,6 +176,7 @@ public sealed class Plugin : IDalamudPlugin
 		{
 			Plugin.Log.Error(ex, "Error listening for connections");
 			Status = "Error";
+			return;
 		}
 
 		IPAddress? localIp = null;

@@ -40,6 +40,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="lz4net" Version="1.0.15.93" />
+		<PackageReference Include="NetworkCommsDotNetStandard" Version="3.0.4.1" />
 		<PackageReference Include="SharpOpenNat" Version="4.0.17" />
 		<PackageReference Include="System.Net.Http" Version="4.3.4" />
 		<PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />

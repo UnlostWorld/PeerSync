@@ -15,8 +15,14 @@ using StudioOnline.Sync;
 using StudioSync.UI;
 using System;
 using System.Collections.Generic;
-using System.Security.AccessControl;
 using System.Threading.Tasks;
+using System.Threading;
+using System.Net.Sockets;
+using System.Net;
+using System.Text;
+using SharpOpenNat;
+using NetworkCommsDotNet;
+using NetworkCommsDotNet.Connections;
 
 public sealed class Plugin : IDalamudPlugin
 {
@@ -65,11 +71,6 @@ public sealed class Plugin : IDalamudPlugin
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
 
 		Framework.Update += this.OnFrameworkUpdate;
-
-		if (Configuration.Current.Port <= 0)
-		{
-			Configuration.Current.Port = (ushort)(32500 + Random.Shared.Next(99));
-		}
 	}
 
 	public string Name => "Studio Sync";
@@ -142,6 +143,41 @@ public sealed class Plugin : IDalamudPlugin
 		if (shuttingDown)
 			return;
 
+		// Open port
+		ushort port = Configuration.Current.Port;
+
+		if (port <= 0)
+			port = (ushort)(15550 + Random.Shared.Next(50));
+
+		Plugin.Log.Information($"Opening port {port}");
+		Status = $"Opening port {port}";
+		using CancellationTokenSource cts = new(10000);
+		INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts.Token);
+		await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
+		Plugin.Log.Information($"Opened port {port}");
+		Status = $"Opened port {port}";
+
+		// Setup TCP listen
+		NetworkComms.AppendGlobalConnectionEstablishHandler(this.OnClientEstablished);
+		NetworkComms.AppendGlobalConnectionCloseHandler(this.OnClientShutdown);
+		NetworkComms.AppendGlobalIncomingPacketHandler<byte[]>("Message", this.OnIncomingData);
+		Connection.StartListening(ConnectionType.TCP, new IPEndPoint(IPAddress.Any, port));
+		Status = $"Started listening for connections";
+		Plugin.Log.Information("Started listening for connections");
+
+		IPAddress? localIp = null;
+		foreach (IPEndPoint localEndPoint in Connection.ExistingLocalListenEndPoints(ConnectionType.TCP))
+		{
+			if (localEndPoint.AddressFamily != AddressFamily.InterNetwork)
+				continue;
+
+			if (IPAddress.IsLoopback(localEndPoint.Address))
+				continue;
+
+			localIp = localEndPoint.Address;
+			Plugin.Log.Information($"Got Local Address: {localEndPoint.Address}");
+		}
+
 		// Get local character id
 		try
 		{
@@ -195,7 +231,8 @@ public sealed class Plugin : IDalamudPlugin
 			{
 				SyncHeartbeat heartbeat = new();
 				heartbeat.Identifier = LocalCharacterId;
-				heartbeat.Port = Configuration.Current.Port;
+				heartbeat.Port = port;
+				heartbeat.LocalAddress = localIp?.ToString();
 				await heartbeat.Send();
 
 				Status = $"Connected";
@@ -209,6 +246,21 @@ public sealed class Plugin : IDalamudPlugin
 				return;
 			}
 		}
+	}
+
+	private void OnClientEstablished(Connection connection)
+	{
+		Console.WriteLine("Client " + connection.ConnectionInfo + " connected.");
+	}
+
+	private void OnClientShutdown(Connection connection)
+	{
+		Console.WriteLine("Client " + connection.ConnectionInfo + " disconnected.");
+	}
+
+	private void OnIncomingData(PacketHeader packetHeader, Connection connection, byte[] incomingObject)
+	{
+		Console.WriteLine("Message received from " + connection.ConnectionInfo + ".");
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)

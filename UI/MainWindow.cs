@@ -73,7 +73,7 @@ public class MainWindow : Window, IDisposable
 			if (ImGui.BeginTabItem("Settings"))
 			{
 				int port = Configuration.Current.Port;
-				if (ImGui.InputInt("Port", ref port))
+				if (ImGui.InputInt("Custom Port", ref port))
 				{
 					Configuration.Current.Port = (ushort)port;
 					Configuration.Current.Save();

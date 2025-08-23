@@ -9,6 +9,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
+using NetworkCommsDotNet;
+using NetworkCommsDotNet.Connections.TCP;
 using StudioOnline.Sync;
 
 public class CharacterSync : IDisposable
@@ -19,9 +21,8 @@ public class CharacterSync : IDisposable
 
 	public string Status { get; private set; } = string.Empty;
 
-	private IPAddress? address;
-	private int? port;
 	private bool disposed = false;
+	private TCPConnection? connection;
 
 	public CharacterSync(string characterName, string world, string password)
 	{
@@ -84,15 +85,49 @@ public class CharacterSync : IDisposable
 			if (disposed)
 				return;
 
-			if (response == null || response.Address == null || response.Port == null)
+			if (response == null || response.Address == null)
+			{
+				this.Status = "Offline";
 				return;
+			}
 
-			this.address = IPAddress.Parse(response.Address);
-			this.port = response.Port;
+			IPAddress.TryParse(response.Address, out var address);
+			if (address == null)
+			{
+				this.Status = "Offline";
+				return;
+			}
 
-			this.Status = this.address == null ? "Offline" : "Online";
+			IPAddress.TryParse(response.LocalAddress, out var localAddress);
 
-			Plugin.Log?.Info($"Got address for Sync: {this.CharacterName}@{this.World} : {this.address}:{this.port}");
+			Plugin.Log?.Info($"Got address for Sync: {this.CharacterName}@{this.World} : {address} / {localAddress} : {response.Port}");
+
+			this.Status = "Connecting";
+
+			if (localAddress != null)
+			{
+				try
+				{
+					IPEndPoint endpoint = new(localAddress, response.Port);
+					this.connection = TCPConnection.GetConnection(new(endpoint));
+
+					this.Status = "Connected (LAN)";
+				}
+				catch (Exception)
+				{
+					this.connection = null;
+				}
+			}
+
+			if (this.connection == null)
+			{
+				IPEndPoint endpoint = new(address, response.Port);
+				this.connection = TCPConnection.GetConnection(new(endpoint));
+
+				this.Status = "Connected (WAN)";
+			}
+
+			// Send who packet to identify ourselves.
 		}
 		catch (Exception ex)
 		{

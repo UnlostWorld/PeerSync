@@ -10,7 +10,8 @@ using StudioSync;
 public class SyncHeartbeat
 {
 	public string? Identifier { get; set; }
-	public int? Port { get; set; }
+	public ushort Port { get; set; }
+	public string? LocalAddress { get; set; }
 
 	public Task Send()
 	{
@@ -23,7 +24,8 @@ public class SyncStatus
 {
 	public string? Identifier { get; set; }
 	public string? Address { get; set; }
-	public int? Port { get; set; }
+	public string? LocalAddress { get; set; }
+	public ushort Port { get; set; }
 
 	public async Task<SyncStatus?> Send()
 	{

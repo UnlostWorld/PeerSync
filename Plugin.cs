@@ -94,7 +94,7 @@ public sealed class Plugin : IDalamudPlugin
 
 		Framework.Update -= this.OnFrameworkUpdate;
 
-		NetworkComms.CloseAllConnections();
+		NetworkComms.Shutdown();
 	}
 
 	private void OnDalamudOpenMainUi()

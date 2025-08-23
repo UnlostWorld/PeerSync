@@ -131,7 +131,7 @@ public class CharacterSync : IDisposable
 		}
 		catch (Exception ex)
 		{
-			Plugin.Log.Error(ex, "Error conencting to character sync");
+			Plugin.Log.Error(ex, "Error connecting to character sync");
 		}
 	}
 }

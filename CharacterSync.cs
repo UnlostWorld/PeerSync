@@ -110,6 +110,7 @@ public class CharacterSync : IDisposable
 				{
 					IPEndPoint endpoint = new(localAddress, response.Port);
 					this.connection = TCPConnection.GetConnection(new(endpoint));
+					this.connection.SendObject("Message", "hello there");
 
 					this.Status = "Connected (LAN)";
 				}

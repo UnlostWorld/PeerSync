@@ -158,12 +158,21 @@ public sealed class Plugin : IDalamudPlugin
 		Status = $"Opened port {port}";
 
 		// Setup TCP listen
-		NetworkComms.AppendGlobalConnectionEstablishHandler(this.OnClientEstablished);
-		NetworkComms.AppendGlobalConnectionCloseHandler(this.OnClientShutdown);
-		NetworkComms.AppendGlobalIncomingPacketHandler<byte[]>("Message", this.OnIncomingData);
-		Connection.StartListening(ConnectionType.TCP, new IPEndPoint(IPAddress.Any, port));
-		Status = $"Started listening for connections";
-		Plugin.Log.Information("Started listening for connections");
+		Status = $"listen for connections...";
+		try
+		{
+			NetworkComms.AppendGlobalConnectionEstablishHandler(this.OnClientEstablished);
+			NetworkComms.AppendGlobalConnectionCloseHandler(this.OnClientShutdown);
+			NetworkComms.AppendGlobalIncomingPacketHandler<byte[]>("Message", this.OnIncomingData);
+			Connection.StartListening(ConnectionType.TCP, new IPEndPoint(IPAddress.Any, port));
+			Status = $"Started listening for connections";
+			Plugin.Log.Information("Started listening for connections");
+		}
+		catch (Exception ex)
+		{
+			Plugin.Log.Error(ex, "Error listening for connections");
+			Status = "Error";
+		}
 
 		IPAddress? localIp = null;
 		foreach (IPEndPoint localEndPoint in Connection.ExistingLocalListenEndPoints(ConnectionType.TCP))
@@ -250,17 +259,17 @@ public sealed class Plugin : IDalamudPlugin
 
 	private void OnClientEstablished(Connection connection)
 	{
-		Console.WriteLine("Client " + connection.ConnectionInfo + " connected.");
+		Plugin.Log.Information("Client " + connection.ConnectionInfo + " connected.");
 	}
 
 	private void OnClientShutdown(Connection connection)
 	{
-		Console.WriteLine("Client " + connection.ConnectionInfo + " disconnected.");
+		Plugin.Log.Information("Client " + connection.ConnectionInfo + " disconnected.");
 	}
 
 	private void OnIncomingData(PacketHeader packetHeader, Connection connection, byte[] incomingObject)
 	{
-		Console.WriteLine("Message received from " + connection.ConnectionInfo + ".");
+		Plugin.Log.Information("Message received from " + connection.ConnectionInfo + ".");
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)

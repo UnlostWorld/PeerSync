@@ -93,6 +93,11 @@ public class CharacterSync : IDisposable
 
 	public void Reconnect()
 	{
+		if (this.CurrentStatus == Status.Searching
+			|| this.CurrentStatus == Status.Connecting
+			|| this.CurrentStatus == Status.Handshake)
+			return;
+
 		Plugin.Log?.Info($"Reconnect Sync: {this.CharacterName}@{this.World} ({this.Identifier})");
 
 		this.incomingConnection?.Dispose();
@@ -251,18 +256,10 @@ public class CharacterSync : IDisposable
 
 	private void OnOutgoingConnectionClosed(Connection connection)
 	{
-		if (this.disposed)
-			return;
-
-		this.Reconnect();
 	}
 
 	private void OnIncomingConnectionClosed(Connection connection)
 	{
-		if (this.disposed)
-			return;
-
-		this.Reconnect();
 	}
 
 	private void OnCharacterDataPacket(PacketHeader packetHeader, Connection connection, CharacterData characterData)

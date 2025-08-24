@@ -56,9 +56,4 @@ public class CharacterData(string identifier)
 
 		return true;
 	}
-
-	public void Serialize(Stream outputStream)
-	{
-		throw new NotImplementedException();
-	}
 }

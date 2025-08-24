@@ -44,7 +44,7 @@ public sealed class Plugin : IDalamudPlugin
 	[PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
 	[PluginService] public static IContextMenu ContextMenu { get; private set; } = null!;
 
-	public static Plugin Instance { get; private set; } = null!;
+	public static Plugin? Instance { get; private set; } = null;
 
 	public CharacterData? LocalCharacterData;
 	public string? LocalCharacterIdentifier;
@@ -114,7 +114,15 @@ public sealed class Plugin : IDalamudPlugin
 
 		Framework.Update -= this.OnFrameworkUpdate;
 
+		foreach (CharacterSync sync in checkedCharacters.Values)
+		{
+			sync.Dispose();
+		}
+
+		this.checkedCharacters.Clear();
+
 		NetworkComms.Shutdown();
+		Instance = null;
 	}
 
 	private void OnDalamudOpenMainUi()

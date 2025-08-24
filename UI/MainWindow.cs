@@ -29,7 +29,10 @@ public class MainWindow : Window, IDisposable
 
 	public override void Draw()
 	{
-		Plugin plugin = Plugin.Instance;
+		Plugin? plugin = Plugin.Instance;
+		if (plugin == null)
+			return;
+
 		ImGui.Text(plugin.Status);
 
 		if (ImGui.BeginTabBar("##tabs"))
@@ -57,7 +60,7 @@ public class MainWindow : Window, IDisposable
 				{
 					CharacterSync? sync = null;
 					if (pair.CharacterName != null && pair.World != null)
-						sync = Plugin.Instance.GetCharacterSync(pair.CharacterName, pair.World);
+						sync = Plugin.Instance?.GetCharacterSync(pair.CharacterName, pair.World);
 
 					ImGui.TableNextColumn();
 					ImGui.Text(pair.CharacterName);

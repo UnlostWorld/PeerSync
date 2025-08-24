@@ -313,7 +313,7 @@ public sealed class Plugin : IDalamudPlugin
 		if (sync == null)
 			return;
 
-		sync.SetIncomingConnection(connection);
+		sync.SetConnection(connection);
 	}
 
 	private void OnClientEstablished(Connection connection)

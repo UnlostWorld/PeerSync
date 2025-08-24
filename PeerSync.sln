@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudioSync", "StudioSync.csproj", "{1DE30458-639A-0846-9AB2-F932B5292A24}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PeerSync", "PeerSync.csproj", "{1DE30458-639A-0846-9AB2-F932B5292A24}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -24,8 +24,7 @@ public class CharacterSync : IDisposable
 	public ConnectionTypes ConnectionType { get; private set; } = ConnectionTypes.None;
 
 	private bool disposed = false;
-	private Connection? incomingConnection;
-	private TCPConnection? outgoingConnection;
+	private Connection? connection;
 	private CharacterData? lastData;
 
 	public CharacterSync(string characterName, string world, string password)
@@ -42,6 +41,9 @@ public class CharacterSync : IDisposable
 	public enum Status
 	{
 		None,
+
+		// Waiting for the peer to connect to us.
+		Listening,
 
 		// Querying the server for this characters connection details.
 		Searching,
@@ -100,33 +102,27 @@ public class CharacterSync : IDisposable
 
 		Plugin.Log?.Info($"Reconnect Sync: {this.CharacterName}@{this.World} ({this.Identifier})");
 
-		this.incomingConnection?.Dispose();
-		this.incomingConnection = null;
+		this.connection?.Dispose();
+		this.connection = null;
 
-		this.outgoingConnection?.Dispose();
-		this.outgoingConnection = null;
+		this.connection?.Dispose();
+		this.connection = null;
 
 		this.CurrentStatus = Status.None;
 
 		Task.Run(this.Connect);
 	}
 
-	public void SetIncomingConnection(Connection connection)
+	public void SetConnection(Connection connection)
 	{
-		if (this.CurrentStatus == Status.HandshakeFailed || this.CurrentStatus == Status.ConnectionFailed)
-		{
-			this.Reconnect();
-			return;
-		}
-
-		if (this.CurrentStatus != Status.Handshake)
+		if (this.CurrentStatus != Status.Listening)
 			return;
 
-		Plugin.Log.Information($"Got IAm packet from {this.CharacterName}. Now connected.");
+		this.connection = connection;
 
-		this.incomingConnection = connection;
-		this.incomingConnection.AppendShutdownHandler(this.OnIncomingConnectionClosed);
-		this.incomingConnection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
+		this.connection.AppendShutdownHandler(this.OnConnectionClosed);
+		this.connection.AppendIncomingPacketHandler<string>("iam", this.OnIAmPacket);
+		this.connection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
 
 		this.CurrentStatus = Status.Connected;
 	}
@@ -134,8 +130,8 @@ public class CharacterSync : IDisposable
 	public void Dispose()
 	{
 		this.disposed = true;
-		this.outgoingConnection?.Dispose();
-		this.incomingConnection?.Dispose();
+		this.connection?.CloseConnection(false);
+		this.connection?.Dispose();
 		Plugin.Log?.Info($"Destroy Sync: {this.CharacterName}@{this.World} ({this.Identifier})");
 	}
 
@@ -156,8 +152,8 @@ public class CharacterSync : IDisposable
 
 	public void SendData(CharacterData data)
 	{
-		this.outgoingConnection?.SendObject("iam", Plugin.Instance?.LocalCharacterIdentifier);
-		this.outgoingConnection?.SendObject("CharacterData", data);
+		this.connection?.SendObject("iam", Plugin.Instance?.LocalCharacterIdentifier);
+		this.connection?.SendObject("CharacterData", data);
 	}
 
 	private async Task Connect()
@@ -165,6 +161,19 @@ public class CharacterSync : IDisposable
 		try
 		{
 			this.ConnectionType = ConnectionTypes.None;
+
+			if (Plugin.Instance == null || Plugin.Instance.LocalCharacterIdentifier == null)
+				return;
+
+			int sort = Plugin.Instance.LocalCharacterIdentifier.CompareTo(this.Identifier);
+			if (sort <= 0)
+			{
+				// We're the host.
+				this.CurrentStatus = Status.Listening;
+				return;
+			}
+
+			// We're the client.
 			this.CurrentStatus = Status.Searching;
 			SyncStatus request = new();
 			request.Identifier = this.Identifier;
@@ -195,35 +204,39 @@ public class CharacterSync : IDisposable
 				try
 				{
 					IPEndPoint endpoint = new(localAddress, response.Port);
-					this.outgoingConnection = TCPConnection.GetConnection(new(endpoint));
+					this.connection = TCPConnection.GetConnection(new(endpoint));
 					this.ConnectionType = ConnectionTypes.Local;
 				}
 				catch (Exception)
 				{
-					this.outgoingConnection = null;
+					this.connection = null;
 				}
 			}
 
 			try
 			{
-				if (this.outgoingConnection == null)
+				if (this.connection == null)
 				{
 					IPEndPoint endpoint = new(address, response.Port);
-					this.outgoingConnection = TCPConnection.GetConnection(new(endpoint));
+					this.connection = TCPConnection.GetConnection(new(endpoint));
 					this.ConnectionType = ConnectionTypes.Internet;
 				}
 			}
 			catch (Exception)
 			{
-				this.outgoingConnection = null;
+				this.connection = null;
 				this.CurrentStatus = Status.ConnectionFailed;
 				return;
 			}
 
-			this.outgoingConnection.AppendShutdownHandler(this.OnOutgoingConnectionClosed);
-
 			// Send who packet to identify ourselves.
 			this.CurrentStatus = Status.Handshake;
+
+			if (this.connection == null)
+				return;
+
+			this.connection.AppendShutdownHandler(this.OnConnectionClosed);
+			this.connection.AppendIncomingPacketHandler<string>("iam", this.OnIAmPacket);
 
 			if (this.disposed)
 				return;
@@ -235,7 +248,7 @@ public class CharacterSync : IDisposable
 					return;
 
 				attempts++;
-				this.outgoingConnection.SendObject("iam", Plugin.Instance?.LocalCharacterIdentifier);
+				this.connection.SendObject("iam", Plugin.Instance?.LocalCharacterIdentifier);
 				await Task.Delay(3000);
 			}
 
@@ -247,6 +260,8 @@ public class CharacterSync : IDisposable
 				this.CurrentStatus = Status.HandshakeFailed;
 				throw new Exception("Handshake failed");
 			}
+
+
 		}
 		catch (Exception ex)
 		{
@@ -254,18 +269,26 @@ public class CharacterSync : IDisposable
 		}
 	}
 
-	private void OnOutgoingConnectionClosed(Connection connection)
+	private void OnConnectionClosed(Connection connection)
 	{
+		Plugin.Log.Information($"Connection to {this.CharacterName}@{this.World} was closed.");
 	}
 
-	private void OnIncomingConnectionClosed(Connection connection)
+	private void OnIAmPacket(PacketHeader packetHeader, Connection connection, string incomingObject)
 	{
+		if (connection != this.connection || incomingObject != this.Identifier)
+			return;
+
+		if (this.CurrentStatus == Status.Handshake)
+		{
+			this.CurrentStatus = Status.Connected;
+		}
 	}
 
 	private void OnCharacterDataPacket(PacketHeader packetHeader, Connection connection, CharacterData characterData)
 	{
 		// Sanity check
-		if (connection != this.incomingConnection)
+		if (connection != this.connection)
 			return;
 
 		if (lastData == null || !characterData.IsPenumbraReplacementsSame(lastData))
@@ -308,7 +331,7 @@ public class CharacterSync : IDisposable
 
 		if (lastData == null || characterData.Moodles != lastData.Moodles)
 		{
-			Plugin.Log.Information($"> Moodls");
+			Plugin.Log.Information($"> Moodles");
 		}
 
 		if (lastData == null || characterData.PetNames != lastData.PetNames)

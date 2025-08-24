@@ -82,7 +82,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Update="StudioSync.json">
+		<None Update="PeerSync.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>

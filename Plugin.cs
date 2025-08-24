@@ -50,6 +50,7 @@ public sealed class Plugin : IDalamudPlugin
 	private bool connected = false;
 	private static bool shuttingDown = false;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
+	private readonly Dictionary<Connection, CharacterSync> incomingConnectionMap = new();
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
@@ -71,8 +72,6 @@ public sealed class Plugin : IDalamudPlugin
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
 
 		Framework.Update += this.OnFrameworkUpdate;
-
-
 	}
 
 	public string Name => "Peer Sync";
@@ -84,6 +83,27 @@ public sealed class Plugin : IDalamudPlugin
 			return null;
 
 		return this.checkedCharacters[compoundName];
+	}
+
+	public CharacterSync? GetCharacterSync(string identifier)
+	{
+		foreach (CharacterSync sync in this.checkedCharacters.Values)
+		{
+			if (sync.Identifier == identifier)
+			{
+				return sync;
+			}
+		}
+
+		return null;
+	}
+
+	public CharacterSync? GetCharacterSync(Connection connection)
+	{
+		if (incomingConnectionMap.ContainsKey(connection))
+			return incomingConnectionMap[connection];
+
+		return null;
 	}
 
 	public void Dispose()
@@ -120,7 +140,7 @@ public sealed class Plugin : IDalamudPlugin
 		string? password = Configuration.Current.GetPassword(characterName, world);
 
 		SeStringBuilder seStringBuilder = new();
-		SeString pairString = seStringBuilder.AddText(password == null ? "Pair" : "Unpair").Build();
+		SeString pairString = seStringBuilder.AddText(password == null ? "Add Peer" : "Remove Peer").Build();
 
 		args.AddMenuItem(new MenuItem()
 		{
@@ -167,7 +187,7 @@ public sealed class Plugin : IDalamudPlugin
 		{
 			NetworkComms.AppendGlobalConnectionEstablishHandler(this.OnClientEstablished);
 			NetworkComms.AppendGlobalConnectionCloseHandler(this.OnClientShutdown);
-			NetworkComms.AppendGlobalIncomingPacketHandler<byte[]>("Message", this.OnIncomingData);
+			NetworkComms.AppendGlobalIncomingPacketHandler<string>("iam", this.OnIAmPacket);
 			Connection.StartListening(ConnectionType.TCP, new IPEndPoint(IPAddress.Any, port));
 			Status = $"Started listening for connections";
 			Plugin.Log.Information("Started listening for connections");
@@ -262,6 +282,16 @@ public sealed class Plugin : IDalamudPlugin
 		}
 	}
 
+	private void OnIAmPacket(PacketHeader packetHeader, Connection connection, string incomingObject)
+	{
+		CharacterSync? sync = this.GetCharacterSync(incomingObject);
+		if (sync == null)
+			return;
+
+		sync.SetIncomingConnection(connection);
+		incomingConnectionMap.Add(connection, sync);
+	}
+
 	private void OnClientEstablished(Connection connection)
 	{
 		Plugin.Log.Information("Client " + connection.ConnectionInfo + " connected.");
@@ -270,11 +300,12 @@ public sealed class Plugin : IDalamudPlugin
 	private void OnClientShutdown(Connection connection)
 	{
 		Plugin.Log.Information("Client " + connection.ConnectionInfo + " disconnected.");
-	}
 
-	private void OnIncomingData(PacketHeader packetHeader, Connection connection, byte[] incomingObject)
-	{
-		Plugin.Log.Information("Message received from " + connection.ConnectionInfo + ".");
+		if (this.incomingConnectionMap.ContainsKey(connection))
+		{
+			this.incomingConnectionMap[connection].Reconnect();
+			this.incomingConnectionMap.Remove(connection);
+		}
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)

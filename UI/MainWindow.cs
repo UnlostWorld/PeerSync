@@ -3,6 +3,8 @@
 namespace PeerSync.UI;
 
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using System;
 using System.Numerics;
@@ -49,7 +51,7 @@ public class MainWindow : Window, IDisposable
 
 			if (ImGui.BeginTabItem("All Pairs"))
 			{
-				ImGui.BeginTable("#pairstable", 3);
+				ImGui.BeginTable("#pairsTable", 4);
 				foreach (Configuration.Pair pair in Configuration.Current.Pairs)
 				{
 					CharacterSync? sync = null;
@@ -61,7 +63,20 @@ public class MainWindow : Window, IDisposable
 					ImGui.TableNextColumn();
 					ImGui.Text(pair.World);
 					ImGui.TableNextColumn();
-					ImGui.Text(sync?.Status ?? "");
+					ImGui.Text(sync?.CurrentStatus.ToString() ?? "");
+
+					ImGui.TableNextColumn();
+					using (ImRaii.PushFont(UiBuilder.IconFont))
+					{
+						if (sync?.ConnectionType == CharacterSync.ConnectionTypes.Internet)
+						{
+							ImGui.Text(FontAwesomeIcon.Globe.ToIconString());
+						}
+						else if (sync?.ConnectionType == CharacterSync.ConnectionTypes.Local)
+						{
+							ImGui.Text(FontAwesomeIcon.Ethernet.ToIconString());
+						}
+					}
 
 					ImGui.TableNextRow();
 				}

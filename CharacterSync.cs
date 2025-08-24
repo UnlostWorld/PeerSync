@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using NetworkCommsDotNet;
+using NetworkCommsDotNet.Connections;
 using NetworkCommsDotNet.Connections.TCP;
 using StudioOnline.Sync;
 
@@ -17,22 +18,52 @@ public class CharacterSync : IDisposable
 {
 	public readonly string CharacterName;
 	public readonly string World;
-	public readonly string Id;
+	public readonly string Identifier;
 
-	public string Status { get; private set; } = string.Empty;
+	public Status CurrentStatus { get; private set; } = Status.None;
+	public ConnectionTypes ConnectionType { get; private set; } = ConnectionTypes.None;
 
 	private bool disposed = false;
-	private TCPConnection? connection;
+	private Connection? incomingConnection;
+	private TCPConnection? outgoingConnection;
 
 	public CharacterSync(string characterName, string world, string password)
 	{
 		this.CharacterName = characterName;
 		this.World = world;
-		this.Id = GetSyncId(characterName, world, password);
+		this.Identifier = GetSyncId(characterName, world, password);
 
-		Plugin.Log?.Info($"Create Sync: {characterName}@{world} ({this.Id})");
+		Plugin.Log?.Info($"Create Sync: {characterName}@{world} ({this.Identifier})");
 
 		Task.Run(this.Connect);
+	}
+
+	public enum Status
+	{
+		None,
+
+		// Querying the server for this characters connection details.
+		Searching,
+
+		// This character had no connection details, they are either offline, or don't exist.
+		Offline,
+
+		// We are attempting to establish a connection.
+		Connecting,
+
+		// We've established a connection and are now identifying ourselves.
+		Handshake,
+
+		// They've established a connection back.
+		Connected,
+	}
+
+	public enum ConnectionTypes
+	{
+		None,
+
+		Local,
+		Internet,
 	}
 
 	public int ObjectTableIndex { get; set; }
@@ -52,10 +83,32 @@ public class CharacterSync : IDisposable
 		return sb.ToString();
 	}
 
+	public void Reconnect()
+	{
+		Plugin.Log?.Info($"Reconnect Sync: {this.CharacterName}@{this.World} ({this.Identifier})");
+
+		this.incomingConnection?.Dispose();
+		this.incomingConnection = null;
+
+		this.outgoingConnection?.Dispose();
+		this.outgoingConnection = null;
+		this.CurrentStatus = Status.None;
+
+		Task.Run(this.Connect);
+	}
+
+	public void SetIncomingConnection(Connection connection)
+	{
+		this.incomingConnection = connection;
+		this.incomingConnection.AppendIncomingPacketHandler<byte[]>("SomethingNew", this.OnIncomingData);
+
+		this.CurrentStatus = Status.Connected;
+	}
+
 	public void Dispose()
 	{
 		this.disposed = true;
-		Plugin.Log?.Info($"Destroy Sync: {this.CharacterName}@{this.World} ({this.Id})");
+		Plugin.Log?.Info($"Destroy Sync: {this.CharacterName}@{this.World} ({this.Identifier})");
 	}
 
 	public bool Update()
@@ -77,9 +130,10 @@ public class CharacterSync : IDisposable
 	{
 		try
 		{
-			this.Status = "Searching";
+			this.ConnectionType = ConnectionTypes.None;
+			this.CurrentStatus = Status.Searching;
 			SyncStatus request = new();
-			request.Identifier = this.Id;
+			request.Identifier = this.Identifier;
 			SyncStatus? response = await request.Send();
 
 			if (disposed)
@@ -87,52 +141,63 @@ public class CharacterSync : IDisposable
 
 			if (response == null || response.Address == null)
 			{
-				this.Status = "Offline";
+				this.CurrentStatus = Status.Offline;
 				return;
 			}
 
 			IPAddress.TryParse(response.Address, out var address);
 			if (address == null)
 			{
-				this.Status = "Offline";
+				this.CurrentStatus = Status.Offline;
 				return;
 			}
 
 			IPAddress.TryParse(response.LocalAddress, out var localAddress);
 
-			Plugin.Log?.Info($"Got address for Sync: {this.CharacterName}@{this.World} : {address} / {localAddress} : {response.Port}");
-
-			this.Status = "Connecting";
+			this.CurrentStatus = Status.Connecting;
 
 			if (localAddress != null)
 			{
 				try
 				{
 					IPEndPoint endpoint = new(localAddress, response.Port);
-					this.connection = TCPConnection.GetConnection(new(endpoint));
-					this.connection.SendObject("Message", "hello there");
-
-					this.Status = "Connected (LAN)";
+					this.outgoingConnection = TCPConnection.GetConnection(new(endpoint));
+					this.ConnectionType = ConnectionTypes.Local;
 				}
 				catch (Exception)
 				{
-					this.connection = null;
+					this.outgoingConnection = null;
 				}
 			}
 
-			if (this.connection == null)
+			if (this.outgoingConnection == null)
 			{
 				IPEndPoint endpoint = new(address, response.Port);
-				this.connection = TCPConnection.GetConnection(new(endpoint));
-
-				this.Status = "Connected (WAN)";
+				this.outgoingConnection = TCPConnection.GetConnection(new(endpoint));
+				this.ConnectionType = ConnectionTypes.Internet;
 			}
 
 			// Send who packet to identify ourselves.
+			this.CurrentStatus = Status.Handshake;
+
+			int attempts = 0;
+			while (this.CurrentStatus == Status.Handshake && attempts < 10)
+			{
+				attempts++;
+				this.outgoingConnection.SendObject("iam", Plugin.LocalCharacterId);
+				await Task.Delay(1000);
+			}
 		}
 		catch (Exception ex)
 		{
 			Plugin.Log.Error(ex, "Error connecting to character sync");
 		}
+	}
+
+	private void OnIncomingData(PacketHeader packetHeader, Connection connection, byte[] incomingObject)
+	{
+		// Sanity check
+		if (connection != this.incomingConnection)
+			return;
 	}
 }

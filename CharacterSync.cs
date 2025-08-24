@@ -109,7 +109,7 @@ public class CharacterSync : IDisposable
 	{
 		Plugin.Log.Information($"Got IAm packet from {this.CharacterName}, Status: {this.CurrentStatus}");
 
-		if (this.CurrentStatus == Status.HandshakeFailed)
+		if (this.CurrentStatus == Status.HandshakeFailed || this.CurrentStatus == Status.ConnectionFailed)
 		{
 			this.Reconnect();
 			return;
@@ -207,7 +207,7 @@ public class CharacterSync : IDisposable
 			catch (Exception)
 			{
 				this.outgoingConnection = null;
-				this.CurrentStatus = Status.Offline;
+				this.CurrentStatus = Status.ConnectionFailed;
 				return;
 			}
 

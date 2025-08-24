@@ -19,13 +19,15 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Net.Sockets;
 using System.Net;
-using System.Text;
 using SharpOpenNat;
 using NetworkCommsDotNet;
 using NetworkCommsDotNet.Connections;
+using PeerSync.PluginCommunication;
 
 public sealed class Plugin : IDalamudPlugin
 {
+	public static readonly Penumbra Penumbra = new();
+
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
 	[PluginService] public static ICommandManager CommandManager { get; private set; } = null!;
@@ -38,7 +40,8 @@ public sealed class Plugin : IDalamudPlugin
 
 	public static Plugin Instance { get; private set; } = null!;
 
-	public static string? LocalCharacterId;
+	public static CharacterData? LocalCharacterData;
+	public static string? LocalCharacterIdentifier;
 	public static string? CharacterName;
 	public static string? World;
 	public static string Status = "";
@@ -153,6 +156,9 @@ public sealed class Plugin : IDalamudPlugin
 
 	private async Task InitializeAsync()
 	{
+		Penumbra p = new();
+		await p.GetGameObjectResourcePaths(0);
+
 		this.connected = false;
 
 		if (shuttingDown)
@@ -208,10 +214,10 @@ public sealed class Plugin : IDalamudPlugin
 		{
 			await Framework.RunOnUpdate();
 
-			LocalCharacterId = null;
+			LocalCharacterIdentifier = null;
 			Plugin.Log.Information("Starting...");
 			Status = "Starting...";
-			while (string.IsNullOrEmpty(LocalCharacterId))
+			while (string.IsNullOrEmpty(LocalCharacterIdentifier))
 			{
 				await Framework.Delay(500);
 				if (shuttingDown)
@@ -234,7 +240,8 @@ public sealed class Plugin : IDalamudPlugin
 					return;
 				}
 
-				LocalCharacterId = CharacterSync.GetSyncId(CharacterName, World, password);
+				LocalCharacterIdentifier = CharacterSync.GetIdentifier(CharacterName, World, password);
+				LocalCharacterData = new(LocalCharacterIdentifier);
 			}
 		}
 		catch (Exception ex)
@@ -255,10 +262,12 @@ public sealed class Plugin : IDalamudPlugin
 			try
 			{
 				SyncHeartbeat heartbeat = new();
-				heartbeat.Identifier = LocalCharacterId;
+				heartbeat.Identifier = LocalCharacterIdentifier;
 				heartbeat.Port = port;
 				heartbeat.LocalAddress = localIp?.ToString();
 				await heartbeat.Send();
+
+				await this.UpdateData();
 
 				Status = $"Connected";
 				this.connected = true;
@@ -336,6 +345,42 @@ public sealed class Plugin : IDalamudPlugin
 				CharacterSync sync = new(characterName, world, password);
 				sync.ObjectTableIndex = character.ObjectIndex;
 				this.checkedCharacters.Add(compoundName, sync);
+			}
+		}
+	}
+
+	private async Task UpdateData()
+	{
+		if (LocalCharacterData == null)
+			return;
+
+		LocalCharacterData.Clear();
+
+		if (Penumbra.GetIsAvailable())
+		{
+			await Plugin.Framework.RunOnUpdate();
+			IPlayerCharacter? player = ClientState.LocalPlayer;
+
+			if (player == null)
+				return;
+
+			Dictionary<string, HashSet<string>>? resourcePaths = await Penumbra.GetGameObjectResourcePaths(player.ObjectIndex);
+
+			if (resourcePaths != null)
+			{
+				Dictionary<string, string> gamePathToFileHashes = new();
+				foreach ((string path, HashSet<string> gamePaths) in resourcePaths)
+				{
+					Plugin.Log.Information($"{path}");
+					foreach (string gamePath in gamePaths)
+					{
+						// Is this a redirect?
+						if (gamePath == path)
+							continue;
+
+						Plugin.Log.Information($"{gamePath} > {path}");
+					}
+				}
 			}
 		}
 	}

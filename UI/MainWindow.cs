@@ -15,7 +15,7 @@ public class MainWindow : Window, IDisposable
 	// The user will see "My Amazing Window" as window title,
 	// but for ImGui the ID is "My Amazing Window##With a hidden ID"
 	public MainWindow() : base(
-		"PeerPeerPeerPeer Sync##MainWindow",
+		"Peer Sync##MainWindow",
 		ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
 	{
 		SizeConstraints = new WindowSizeConstraints

@@ -31,7 +31,7 @@ public class CharacterSync : IDisposable
 	{
 		this.CharacterName = characterName;
 		this.World = world;
-		this.Identifier = GetSyncId(characterName, world, password);
+		this.Identifier = GetIdentifier(characterName, world, password);
 
 		Plugin.Log?.Info($"Create Sync: {characterName}@{world} ({this.Identifier})");
 
@@ -54,6 +54,9 @@ public class CharacterSync : IDisposable
 		// We've established a connection and are now identifying ourselves.
 		Handshake,
 
+		// We've failed to establish two way connection.
+		HandshakeFailed,
+
 		// They've established a connection back.
 		Connected,
 	}
@@ -68,17 +71,26 @@ public class CharacterSync : IDisposable
 
 	public int ObjectTableIndex { get; set; }
 
-	public static string GetSyncId(string characterName, string world, string password)
+	public static string GetIdentifier(string characterName, string world, string password, int iterations = 1000)
 	{
-		characterName = characterName.ToLowerInvariant();
-		world = world.ToLowerInvariant();
-
-		HashAlgorithm algorithm = SHA256.Create();
-		byte[] hash = algorithm.ComputeHash(Encoding.UTF8.GetBytes($"{characterName}{world}{password}"));
-
+		// The Identifier is sent to the server, and it contains the character name and world, so
+		// ensure its cryptographically secure in case of bad actors controlling servers.
 		StringBuilder sb = new();
-		foreach (byte b in hash)
-			sb.Append(b.ToString("X2"));
+		sb.Append(characterName);
+		sb.Append(world);
+		for (int i = 0; i < iterations; i++)
+		{
+			string input = sb.ToString();
+			sb.Clear();
+
+			HashAlgorithm algorithm = SHA256.Create();
+			byte[] hash = algorithm.ComputeHash(Encoding.UTF8.GetBytes($"{input}{password}"));
+			foreach (byte b in hash)
+			{
+				sb.Append(b.ToString("X2"));
+			}
+
+		}
 
 		return sb.ToString();
 	}
@@ -187,8 +199,14 @@ public class CharacterSync : IDisposable
 			while (this.CurrentStatus == Status.Handshake && attempts < 10)
 			{
 				attempts++;
-				this.outgoingConnection.SendObject("iam", Plugin.LocalCharacterId);
+				this.outgoingConnection.SendObject("iam", Plugin.LocalCharacterIdentifier);
 				await Task.Delay(1000);
+			}
+
+			if (attempts >= 10)
+			{
+				this.CurrentStatus = Status.HandshakeFailed;
+				throw new Exception("Handshake failed");
 			}
 		}
 		catch (Exception ex)

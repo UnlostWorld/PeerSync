@@ -29,7 +29,7 @@ public class Glamourer : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		this.Invoke<int, string, int, uint, ulong>("Glamourer.GetStateBase64", state, objectIndex, key, flags);
+		this.Invoke<int, string, int, uint, ulong>("Glamourer.ApplyState", state, objectIndex, key, flags);
 		return;
 	}
 }

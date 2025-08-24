@@ -234,6 +234,9 @@ public class CharacterSync : IDisposable
 				await Task.Delay(3000);
 			}
 
+			if (this.disposed)
+				return;
+
 			if (attempts >= 10)
 			{
 				this.CurrentStatus = Status.HandshakeFailed;
@@ -248,11 +251,17 @@ public class CharacterSync : IDisposable
 
 	private void OnOutgoingConnectionClosed(Connection connection)
 	{
+		if (this.disposed)
+			return;
+
 		this.Reconnect();
 	}
 
 	private void OnIncomingConnectionClosed(Connection connection)
 	{
+		if (this.disposed)
+			return;
+
 		this.Reconnect();
 	}
 

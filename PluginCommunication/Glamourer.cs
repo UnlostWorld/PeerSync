@@ -13,6 +13,62 @@ public class Glamourer : PluginCommunicatorBase
 
 	private readonly uint LockCode = 0x3C38C2b1;
 
+	/// <summary>
+	/// Return codes for API functions.
+	/// </summary>
+	public enum GlamourerApiEc
+	{
+		/// <summary>
+		/// The function succeeded.
+		/// </summary>
+		Success = 0,
+
+		/// <summary>
+		/// The function did not encounter a problem, but also did not do anything.
+		/// </summary>
+		NothingDone = 1,
+
+		/// <summary>
+		/// The requested actor was not found.
+		/// </summary>
+		ActorNotFound = 2,
+
+		/// <summary>
+		/// The requested actor was not human, but should have been.
+		/// </summary>
+		ActorNotHuman = 3,
+
+		/// <summary>
+		/// The requested design was not found.
+		/// </summary>
+		DesignNotFound = 4,
+
+		/// <summary>
+		/// The requested item was not found or could not be applied to the requested slot.
+		/// </summary>
+		ItemInvalid = 5,
+
+		/// <summary>
+		/// The state of an actor could not be manipulated because it was locked and the provided key could not unlock it.
+		/// </summary>
+		InvalidKey = 6,
+
+		/// <summary>
+		/// The provided object could not be converted into a valid Glamourer state to apply.
+		/// </summary>
+		InvalidState = 7,
+
+		/// <summary>
+		/// The provided design input could not be parsed.
+		/// </summary>
+		CouldNotParse = 8,
+
+		/// <summary>
+		/// An unknown error occurred.
+		/// </summary>
+		UnknownError = int.MaxValue,
+	}
+
 	[Flags]
 	public enum ApplyFlag : ulong
 	{
@@ -59,7 +115,7 @@ public class Glamourer : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		(int status, string? base64) = this.Invoke<(int, string?), ushort, uint>("Glamourer.GetStateBase64", objectIndex, LockCode);
+		(GlamourerApiEc status, string? base64) = this.Invoke<(GlamourerApiEc, string?), ushort, uint>("Glamourer.GetStateBase64", objectIndex, LockCode);
 		return base64;
 	}
 
@@ -70,7 +126,7 @@ public class Glamourer : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		int returnCode = this.Invoke<int, string, int, uint, ApplyFlag>("Glamourer.ApplyState", state, objectIndex, LockCode, flags);
+		GlamourerApiEc returnCode = this.Invoke<GlamourerApiEc, string, int, uint, ApplyFlag>("Glamourer.ApplyState", state, objectIndex, LockCode, flags);
 
 		return;
 	}

@@ -1,6 +1,6 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace StudioSync.UI;
+namespace PeerSync.UI;
 
 using Dalamud.Bindings.ImGui;
 using System.Numerics;

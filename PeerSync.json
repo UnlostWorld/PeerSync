@@ -1,9 +1,9 @@
 {
 	"Author": "Unlost World",
-	"Name": "Studio Sync",
+	"Name": "Peer Sync",
 	"Punchline": "where mods",
 	"Description": "??????",
-	"InternalName": "StudioSync",
+	"InternalName": "PeerSync",
 	"Disabled": false,
 	"Testing": false,
 	"ScheduledForDeletion": false,

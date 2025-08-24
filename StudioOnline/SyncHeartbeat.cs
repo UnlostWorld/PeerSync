@@ -5,7 +5,7 @@ namespace StudioOnline.Sync;
 using System.Threading.Tasks;
 using System.Text.Json;
 using System.Net;
-using StudioSync;
+using PeerSync;
 
 public class SyncHeartbeat
 {

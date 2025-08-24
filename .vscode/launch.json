@@ -1,10 +1,10 @@
 {
 	"configurations": [
 		{
-			"name": "C#: StudioSync Debug",
+			"name": "Debug",
 			"type": "dotnet",
 			"request": "launch",
-			"projectPath": "${workspaceFolder}/StudioSync.csproj"
+			"projectPath": "${workspaceFolder}/PeerSync.csproj"
 		}
 	]
 }

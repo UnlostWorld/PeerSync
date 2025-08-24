@@ -1,6 +1,6 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace StudioSync.UI;
+namespace PeerSync.UI;
 
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
@@ -14,7 +14,7 @@ public class PairWindow : Window, IDisposable
 	private string password = string.Empty;
 
 	public PairWindow() : base(
-		"Studio Sync Pair##PairWindow",
+		"Peer Sync Pair##PairWindow",
 		ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse)
 	{
 		SizeConstraints = new WindowSizeConstraints

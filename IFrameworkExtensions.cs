@@ -1,6 +1,6 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace StudioSync;
+namespace PeerSync;
 
 using System;
 using System.Runtime.CompilerServices;

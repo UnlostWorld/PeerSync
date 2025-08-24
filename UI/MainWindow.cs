@@ -1,6 +1,6 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace StudioSync.UI;
+namespace PeerSync.UI;
 
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
@@ -13,7 +13,7 @@ public class MainWindow : Window, IDisposable
 	// The user will see "My Amazing Window" as window title,
 	// but for ImGui the ID is "My Amazing Window##With a hidden ID"
 	public MainWindow() : base(
-		"Studio Sync##MainWindow",
+		"PeerPeerPeerPeer Sync##MainWindow",
 		ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
 	{
 		SizeConstraints = new WindowSizeConstraints

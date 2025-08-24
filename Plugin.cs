@@ -1,6 +1,6 @@
 ﻿// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace StudioSync;
+namespace PeerSync;
 
 using Dalamud.Game;
 using Dalamud.Game.ClientState.Objects.SubKinds;
@@ -12,7 +12,7 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using StudioOnline.Sync;
-using StudioSync.UI;
+using PeerSync.UI;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -75,7 +75,7 @@ public sealed class Plugin : IDalamudPlugin
 
 	}
 
-	public string Name => "Studio Sync";
+	public string Name => "Peer Sync";
 
 	public CharacterSync? GetCharacterSync(string characterName, string world)
 	{
@@ -228,16 +228,16 @@ public sealed class Plugin : IDalamudPlugin
 		}
 		catch (Exception ex)
 		{
-			Status = "Failed to connect to studio sync";
-			Plugin.Log.Error(ex, $"Failed to connect to studio sync");
+			Status = "Failed to connect to Peer sync";
+			Plugin.Log.Error(ex, $"Failed to connect to Peer sync");
 			return;
 		}
 
 		if (shuttingDown)
 			return;
 
-		Status = "Connecting to Studio Online...";
-		Plugin.Log.Information("Connecting to Studio Online...");
+		Status = "Connecting to server...";
+		Plugin.Log.Information("Connecting to server...");
 
 		while (!shuttingDown)
 		{
@@ -255,8 +255,8 @@ public sealed class Plugin : IDalamudPlugin
 			}
 			catch (Exception ex)
 			{
-				Status = "Failed to connect to Studio Online";
-				Plugin.Log.Error(ex, $"Failed to connect to Studio Online");
+				Status = "Failed to connect to server";
+				Plugin.Log.Error(ex, $"Failed to connect to server");
 				return;
 			}
 		}

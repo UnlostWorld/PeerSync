@@ -2,7 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.IO;
 
 namespace PeerSync;
 
@@ -55,5 +55,10 @@ public class CharacterData(string identifier)
 		}
 
 		return true;
+	}
+
+	public void Serialize(Stream outputStream)
+	{
+		throw new NotImplementedException();
 	}
 }

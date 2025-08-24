@@ -25,6 +25,10 @@ using NetworkCommsDotNet.Connections;
 using PeerSync.PluginCommunication;
 using System.IO;
 using System.Security.Cryptography;
+using NetworkCommsDotNet.DPSBase;
+using System.Text;
+using Newtonsoft.Json;
+using NetworkCommsDotNet.DPSBase.SevenZipLZMACompressor;
 
 public sealed class Plugin : IDalamudPlugin
 {
@@ -184,6 +188,18 @@ public sealed class Plugin : IDalamudPlugin
 		Status = $"listen for connections...";
 		try
 		{
+			JSONSerializer serializer = new();
+			DPSManager.AddDataSerializer(serializer);
+
+			List<DataProcessor> dataProcessors = new()
+			{
+				DPSManager.GetDataProcessor<LZMACompressor>(),
+			};
+
+			Dictionary<string, string> dataProcessorOptions = new();
+
+			NetworkComms.DefaultSendReceiveOptions = new(serializer, dataProcessors, dataProcessorOptions);
+
 			NetworkComms.AppendGlobalConnectionEstablishHandler(this.OnClientEstablished);
 			NetworkComms.AppendGlobalConnectionCloseHandler(this.OnClientShutdown);
 			NetworkComms.AppendGlobalIncomingPacketHandler<string>("iam", this.OnIAmPacket);
@@ -406,5 +422,40 @@ public sealed class Plugin : IDalamudPlugin
 		{
 			sync.SendData(LocalCharacterData);
 		}
+	}
+}
+
+[DataSerializerProcessor(4)]
+public class JSONSerializer : DataSerializer
+{
+	public JSONSerializer()
+	{
+	}
+
+	protected override void SerialiseDataObjectInt(
+		Stream outputStream,
+		object objectToSerialise,
+		Dictionary<string, string> options)
+	{
+		if (outputStream == null)
+			throw new ArgumentNullException("outputStream");
+
+		if (objectToSerialise == null)
+			throw new ArgumentNullException("objectToSerialize");
+
+		outputStream.Seek(0, 0);
+		var data = Encoding.Unicode.GetBytes(JsonConvert.SerializeObject(objectToSerialise));
+		outputStream.Write(data, 0, data.Length);
+		outputStream.Seek(0, 0);
+	}
+
+	protected override object? DeserialiseDataObjectInt(
+		Stream inputStream,
+		Type resultType,
+		Dictionary<string, string> options)
+	{
+		byte[] data = new byte[inputStream.Length];
+		inputStream.ReadExactly(data);
+		return JsonConvert.DeserializeObject(new String(Encoding.Unicode.GetChars(data)), resultType);
 	}
 }

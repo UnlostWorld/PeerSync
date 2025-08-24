@@ -50,7 +50,6 @@ public sealed class Plugin : IDalamudPlugin
 	private bool connected = false;
 	private static bool shuttingDown = false;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
-	private readonly Dictionary<Connection, CharacterSync> incomingConnectionMap = new();
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
@@ -94,14 +93,6 @@ public sealed class Plugin : IDalamudPlugin
 				return sync;
 			}
 		}
-
-		return null;
-	}
-
-	public CharacterSync? GetCharacterSync(Connection connection)
-	{
-		if (incomingConnectionMap.ContainsKey(connection))
-			return incomingConnectionMap[connection];
 
 		return null;
 	}
@@ -289,7 +280,6 @@ public sealed class Plugin : IDalamudPlugin
 			return;
 
 		sync.SetIncomingConnection(connection);
-		incomingConnectionMap.Add(connection, sync);
 	}
 
 	private void OnClientEstablished(Connection connection)
@@ -300,12 +290,6 @@ public sealed class Plugin : IDalamudPlugin
 	private void OnClientShutdown(Connection connection)
 	{
 		Plugin.Log.Information("Client " + connection.ConnectionInfo + " disconnected.");
-
-		if (this.incomingConnectionMap.ContainsKey(connection))
-		{
-			this.incomingConnectionMap[connection].Reconnect();
-			this.incomingConnectionMap.Remove(connection);
-		}
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)

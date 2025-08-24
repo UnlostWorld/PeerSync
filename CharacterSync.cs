@@ -100,6 +100,7 @@ public class CharacterSync : IDisposable
 	public void SetIncomingConnection(Connection connection)
 	{
 		this.incomingConnection = connection;
+		this.incomingConnection.AppendShutdownHandler(this.OnIncomingConnectionClosed);
 		this.incomingConnection.AppendIncomingPacketHandler<byte[]>("SomethingNew", this.OnIncomingData);
 
 		this.CurrentStatus = Status.Connected;
@@ -177,6 +178,8 @@ public class CharacterSync : IDisposable
 				this.ConnectionType = ConnectionTypes.Internet;
 			}
 
+			this.outgoingConnection.AppendShutdownHandler(this.OnOutgoingConnectionClosed);
+
 			// Send who packet to identify ourselves.
 			this.CurrentStatus = Status.Handshake;
 
@@ -192,6 +195,16 @@ public class CharacterSync : IDisposable
 		{
 			Plugin.Log.Error(ex, "Error connecting to character sync");
 		}
+	}
+
+	private void OnOutgoingConnectionClosed(Connection connection)
+	{
+		this.Reconnect();
+	}
+
+	private void OnIncomingConnectionClosed(Connection connection)
+	{
+		this.Reconnect();
 	}
 
 	private void OnIncomingData(PacketHeader packetHeader, Connection connection, byte[] incomingObject)

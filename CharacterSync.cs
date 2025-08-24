@@ -283,7 +283,7 @@ public class CharacterSync : IDisposable
 
 			Task.Run(async () =>
 			{
-				if (Plugin.Instance == null || characterData.Glamourer == null)
+				if (Plugin.Instance == null || string.IsNullOrEmpty(characterData.Glamourer))
 					return;
 
 				await Plugin.Instance.Glamourer.SetState(this.ObjectTableIndex, characterData.Glamourer);

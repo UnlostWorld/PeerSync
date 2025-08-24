@@ -52,6 +52,9 @@ public class CharacterSync : IDisposable
 		// We are attempting to establish a connection.
 		Connecting,
 
+		// The connection failed.
+		ConnectionFailed,
+
 		// We've established a connection and are now identifying ourselves.
 		Handshake,
 
@@ -104,6 +107,8 @@ public class CharacterSync : IDisposable
 
 	public void SetIncomingConnection(Connection connection)
 	{
+		Plugin.Log.Information($"Got IAm packet from {this.CharacterName}, Status: {this.CurrentStatus}");
+
 		if (this.CurrentStatus == Status.HandshakeFailed)
 		{
 			this.Reconnect();
@@ -190,11 +195,20 @@ public class CharacterSync : IDisposable
 				}
 			}
 
-			if (this.outgoingConnection == null)
+			try
 			{
-				IPEndPoint endpoint = new(address, response.Port);
-				this.outgoingConnection = TCPConnection.GetConnection(new(endpoint));
-				this.ConnectionType = ConnectionTypes.Internet;
+				if (this.outgoingConnection == null)
+				{
+					IPEndPoint endpoint = new(address, response.Port);
+					this.outgoingConnection = TCPConnection.GetConnection(new(endpoint));
+					this.ConnectionType = ConnectionTypes.Internet;
+				}
+			}
+			catch (Exception)
+			{
+				this.outgoingConnection = null;
+				this.CurrentStatus = Status.Offline;
+				return;
 			}
 
 			this.outgoingConnection.AppendShutdownHandler(this.OnOutgoingConnectionClosed);
@@ -205,9 +219,10 @@ public class CharacterSync : IDisposable
 			int attempts = 0;
 			while (this.CurrentStatus == Status.Handshake && attempts < 10)
 			{
+				Plugin.Log.Information($"Sending IAm packet to {this.CharacterName}");
 				attempts++;
 				this.outgoingConnection.SendObject("iam", Plugin.LocalCharacterIdentifier);
-				await Task.Delay(1000);
+				await Task.Delay(3000);
 			}
 
 			if (attempts >= 10)
@@ -245,7 +260,7 @@ public class CharacterSync : IDisposable
 			Plugin.Log.Information($"> Penumbra files");
 		}
 
-		if (lastData == null || characterData.PenumbraManipulations != lastData.PenumbraManipulations)
+		/*if (lastData == null || characterData.PenumbraManipulations != lastData.PenumbraManipulations)
 		{
 			Plugin.Log.Information($"> Penumbra meta");
 		}
@@ -278,7 +293,7 @@ public class CharacterSync : IDisposable
 		if (lastData == null || characterData.PetNames != lastData.PetNames)
 		{
 			Plugin.Log.Information($"> Pet Names");
-		}
+		}*/
 
 		lastData = characterData;
 	}

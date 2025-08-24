@@ -51,7 +51,7 @@ public class MainWindow : Window, IDisposable
 
 			if (ImGui.BeginTabItem("All Pairs"))
 			{
-				ImGui.BeginTable("#pairsTable", 4);
+				ImGui.BeginTable("#pairsTable", 5);
 				foreach (Configuration.Pair pair in Configuration.Current.Pairs)
 				{
 					CharacterSync? sync = null;
@@ -76,6 +76,12 @@ public class MainWindow : Window, IDisposable
 						{
 							ImGui.Text(FontAwesomeIcon.NetworkWired.ToIconString());
 						}
+					}
+
+					ImGui.TableNextColumn();
+					if (ImGui.Button("R"))
+					{
+						sync?.Reconnect();
 					}
 
 					ImGui.TableNextRow();

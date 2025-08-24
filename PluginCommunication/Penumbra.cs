@@ -24,23 +24,5 @@ public class Penumbra : PluginCommunicatorBase
 			return null;
 
 		return objectsResourcePaths[0];
-		/*if (resourcePaths == null)
-			return null;
-
-		foreach ((string filePath, HashSet<string> gamePaths) in resourcePaths)
-		{
-			bool hasRedirect = false;
-			foreach (string gamePath in gamePaths)
-			{
-				hasRedirect |= gamePath != filePath;
-			}
-
-			if (!hasRedirect)
-				continue;
-
-			Plugin.Log.Information($"{filePath} -> {gamePaths.Count}");
-		}
-
-		return null;*/
 	}
 }

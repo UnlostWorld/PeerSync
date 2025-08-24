@@ -256,11 +256,9 @@ public class CharacterSync : IDisposable
 		if (connection != this.incomingConnection)
 			return;
 
-		Plugin.Log.Information($"Got character data for {this.CharacterName}@{this.World}");
-
 		if (lastData == null || !characterData.IsPenumbraReplacementsSame(lastData))
 		{
-			Plugin.Log.Information($"> Penumbra files");
+			Plugin.Log.Information($"{this.CharacterName}@{this.World} > Penumbra files");
 		}
 
 		/*if (lastData == null || characterData.PenumbraManipulations != lastData.PenumbraManipulations)

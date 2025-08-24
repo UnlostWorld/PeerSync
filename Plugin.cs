@@ -302,7 +302,6 @@ public sealed class Plugin : IDalamudPlugin
 
 	private void OnIAmPacket(PacketHeader packetHeader, Connection connection, string incomingObject)
 	{
-		Plugin.Log.Information($"Got IAm from {connection.ConnectionInfo}");
 		CharacterSync? sync = this.GetCharacterSync(incomingObject);
 		if (sync == null)
 			return;
@@ -384,6 +383,8 @@ public sealed class Plugin : IDalamudPlugin
 				return;
 
 			Dictionary<string, HashSet<string>>? resourcePaths = await Penumbra.GetGameObjectResourcePaths(player.ObjectIndex);
+
+			await Task.Delay(1).ConfigureAwait(false);
 
 			if (resourcePaths != null)
 			{

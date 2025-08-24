@@ -32,7 +32,8 @@ using NetworkCommsDotNet.DPSBase.SevenZipLZMACompressor;
 
 public sealed class Plugin : IDalamudPlugin
 {
-	public static readonly Penumbra Penumbra = new();
+	public readonly Penumbra Penumbra = new();
+	public readonly Glamourer Glamourer = new();
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -380,21 +381,28 @@ public sealed class Plugin : IDalamudPlugin
 
 		LocalCharacterData.Clear();
 
+		await Plugin.Framework.RunOnUpdate();
+		if (shuttingDown)
+			return;
+
+		IPlayerCharacter? player = ClientState.LocalPlayer;
+		if (player == null)
+			return;
+
+		if (this.Glamourer.GetIsAvailable())
+		{
+			this.LocalCharacterData.Glamourer = await this.Glamourer.GetState(player.ObjectIndex);
+		}
+
 		if (Penumbra.GetIsAvailable())
 		{
-			await Plugin.Framework.RunOnUpdate();
-			IPlayerCharacter? player = ClientState.LocalPlayer;
-
-			if (player == null)
-				return;
-
 			if (shuttingDown)
 				return;
 
 			Dictionary<string, HashSet<string>>? resourcePaths = await Penumbra.GetGameObjectResourcePaths(player.ObjectIndex);
 
+			// Perform file hashing on a separate thread.
 			await Task.Delay(1).ConfigureAwait(false);
-
 			if (resourcePaths != null)
 			{
 				LocalCharacterData.PenumbraFileReplacementHashes = new();

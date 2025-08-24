@@ -73,7 +73,7 @@ public class CharacterSync : IDisposable
 		Internet,
 	}
 
-	public int ObjectTableIndex { get; set; }
+	public ushort ObjectTableIndex { get; set; }
 
 	public static string GetIdentifier(string characterName, string world, string password, int iterations = 1000)
 	{
@@ -267,7 +267,7 @@ public class CharacterSync : IDisposable
 			Plugin.Log.Information($"{this.CharacterName}@{this.World} > Penumbra files");
 		}
 
-		/*if (lastData == null || characterData.PenumbraManipulations != lastData.PenumbraManipulations)
+		if (lastData == null || characterData.PenumbraManipulations != lastData.PenumbraManipulations)
 		{
 			Plugin.Log.Information($"> Penumbra meta");
 		}
@@ -280,6 +280,14 @@ public class CharacterSync : IDisposable
 		if (lastData == null || characterData.Glamourer != lastData.Glamourer)
 		{
 			Plugin.Log.Information($"> Glamourer");
+
+			Task.Run(async () =>
+			{
+				if (Plugin.Instance == null || characterData.Glamourer == null)
+					return;
+
+				await Plugin.Instance.Glamourer.SetState(this.ObjectTableIndex, characterData.Glamourer);
+			});
 		}
 
 		if (lastData == null || characterData.Heels != lastData.Heels)
@@ -300,7 +308,7 @@ public class CharacterSync : IDisposable
 		if (lastData == null || characterData.PetNames != lastData.PetNames)
 		{
 			Plugin.Log.Information($"> Pet Names");
-		}*/
+		}
 
 		lastData = characterData;
 	}

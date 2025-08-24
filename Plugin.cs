@@ -23,6 +23,8 @@ using SharpOpenNat;
 using NetworkCommsDotNet;
 using NetworkCommsDotNet.Connections;
 using PeerSync.PluginCommunication;
+using System.IO;
+using System.Security.Cryptography;
 
 public sealed class Plugin : IDalamudPlugin
 {
@@ -368,20 +370,41 @@ public sealed class Plugin : IDalamudPlugin
 
 			if (resourcePaths != null)
 			{
-				Dictionary<string, string> gamePathToFileHashes = new();
+				LocalCharacterData.PenumbraFileReplacementHashes = new();
 				foreach ((string path, HashSet<string> gamePaths) in resourcePaths)
 				{
-					Plugin.Log.Information($"{path}");
 					foreach (string gamePath in gamePaths)
 					{
 						// Is this a redirect?
 						if (gamePath == path)
 							continue;
 
-						Plugin.Log.Information($"{gamePath} > {path}");
+						bool isFilePath = Path.IsPathRooted(path);
+						if (isFilePath)
+						{
+							FileInfo file = new(path);
+							FileStream stream = file.OpenRead();
+
+							// Hopefully the same as Mare's hash which used the Deprecated SHA1CryptoServiceProvider
+							SHA1 sha = SHA1.Create();
+							byte[] bytes = sha.ComputeHash(stream);
+							string str = BitConverter.ToString(bytes);
+							str = str.Replace("-", string.Empty, StringComparison.Ordinal);
+							LocalCharacterData.PenumbraFileReplacementHashes[gamePath] = str;
+						}
+						else
+						{
+							// for redirects that are not modded files, don't hash it, just send it as is.
+							LocalCharacterData.PenumbraFileReplacementHashes[gamePath] = path;
+						}
 					}
 				}
 			}
+		}
+
+		foreach (CharacterSync sync in checkedCharacters.Values)
+		{
+			sync.SendData(LocalCharacterData);
 		}
 	}
 }

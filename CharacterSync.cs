@@ -26,6 +26,7 @@ public class CharacterSync : IDisposable
 	private bool disposed = false;
 	private Connection? incomingConnection;
 	private TCPConnection? outgoingConnection;
+	private CharacterData? lastData;
 
 	public CharacterSync(string characterName, string world, string password)
 	{
@@ -75,24 +76,16 @@ public class CharacterSync : IDisposable
 	{
 		// The Identifier is sent to the server, and it contains the character name and world, so
 		// ensure its cryptographically secure in case of bad actors controlling servers.
-		StringBuilder sb = new();
-		sb.Append(characterName);
-		sb.Append(world);
+		string input = $"{characterName}{world}";
 		for (int i = 0; i < iterations; i++)
 		{
-			string input = sb.ToString();
-			sb.Clear();
-
 			HashAlgorithm algorithm = SHA256.Create();
-			byte[] hash = algorithm.ComputeHash(Encoding.UTF8.GetBytes($"{input}{password}"));
-			foreach (byte b in hash)
-			{
-				sb.Append(b.ToString("X2"));
-			}
-
+			byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes($"{input}{password}"));
+			input = BitConverter.ToString(bytes);
+			input = input.Replace("-", string.Empty, StringComparison.Ordinal);
 		}
 
-		return sb.ToString();
+		return input;
 	}
 
 	public void Reconnect()
@@ -113,7 +106,7 @@ public class CharacterSync : IDisposable
 	{
 		this.incomingConnection = connection;
 		this.incomingConnection.AppendShutdownHandler(this.OnIncomingConnectionClosed);
-		this.incomingConnection.AppendIncomingPacketHandler<byte[]>("SomethingNew", this.OnIncomingData);
+		this.incomingConnection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
 
 		this.CurrentStatus = Status.Connected;
 	}
@@ -137,6 +130,11 @@ public class CharacterSync : IDisposable
 			return false;
 
 		return true;
+	}
+
+	public void SendData(CharacterData data)
+	{
+
 	}
 
 	private async Task Connect()
@@ -225,10 +223,54 @@ public class CharacterSync : IDisposable
 		this.Reconnect();
 	}
 
-	private void OnIncomingData(PacketHeader packetHeader, Connection connection, byte[] incomingObject)
+	private void OnCharacterDataPacket(PacketHeader packetHeader, Connection connection, CharacterData characterData)
 	{
 		// Sanity check
 		if (connection != this.incomingConnection)
 			return;
+
+		Plugin.Log.Information($"Got character data for {this.CharacterName}@{this.World}");
+
+		if (lastData == null || !characterData.IsPenumbraReplacementsSame(lastData))
+		{
+			Plugin.Log.Information($"> Penumbra files");
+		}
+
+		if (lastData == null || characterData.PenumbraManipulations != lastData.PenumbraManipulations)
+		{
+			Plugin.Log.Information($"> Penumbra meta");
+		}
+
+		if (lastData == null || characterData.CustomizePlus != lastData.CustomizePlus)
+		{
+			Plugin.Log.Information($"> Customize+");
+		}
+
+		if (lastData == null || characterData.Glamourer != lastData.Glamourer)
+		{
+			Plugin.Log.Information($"> Glamourer");
+		}
+
+		if (lastData == null || characterData.Heels != lastData.Heels)
+		{
+			Plugin.Log.Information($"> Heels");
+		}
+
+		if (lastData == null || characterData.Honorific != lastData.Honorific)
+		{
+			Plugin.Log.Information($"> Honorific");
+		}
+
+		if (lastData == null || characterData.Moodles != lastData.Moodles)
+		{
+			Plugin.Log.Information($"> Moodls");
+		}
+
+		if (lastData == null || characterData.PetNames != lastData.PetNames)
+		{
+			Plugin.Log.Information($"> Pet Names");
+		}
+
+		lastData = characterData;
 	}
 }

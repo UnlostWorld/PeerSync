@@ -30,4 +30,30 @@ public class CharacterData(string identifier)
 		this.Moodles = null;
 		this.PetNames = null;
 	}
+
+	public bool IsPenumbraReplacementsSame(CharacterData other)
+	{
+		if (this.PenumbraFileReplacementHashes == null && other.PenumbraFileReplacementHashes != null)
+			return false;
+
+		if (this.PenumbraFileReplacementHashes != null && other.PenumbraFileReplacementHashes == null)
+			return false;
+
+		if (this.PenumbraFileReplacementHashes != null && other.PenumbraFileReplacementHashes != null)
+		{
+			if (this.PenumbraFileReplacementHashes.Count != other.PenumbraFileReplacementHashes.Count)
+				return false;
+
+			foreach ((string gamePath, string hash) in this.PenumbraFileReplacementHashes)
+			{
+				if (!other.PenumbraFileReplacementHashes.ContainsKey(gamePath))
+					return false;
+
+				if (other.PenumbraFileReplacementHashes[gamePath] != hash)
+					return false;
+			}
+		}
+
+		return true;
+	}
 }

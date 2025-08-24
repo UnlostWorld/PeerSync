@@ -11,14 +11,14 @@ public class Glamourer : PluginCommunicatorBase
 	protected override string InternalName => "Glamourer";
 	protected override Version Version => new Version(1, 3, 0, 10);
 
-	public async Task<string?> GetState(ushort objectIndex)
+	public async Task<string?> GetState(ushort objectIndex, uint key = 0)
 	{
 		if (!this.GetIsAvailable())
 			return null;
 
 		await Plugin.Framework.RunOnUpdate();
 
-		(int status, string? base64) = this.Invoke<(int, string?), ushort>("Glamourer.GetStateBase64", objectIndex);
+		(int status, string? base64) = this.Invoke<(int, string?), ushort, uint>("Glamourer.GetStateBase64", objectIndex, key);
 		return base64;
 	}
 

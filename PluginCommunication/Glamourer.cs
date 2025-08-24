@@ -72,8 +72,6 @@ public class Glamourer : PluginCommunicatorBase
 
 		int returnCode = this.Invoke<int, string, int, uint, ApplyFlag>("Glamourer.ApplyState", state, objectIndex, LockCode, flags);
 
-		Plugin.Log.Info($"Set State: {objectIndex}\n\n{state}\n\n {returnCode}");
-
 		return;
 	}
 }

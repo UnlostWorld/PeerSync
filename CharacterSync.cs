@@ -219,9 +219,15 @@ public class CharacterSync : IDisposable
 			// Send who packet to identify ourselves.
 			this.CurrentStatus = Status.Handshake;
 
+			if (this.disposed)
+				return;
+
 			int attempts = 0;
 			while (this.CurrentStatus == Status.Handshake && attempts < 10)
 			{
+				if (this.disposed)
+					return;
+
 				Plugin.Log.Information($"Sending IAm packet to {this.CharacterName}");
 				attempts++;
 				this.outgoingConnection.SendObject("iam", Plugin.LocalCharacterIdentifier);

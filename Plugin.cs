@@ -241,7 +241,6 @@ public sealed class Plugin : IDalamudPlugin
 			await Framework.RunOnUpdate();
 
 			LocalCharacterIdentifier = null;
-			Plugin.Log.Information("Starting...");
 			Status = "Starting...";
 			while (string.IsNullOrEmpty(LocalCharacterIdentifier))
 			{
@@ -281,7 +280,6 @@ public sealed class Plugin : IDalamudPlugin
 			return;
 
 		Status = "Connecting to server...";
-		Plugin.Log.Information("Connecting to server...");
 
 		while (!shuttingDown)
 		{

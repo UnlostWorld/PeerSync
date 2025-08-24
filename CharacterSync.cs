@@ -117,7 +117,7 @@ public class CharacterSync : IDisposable
 		if (this.CurrentStatus != Status.Handshake)
 			return;
 
-		Plugin.Log.Information($"Got IAm packet from {this.CharacterName}, Status: {this.CurrentStatus}");
+		Plugin.Log.Information($"Got IAm packet from {this.CharacterName}. Now connected.");
 
 		this.incomingConnection = connection;
 		this.incomingConnection.AppendShutdownHandler(this.OnIncomingConnectionClosed);

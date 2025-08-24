@@ -104,6 +104,15 @@ public class CharacterSync : IDisposable
 
 	public void SetIncomingConnection(Connection connection)
 	{
+		if (this.CurrentStatus == Status.HandshakeFailed)
+		{
+			this.Reconnect();
+			return;
+		}
+
+		if (this.CurrentStatus != Status.Handshake)
+			return;
+
 		this.incomingConnection = connection;
 		this.incomingConnection.AppendShutdownHandler(this.OnIncomingConnectionClosed);
 		this.incomingConnection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
@@ -134,7 +143,7 @@ public class CharacterSync : IDisposable
 
 	public void SendData(CharacterData data)
 	{
-
+		this.outgoingConnection?.SendObject("CharacterData", data);
 	}
 
 	private async Task Connect()

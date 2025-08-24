@@ -46,18 +46,18 @@ public sealed class Plugin : IDalamudPlugin
 
 	public static Plugin Instance { get; private set; } = null!;
 
-	public static CharacterData? LocalCharacterData;
-	public static string? LocalCharacterIdentifier;
-	public static string? CharacterName;
-	public static string? World;
-	public static string Status = "";
+	public CharacterData? LocalCharacterData;
+	public string? LocalCharacterIdentifier;
+	public string? CharacterName;
+	public string? World;
+	public string Status = "";
 
 	public readonly WindowSystem WindowSystem = new("StudioSync");
 	private MainWindow MainWindow { get; init; }
 	private PairWindow PairWindow { get; init; }
 
 	private bool connected = false;
-	private static bool shuttingDown = false;
+	private bool shuttingDown = false;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
@@ -108,9 +108,9 @@ public sealed class Plugin : IDalamudPlugin
 
 	public void Dispose()
 	{
-		Log.Information("Stopping...");
-		Status = "Stopped";
-		shuttingDown = true;
+		Plugin.Log.Information("Stopping...");
+		this.Status = "Stopped";
+		this.shuttingDown = true;
 
 		Framework.Update -= this.OnFrameworkUpdate;
 
@@ -380,6 +380,9 @@ public sealed class Plugin : IDalamudPlugin
 			IPlayerCharacter? player = ClientState.LocalPlayer;
 
 			if (player == null)
+				return;
+
+			if (shuttingDown)
 				return;
 
 			Dictionary<string, HashSet<string>>? resourcePaths = await Penumbra.GetGameObjectResourcePaths(player.ObjectIndex);

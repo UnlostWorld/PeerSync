@@ -29,20 +29,21 @@ public class MainWindow : Window, IDisposable
 
 	public override void Draw()
 	{
-		ImGui.Text(Plugin.Status);
+		Plugin plugin = Plugin.Instance;
+		ImGui.Text(plugin.Status);
 
 		if (ImGui.BeginTabBar("##tabs"))
 		{
 			if (ImGui.BeginTabItem("Current Character"))
 			{
-				if (Plugin.CharacterName != null && Plugin.World != null)
+				if (plugin.CharacterName != null && plugin.World != null)
 				{
-					StUi.TextBlock("Name", $"{Plugin.CharacterName} @ {Plugin.World}");
+					StUi.TextBlock("Name", $"{plugin.CharacterName} @ {plugin.World}");
 
-					string password = Configuration.Current.GetPassword(Plugin.CharacterName, Plugin.World) ?? string.Empty;
+					string password = Configuration.Current.GetPassword(plugin.CharacterName, plugin.World) ?? string.Empty;
 					if (StUi.TextBox("Password", ref password))
 					{
-						Configuration.Current.SetPassword(Plugin.CharacterName, Plugin.World, password);
+						Configuration.Current.SetPassword(plugin.CharacterName, plugin.World, password);
 					}
 				}
 

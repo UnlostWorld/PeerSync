@@ -100,6 +100,7 @@ public class CharacterSync : IDisposable
 
 		this.outgoingConnection?.Dispose();
 		this.outgoingConnection = null;
+
 		this.CurrentStatus = Status.None;
 
 		Task.Run(this.Connect);
@@ -150,7 +151,7 @@ public class CharacterSync : IDisposable
 
 	public void SendData(CharacterData data)
 	{
-		this.outgoingConnection?.SendObject("iam", Plugin.LocalCharacterIdentifier);
+		this.outgoingConnection?.SendObject("iam", Plugin.Instance.LocalCharacterIdentifier);
 		this.outgoingConnection?.SendObject("CharacterData", data);
 	}
 
@@ -228,9 +229,8 @@ public class CharacterSync : IDisposable
 				if (this.disposed)
 					return;
 
-				Plugin.Log.Information($"Sending IAm packet to {this.CharacterName}");
 				attempts++;
-				this.outgoingConnection.SendObject("iam", Plugin.LocalCharacterIdentifier);
+				this.outgoingConnection.SendObject("iam", Plugin.Instance.LocalCharacterIdentifier);
 				await Task.Delay(3000);
 			}
 

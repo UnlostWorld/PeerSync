@@ -128,6 +128,8 @@ public class CharacterSync : IDisposable
 	public void Dispose()
 	{
 		this.disposed = true;
+		this.outgoingConnection?.Dispose();
+		this.incomingConnection?.Dispose();
 		Plugin.Log?.Info($"Destroy Sync: {this.CharacterName}@{this.World} ({this.Identifier})");
 	}
 

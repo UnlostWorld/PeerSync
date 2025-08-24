@@ -74,7 +74,7 @@ public class MainWindow : Window, IDisposable
 						}
 						else if (sync?.ConnectionType == CharacterSync.ConnectionTypes.Local)
 						{
-							ImGui.Text(FontAwesomeIcon.Ethernet.ToIconString());
+							ImGui.Text(FontAwesomeIcon.NetworkWired.ToIconString());
 						}
 					}
 

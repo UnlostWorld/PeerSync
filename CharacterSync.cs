@@ -107,8 +107,6 @@ public class CharacterSync : IDisposable
 
 	public void SetIncomingConnection(Connection connection)
 	{
-		Plugin.Log.Information($"Got IAm packet from {this.CharacterName}, Status: {this.CurrentStatus}");
-
 		if (this.CurrentStatus == Status.HandshakeFailed || this.CurrentStatus == Status.ConnectionFailed)
 		{
 			this.Reconnect();
@@ -117,6 +115,8 @@ public class CharacterSync : IDisposable
 
 		if (this.CurrentStatus != Status.Handshake)
 			return;
+
+		Plugin.Log.Information($"Got IAm packet from {this.CharacterName}, Status: {this.CurrentStatus}");
 
 		this.incomingConnection = connection;
 		this.incomingConnection.AppendShutdownHandler(this.OnIncomingConnectionClosed);
@@ -148,6 +148,7 @@ public class CharacterSync : IDisposable
 
 	public void SendData(CharacterData data)
 	{
+		this.outgoingConnection?.SendObject("iam", Plugin.LocalCharacterIdentifier);
 		this.outgoingConnection?.SendObject("CharacterData", data);
 	}
 

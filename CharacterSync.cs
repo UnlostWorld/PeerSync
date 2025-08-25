@@ -147,8 +147,11 @@ public class CharacterSync : IDisposable
 
 	public void SendData(CharacterData data)
 	{
-		this.connection?.SendObject("iam", Plugin.Instance?.LocalCharacterIdentifier);
-		this.connection?.SendObject("CharacterData", data);
+		if (this.connection == null)
+			return;
+
+		this.connection.SendObject("iam", Plugin.Instance?.LocalCharacterIdentifier);
+		this.connection.SendObject("CharacterData", data);
 	}
 
 	private async Task Connect()
@@ -228,6 +231,7 @@ public class CharacterSync : IDisposable
 
 			this.connection.AppendShutdownHandler(this.OnConnectionClosed);
 			this.connection.AppendIncomingPacketHandler<string>("iam", this.OnIAmPacket);
+			this.connection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
 
 			if (this.disposed)
 				return;

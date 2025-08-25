@@ -19,7 +19,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
-	const int fileChunkSize = 1024 * 50; // 50kb chunks
+	const int fileChunkSize = 1024 * 100; // 100kb chunks
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -239,8 +239,8 @@ public class PenumbraSync : SyncProviderBase
 			return;
 		}
 
-		FileStream stream = new(fileInfo.FullName, FileMode.Open);
-		ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
+		using FileStream stream = new(fileInfo.FullName, FileMode.Open);
+		using ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
 		Plugin.Log.Information($"Sending file: {hash} ({stream.Length / 1024}kb)");
 
 		long totalBytesSent = 0;
@@ -250,7 +250,7 @@ public class PenumbraSync : SyncProviderBase
 			if (totalBytesSent + bytesToSend > stream.Length)
 				bytesToSend = stream.Length - totalBytesSent;
 
-			StreamSendWrapper streamWrapper = new StreamSendWrapper(threadSafeStream, totalBytesSent, bytesToSend);
+			using StreamSendWrapper streamWrapper = new StreamSendWrapper(threadSafeStream, totalBytesSent, bytesToSend);
 			long packetSequenceNumber;
 			connection.SendObject(hash, streamWrapper, out packetSequenceNumber);
 			totalBytesSent += bytesToSend;

@@ -21,7 +21,6 @@ public class CharacterSync : IDisposable
 	public readonly string Identifier;
 
 	public Status CurrentStatus { get; private set; } = Status.None;
-	public ConnectionTypes ConnectionType { get; private set; } = ConnectionTypes.None;
 
 	private bool disposed = false;
 	private Connection? connection;
@@ -65,14 +64,6 @@ public class CharacterSync : IDisposable
 
 		// They've established a connection back.
 		Connected,
-	}
-
-	public enum ConnectionTypes
-	{
-		None,
-
-		Local,
-		Internet,
 	}
 
 	public ushort ObjectTableIndex { get; set; }
@@ -160,13 +151,11 @@ public class CharacterSync : IDisposable
 	{
 		try
 		{
-			this.ConnectionType = ConnectionTypes.None;
-
 			if (Plugin.Instance == null || Plugin.Instance.LocalCharacterIdentifier == null)
 				return;
 
 			int sort = Plugin.Instance.LocalCharacterIdentifier.CompareTo(this.Identifier);
-			if (sort <= 0)
+			if (sort >= 0)
 			{
 				// We're the host.
 				this.CurrentStatus = Status.Listening;
@@ -205,7 +194,6 @@ public class CharacterSync : IDisposable
 				{
 					IPEndPoint endpoint = new(localAddress, response.Port);
 					this.connection = TCPConnection.GetConnection(new(endpoint));
-					this.ConnectionType = ConnectionTypes.Local;
 				}
 				catch (Exception)
 				{
@@ -219,7 +207,6 @@ public class CharacterSync : IDisposable
 				{
 					IPEndPoint endpoint = new(address, response.Port);
 					this.connection = TCPConnection.GetConnection(new(endpoint));
-					this.ConnectionType = ConnectionTypes.Internet;
 				}
 			}
 			catch (Exception)

@@ -55,37 +55,105 @@ public class MainWindow : Window, IDisposable
 
 			if (ImGui.BeginTabItem("All Pairs"))
 			{
-				ImGui.BeginTable("#pairsTable", 4);
-				foreach (Configuration.Pair pair in Configuration.Current.Pairs)
+				if (ImGui.BeginTable("Table", 2))
 				{
-					CharacterSync? sync = null;
-					if (pair.CharacterName != null && pair.World != null)
-						sync = Plugin.Instance?.GetCharacterSync(pair.CharacterName, pair.World);
+					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+					ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
+					////ImGui.TableHeadersRow();
+					ImGui.TableNextRow();
 
-					ImGui.TableNextColumn();
-					ImGui.Text(pair.CharacterName);
-					ImGui.TableNextColumn();
-					ImGui.Text(pair.World);
-					ImGui.TableNextColumn();
-					ImGui.Text(sync?.CurrentStatus.ToString() ?? "");
-
-					ImGui.TableNextColumn();
-					using (ImRaii.PushFont(UiBuilder.IconFont))
+					foreach (Configuration.Pair pair in Configuration.Current.Pairs)
 					{
-						if (sync?.ConnectionType == CharacterSync.ConnectionTypes.Internet)
+						CharacterSync? sync = null;
+						if (pair.CharacterName != null && pair.World != null)
+							sync = Plugin.Instance?.GetCharacterSync(pair.CharacterName, pair.World);
+
+						ImGui.TableNextColumn();
+
+						if (sync != null)
 						{
-							ImGui.Text(FontAwesomeIcon.Globe.ToIconString());
+							ImGui.PushFont(UiBuilder.IconFont);
+							ImGui.SetWindowFontScale(0.75f);
+							ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+							ImGui.Spacing();
+							ImGui.SameLine();
+
+							switch (sync.CurrentStatus)
+							{
+								case CharacterSync.Status.None:
+								{
+									ImGui.Text(FontAwesomeIcon.Hourglass.ToIconString());
+									break;
+								}
+
+								case CharacterSync.Status.Listening:
+								{
+									ImGui.Text(FontAwesomeIcon.Hourglass.ToIconString());
+									break;
+								}
+
+								case CharacterSync.Status.Searching:
+								{
+									ImGui.Text(FontAwesomeIcon.Search.ToIconString());
+									break;
+								}
+
+								case CharacterSync.Status.Offline:
+								{
+									ImGui.Text(FontAwesomeIcon.Bed.ToIconString());
+									break;
+								}
+
+								case CharacterSync.Status.Connecting:
+								case CharacterSync.Status.Handshake:
+								{
+									ImGui.Text(FontAwesomeIcon.Handshake.ToIconString());
+									break;
+								}
+
+								case CharacterSync.Status.Connected:
+								{
+									ImGui.Text(FontAwesomeIcon.Wifi.ToIconString());
+									break;
+								}
+
+								case CharacterSync.Status.HandshakeFailed:
+								case CharacterSync.Status.ConnectionFailed:
+								{
+									ImGui.PushStyleColor(ImGuiCol.Text, 0xFF0080FF);
+									ImGui.Text(FontAwesomeIcon.ExclamationTriangle.ToIconString());
+									ImGui.PopStyleColor();
+									break;
+								}
+							}
+
+							ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
+
+							ImGui.SetWindowFontScale(1.0f);
+							ImGui.PopFont();
 						}
-						else if (sync?.ConnectionType == CharacterSync.ConnectionTypes.Local)
+						else
 						{
-							ImGui.Text(FontAwesomeIcon.NetworkWired.ToIconString());
+							ImGui.Text("        ");
 						}
+
+
+						if (ImGui.IsItemHovered())
+						{
+							ImGui.BeginTooltip();
+							ImGui.Text($"{sync?.CurrentStatus}");
+							ImGui.EndTooltip();
+						}
+
+						ImGui.TableNextColumn();
+						ImGui.Text($"{pair.CharacterName} @ {pair.World}");
+
+						ImGui.TableNextRow();
 					}
 
-					ImGui.TableNextRow();
+					ImGui.EndTable();
 				}
 
-				ImGui.EndTable();
 				ImGui.EndTabItem();
 			}
 

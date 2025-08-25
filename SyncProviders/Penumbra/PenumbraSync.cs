@@ -263,7 +263,9 @@ public class PenumbraSync : SyncProviderBase
 		}
 		while (totalBytesSent < stream.Length);
 
-		connection.SendObject(hash, new byte[0]);
+		byte[] b = new byte[1];
+		b[0] = 1;
+		connection.SendObject(hash, b);
 	}
 
 	public class PenumbraData

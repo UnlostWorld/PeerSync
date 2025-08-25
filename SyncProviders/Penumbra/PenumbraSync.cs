@@ -17,7 +17,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 
 public class PenumbraSync : SyncProviderBase
 {
-	const ushort fileTimeout = 30000;
+	const ushort fileTimeout = 60000;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -152,6 +152,8 @@ public class PenumbraSync : SyncProviderBase
 				missingFileCount++;
 			}
 		}
+
+		Plugin.Log.Information($"Requesting {missingFileCount} files.");
 
 		int receivedFileCount = 0;
 		foreach ((string gamePath, string hash) in data.Files)

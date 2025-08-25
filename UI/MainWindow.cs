@@ -167,6 +167,12 @@ public class MainWindow : Window, IDisposable
 					Configuration.Current.Save();
 				}
 
+				string cache = Configuration.Current.CacheDirectory ?? string.Empty;
+				if (ImGui.InputText("Cache", ref cache))
+				{
+					Configuration.Current.CacheDirectory = cache;
+					Configuration.Current.Save();
+				}
 
 				ImGui.EndTabItem();
 			}

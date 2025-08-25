@@ -22,19 +22,21 @@ using System.Net;
 using SharpOpenNat;
 using NetworkCommsDotNet;
 using NetworkCommsDotNet.Connections;
-using PeerSync.PluginCommunication;
 using System.IO;
 using System.Security.Cryptography;
 using NetworkCommsDotNet.DPSBase;
 using System.Text;
 using Newtonsoft.Json;
 using NetworkCommsDotNet.DPSBase.SevenZipLZMACompressor;
-using System.Diagnostics;
+using PeerSync.SyncProviders.Glamourer;
 
 public sealed class Plugin : IDalamudPlugin
 {
-	public readonly Penumbra Penumbra = new();
-	public readonly Glamourer Glamourer = new();
+	public readonly FileCache FileCache = new();
+	public readonly List<SyncProviderBase> SyncProviders = new()
+	{
+		new GlamourerSync(),
+	};
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -61,6 +63,7 @@ public sealed class Plugin : IDalamudPlugin
 	private bool connected = false;
 	private bool shuttingDown = false;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
+	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
@@ -82,6 +85,11 @@ public sealed class Plugin : IDalamudPlugin
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
 
 		Framework.Update += this.OnFrameworkUpdate;
+
+		foreach (SyncProviderBase provider in this.SyncProviders)
+		{
+			providerLookup.Add(provider.Key, provider);
+		}
 	}
 
 	public string Name => "Peer Sync";
@@ -104,6 +112,14 @@ public sealed class Plugin : IDalamudPlugin
 				return sync;
 			}
 		}
+
+		return null;
+	}
+
+	public SyncProviderBase? GetSyncProvider(string key)
+	{
+		if (this.providerLookup.TryGetValue(key, out var provider))
+			return provider;
 
 		return null;
 	}
@@ -172,13 +188,16 @@ public sealed class Plugin : IDalamudPlugin
 
 	private async Task InitializeAsync()
 	{
-		Penumbra p = new();
-		await p.GetGameObjectResourcePaths(0);
-
 		this.connected = false;
 
 		if (shuttingDown)
 			return;
+
+		if (!FileCache.IsValid())
+		{
+			Status = $"Invalid cache directory";
+			return;
+		}
 
 		// Open port
 		ushort port = Configuration.Current.Port;
@@ -380,7 +399,7 @@ public sealed class Plugin : IDalamudPlugin
 		if (LocalCharacterData == null)
 			return;
 
-		LocalCharacterData.Clear();
+		LocalCharacterData.Syncs.Clear();
 
 		await Plugin.Framework.RunOnUpdate();
 		if (shuttingDown)
@@ -390,51 +409,12 @@ public sealed class Plugin : IDalamudPlugin
 		if (player == null)
 			return;
 
-		if (this.Glamourer.GetIsAvailable())
+		foreach (SyncProviderBase sync in this.SyncProviders)
 		{
-			this.LocalCharacterData.Glamourer = await this.Glamourer.GetState(player.ObjectIndex);
-		}
-
-		if (Penumbra.GetIsAvailable())
-		{
-			if (shuttingDown)
-				return;
-
-			Dictionary<string, HashSet<string>>? resourcePaths = await Penumbra.GetGameObjectResourcePaths(player.ObjectIndex);
-
-			// Perform file hashing on a separate thread.
-			await Task.Delay(1).ConfigureAwait(false);
-			if (resourcePaths != null)
+			string? content = await sync.Serialize(player.ObjectIndex);
+			if (content != null)
 			{
-				LocalCharacterData.PenumbraFileReplacementHashes = new();
-				foreach ((string path, HashSet<string> gamePaths) in resourcePaths)
-				{
-					foreach (string gamePath in gamePaths)
-					{
-						// Is this a redirect?
-						if (gamePath == path)
-							continue;
-
-						bool isFilePath = Path.IsPathRooted(path);
-						if (isFilePath)
-						{
-							FileInfo file = new(path);
-							FileStream stream = file.OpenRead();
-
-							// Hopefully the same as Mare's hash which used the Deprecated SHA1CryptoServiceProvider
-							SHA1 sha = SHA1.Create();
-							byte[] bytes = sha.ComputeHash(stream);
-							string str = BitConverter.ToString(bytes);
-							str = str.Replace("-", string.Empty, StringComparison.Ordinal);
-							LocalCharacterData.PenumbraFileReplacementHashes[gamePath] = str;
-						}
-						else
-						{
-							// for redirects that are not modded files, don't hash it, just send it as is.
-							LocalCharacterData.PenumbraFileReplacementHashes[gamePath] = path;
-						}
-					}
-				}
+				LocalCharacterData.Syncs.Add(sync.Key, content);
 			}
 		}
 

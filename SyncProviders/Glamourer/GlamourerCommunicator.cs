@@ -1,12 +1,11 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace PeerSync.PluginCommunication;
+namespace PeerSync.SyncProviders.Glamourer;
 
-public class Glamourer : PluginCommunicatorBase
+public class GlamourerCommunicator : PluginCommunicatorBase
 {
 	protected override string InternalName => "Glamourer";
 	protected override Version Version => new Version(1, 3, 0, 10);

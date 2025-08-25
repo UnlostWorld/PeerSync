@@ -74,13 +74,14 @@ public class CharacterSync : IDisposable
 
 	public static string GetIdentifier(string characterName, string world, string password, int iterations = 1000)
 	{
+		string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 		// The Identifier is sent to the server, and it contains the character name and world, so
 		// ensure its cryptographically secure in case of bad actors controlling servers.
 		string input = $"{characterName}{world}";
 		for (int i = 0; i < iterations; i++)
 		{
 			HashAlgorithm algorithm = SHA256.Create();
-			byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes($"{input}{password}"));
+			byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes($"{input}{password}{pluginVersion}"));
 			input = BitConverter.ToString(bytes);
 			input = input.Replace("-", string.Empty, StringComparison.Ordinal);
 		}
@@ -297,76 +298,29 @@ public class CharacterSync : IDisposable
 
 	private async Task ApplyCharacterData(CharacterData characterData)
 	{
-		if (Plugin.Instance == null)
-			return;
-
 		if (this.isApplyingData)
 			return;
 
 		this.isApplyingData = true;
-		Plugin plugin = Plugin.Instance;
 
-		try
+		foreach ((string key, string content) in characterData.Syncs)
 		{
-			if (lastData == null || !characterData.IsPenumbraReplacementsSame(lastData))
+			try
 			{
-				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Penumbra files");
-			}
+				if (Plugin.Instance == null)
+					return;
 
-			if ((lastData == null && characterData.PenumbraManipulations != null)
-				|| (lastData != null && characterData.PenumbraManipulations != lastData.PenumbraManipulations))
+				SyncProviderBase? provider = Plugin.Instance?.GetSyncProvider(key);
+				if (provider == null)
+					continue;
+
+				Plugin.Log.Information($"{this.CharacterName}@{this.World} > {key}");
+				await provider.Deserialize(content, this.ObjectTableIndex);
+			}
+			catch (Exception ex)
 			{
-				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Penumbra meta");
+				Plugin.Log.Error(ex, $"Error applying sync data: {key}");
 			}
-
-			if ((lastData == null && characterData.CustomizePlus != null)
-				|| (lastData != null && characterData.CustomizePlus != lastData.CustomizePlus))
-			{
-				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Customize+");
-			}
-
-			if ((lastData == null && characterData.Glamourer != null)
-				|| (lastData != null && characterData.Glamourer != lastData.Glamourer))
-			{
-				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Glamourer");
-
-				if (characterData.Glamourer != null)
-				{
-					await plugin.Glamourer.SetState(this.ObjectTableIndex, characterData.Glamourer);
-				}
-				else
-				{
-					////await plugin.Glamourer.ClearState(this.ObjectTableIndex, characterData.Glamourer);
-				}
-			}
-
-			if ((lastData == null && characterData.Heels != null)
-				|| (lastData != null && characterData.Heels != lastData.Heels))
-			{
-				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Heels");
-			}
-
-			if ((lastData == null && characterData.Honorific != null)
-				|| (lastData != null && characterData.Honorific != lastData.Honorific))
-			{
-				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Honorific");
-			}
-
-			if ((lastData == null && characterData.Moodles != null)
-				|| (lastData != null && characterData.Moodles != lastData.Moodles))
-			{
-				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Moodles");
-			}
-
-			if ((lastData == null && characterData.PetNames != null)
-				|| (lastData != null && characterData.PetNames != lastData.PetNames))
-			{
-				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Pet Names");
-			}
-		}
-		catch (Exception ex)
-		{
-			Plugin.Log.Error(ex, "Error applying character data");
 		}
 
 		this.isApplyingData = false;

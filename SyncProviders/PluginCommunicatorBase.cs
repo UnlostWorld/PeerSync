@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Ipc;
 
-namespace PeerSync.PluginCommunication;
+namespace PeerSync.SyncProviders;
 
 public abstract class PluginCommunicatorBase
 {

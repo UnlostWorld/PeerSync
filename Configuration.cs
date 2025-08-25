@@ -26,6 +26,7 @@ public partial class Configuration : IPluginConfiguration
 	public int Version { get; set; } = 1;
 	public List<Pair> Pairs { get; init; } = new();
 	public ushort Port { get; set; } = 0;
+	public string? CacheDirectory { get; set; }
 
 	public void Save()
 	{

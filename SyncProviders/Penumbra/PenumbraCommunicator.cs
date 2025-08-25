@@ -4,9 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace PeerSync.PluginCommunication;
+namespace PeerSync.SyncProviders.Penumbra;
 
-public class Penumbra : PluginCommunicatorBase
+public class PenumbraCommunicator : PluginCommunicatorBase
 {
 	protected override string InternalName => "Penumbra";
 	protected override Version Version => new Version(1, 2, 0, 22);
@@ -24,5 +24,14 @@ public class Penumbra : PluginCommunicatorBase
 			return null;
 
 		return objectsResourcePaths[0];
+	}
+
+	public async Task<string?> GetMetaManipulations(ushort objectIndex)
+	{
+		if (!this.GetIsAvailable())
+			return null;
+
+		await Plugin.Framework.RunOnUpdate();
+		return this.Invoke<string, int>("Penumbra.GetMetaManipulations.V5", objectIndex);
 	}
 }

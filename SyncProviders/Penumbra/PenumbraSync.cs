@@ -177,9 +177,12 @@ public class PenumbraSync : SyncProviderBase
 				long receivedBytes = 0;
 				character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
 				{
-					if (data.Length == 1 || data[0] == 1)
+					if (data.Length == 1)
 					{
-						complete = true;
+						if (data[0] == 0)
+						{
+							complete = true;
+						}
 					}
 					else
 					{
@@ -256,7 +259,7 @@ public class PenumbraSync : SyncProviderBase
 		}
 		while (totalBytesSent < stream.Length);
 
-		connection.SendObject(hash, new byte[1]);
+		connection.SendObject(hash, new byte[0]);
 	}
 
 	public class PenumbraData

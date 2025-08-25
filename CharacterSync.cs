@@ -38,6 +38,8 @@ public class CharacterSync : IDisposable
 		Task.Run(this.Connect);
 	}
 
+	public Connection? Connection => this.connection;
+
 	public enum Status
 	{
 		None,
@@ -115,12 +117,21 @@ public class CharacterSync : IDisposable
 			return;
 
 		this.connection = connection;
+		this.SetupConnection();
+
+		this.CurrentStatus = Status.Connected;
+	}
+
+	private void SetupConnection()
+	{
+		if (this.connection == null)
+			return;
 
 		this.connection.AppendShutdownHandler(this.OnConnectionClosed);
 		this.connection.AppendIncomingPacketHandler<string>("iam", this.OnIAmPacket);
 		this.connection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
-
-		this.CurrentStatus = Status.Connected;
+		this.connection.AppendIncomingPacketHandler<FileData>("FileDataRequest", this.OnFileDataRequest);
+		this.connection.AppendIncomingPacketHandler<FileData>("FileData", this.OnFileData);
 	}
 
 	public void Dispose()
@@ -230,9 +241,7 @@ public class CharacterSync : IDisposable
 			if (this.connection == null)
 				return;
 
-			this.connection.AppendShutdownHandler(this.OnConnectionClosed);
-			this.connection.AppendIncomingPacketHandler<string>("iam", this.OnIAmPacket);
-			this.connection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
+			this.SetupConnection();
 
 			if (this.disposed)
 				return;
@@ -314,8 +323,8 @@ public class CharacterSync : IDisposable
 				if (provider == null)
 					continue;
 
-				Plugin.Log.Information($"{this.CharacterName}@{this.World} > {key}");
-				await provider.Deserialize(content, this.ObjectTableIndex);
+				////Plugin.Log.Information($"{this.CharacterName}@{this.World} > {key}");
+				await provider.Deserialize(content, this);
 			}
 			catch (Exception ex)
 			{
@@ -325,5 +334,14 @@ public class CharacterSync : IDisposable
 
 		this.isApplyingData = false;
 		lastData = characterData;
+	}
+
+	private void OnFileDataRequest(PacketHeader packetHeader, Connection connection, FileData incomingObject)
+	{
+		Plugin.Log.Information($"File request: {incomingObject.Hash}");
+	}
+
+	private void OnFileData(PacketHeader packetHeader, Connection connection, FileData incomingObject)
+	{
 	}
 }

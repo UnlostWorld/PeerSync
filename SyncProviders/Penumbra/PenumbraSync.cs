@@ -2,21 +2,50 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using NetworkCommsDotNet;
+using NetworkCommsDotNet.Connections;
 using Newtonsoft.Json;
 
 namespace PeerSync.SyncProviders.Penumbra;
 
 public class PenumbraSync : SyncProviderBase
 {
+	const ushort fileTimeout = 10000;
+
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
 
 	public override string Key => "Penumbra";
+
+	public static readonly HashSet<string> AllowedFileExtensions =
+	[
+		".mdl",
+		".tex",
+		".mtrl",
+		".tmb",
+		".pap",
+		".avfx",
+		".atex",
+		".sklb",
+		".eid",
+		".phyb",
+		".pbd",
+		".scd",
+		".skp",
+		".shpk"
+	];
+
+	public override void OnInitialized()
+	{
+		NetworkComms.AppendGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
+	}
 
 	public override async Task<string?> Serialize(ushort objectIndex)
 	{
@@ -42,6 +71,9 @@ public class PenumbraSync : SyncProviderBase
 			{
 				// Is this a redirect?
 				if (gamePath == path)
+					continue;
+
+				if (!AllowedFileExtensions.Contains(Path.GetExtension(gamePath)))
 					continue;
 
 				bool isFilePath = Path.IsPathRooted(path);
@@ -81,7 +113,7 @@ public class PenumbraSync : SyncProviderBase
 		return Convert.ToBase64String(compressedStream.ToArray());
 	}
 
-	public override async Task Deserialize(string? content, ushort objectIndex)
+	public override async Task Deserialize(string? content, CharacterSync character)
 	{
 		if (!penumbra.GetIsAvailable())
 			return;
@@ -113,11 +145,45 @@ public class PenumbraSync : SyncProviderBase
 			FileInfo? file = this.fileCache.GetFile(hashPath);
 			if (file == null || !file.Exists)
 			{
-				////Plugin.Log.Information($"Missing file: {gamePath} ({hashPath})");
+				if (character.Connection == null || !character.Connection.ConnectionAlive())
+					continue;
+
+				byte[]? fileData = null;
+				character.Connection.AppendIncomingPacketHandler<byte[]>(hashPath, (_, _, packet) => fileData = packet);
+
+				Stopwatch sw = new();
+				sw.Start();
+				while (fileData == null && sw.ElapsedMilliseconds < fileTimeout)
+				{
+					await Task.Delay(100);
+				}
+
+				character.Connection.RemoveIncomingPacketHandler(hashPath);
+
+				sw.Stop();
+				if (sw.ElapsedMilliseconds >= fileTimeout)
+				{
+					Plugin.Log.Warning($"File transfer timeout");
+					continue;
+				}
+				else
+				{
+					Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to transfer file: {hashPath}");
+				}
 			}
 		}
 
 		await Task.Delay(100);
+	}
+
+	private void OnFileRequest(PacketHeader packetHeader, Connection connection, string hash)
+	{
+		Plugin.Log.Information($"Got file request: {hash}");
+
+		// 10Mb
+		byte[] data = new byte[1024 * 1024 * 10];
+
+		connection.SendObject(hash, data);
 	}
 
 	public class PenumbraData

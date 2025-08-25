@@ -297,6 +297,11 @@ public sealed class Plugin : IDalamudPlugin
 
 		Status = "Connecting to server...";
 
+		foreach (SyncProviderBase sync in this.SyncProviders)
+		{
+			sync.OnInitialized();
+		}
+
 		while (!shuttingDown)
 		{
 			try

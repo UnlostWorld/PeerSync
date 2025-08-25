@@ -19,7 +19,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
-	const int fileChunkSize = 1024 * 10; // 10kb chunks
+	const int fileChunkSize = 1024 * 50; // 50kb chunks
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -179,12 +179,9 @@ public class PenumbraSync : SyncProviderBase
 					long receivedBytes = 0;
 					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
 					{
-						if (data.Length == 1)
+						if (data.Length <= 1)
 						{
-							if (data[0] == 0)
-							{
-								complete = true;
-							}
+							complete = true;
 						}
 						else
 						{

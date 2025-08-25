@@ -7,5 +7,5 @@ namespace PeerSync;
 public class CharacterData(string identifier)
 {
 	public string Identifier => identifier;
-	public Dictionary<string, string> Syncs { get; init; } = new();
+	public Dictionary<string, string?> Syncs { get; init; } = new();
 }

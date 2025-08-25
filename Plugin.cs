@@ -412,10 +412,7 @@ public sealed class Plugin : IDalamudPlugin
 		foreach (SyncProviderBase sync in this.SyncProviders)
 		{
 			string? content = await sync.Serialize(player.ObjectIndex);
-			if (content != null)
-			{
-				LocalCharacterData.Syncs.Add(sync.Key, content);
-			}
+			LocalCharacterData.Syncs.Add(sync.Key, content);
 		}
 
 		foreach (CharacterSync sync in checkedCharacters.Values)

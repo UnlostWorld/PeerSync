@@ -114,7 +114,11 @@ public class GlamourerCommunicator : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		(GlamourerApiEc status, string? base64) = this.Invoke<(GlamourerApiEc, string?), ushort, uint>("Glamourer.GetStateBase64", objectIndex, LockCode);
+		(GlamourerApiEc status, string? base64) = this.Invoke<(GlamourerApiEc, string?), ushort, uint>(
+			"Glamourer.GetStateBase64",
+			objectIndex,
+			LockCode);
+
 		return base64;
 	}
 
@@ -125,8 +129,25 @@ public class GlamourerCommunicator : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		GlamourerApiEc returnCode = this.Invoke<GlamourerApiEc, string, int, uint, ApplyFlag>("Glamourer.ApplyState", state, objectIndex, LockCode, flags);
+		this.Invoke<GlamourerApiEc, string, int, uint, ApplyFlag>(
+			"Glamourer.ApplyState",
+			state,
+			objectIndex,
+			LockCode,
+			flags);
+	}
 
-		return;
+	public async Task RevertState(ushort objectIndex)
+	{
+		if (!this.GetIsAvailable())
+			return;
+
+		await Plugin.Framework.RunOnUpdate();
+
+		this.Invoke<GlamourerApiEc, int, uint, ApplyFlag>(
+			"Glamourer.RevertState",
+			objectIndex,
+			LockCode,
+			ApplyFlag.RevertDefault);
 	}
 }

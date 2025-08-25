@@ -303,7 +303,7 @@ public class CharacterSync : IDisposable
 
 		this.isApplyingData = true;
 
-		foreach ((string key, string content) in characterData.Syncs)
+		foreach ((string key, string? content) in characterData.Syncs)
 		{
 			try
 			{

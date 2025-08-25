@@ -6,5 +6,5 @@ public abstract class SyncProviderBase
 {
 	public abstract string Key { get; }
 	public abstract Task<string?> Serialize(ushort objectIndex);
-	public abstract Task Deserialize(string content, ushort objectIndex);
+	public abstract Task Deserialize(string? content, ushort objectIndex);
 }

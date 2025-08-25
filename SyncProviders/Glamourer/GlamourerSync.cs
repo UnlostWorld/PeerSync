@@ -18,11 +18,18 @@ public class GlamourerSync : SyncProviderBase
 		return await this.glamourer.GetState(objectIndex);
 	}
 
-	public override async Task Deserialize(string content, ushort objectIndex)
+	public override async Task Deserialize(string? content, ushort objectIndex)
 	{
 		if (!glamourer.GetIsAvailable())
 			return;
 
-		await glamourer.SetState(objectIndex, content);
+		if (content == null)
+		{
+			await glamourer.RevertState(objectIndex);
+		}
+		else
+		{
+			await glamourer.SetState(objectIndex, content);
+		}
 	}
 }

@@ -81,10 +81,16 @@ public class PenumbraSync : SyncProviderBase
 		return Convert.ToBase64String(compressedStream.ToArray());
 	}
 
-	public override async Task Deserialize(string content, ushort objectIndex)
+	public override async Task Deserialize(string? content, ushort objectIndex)
 	{
 		if (!penumbra.GetIsAvailable())
 			return;
+
+		if (content == null)
+		{
+			// TODO: Disable mod collection
+			return;
+		}
 
 		byte[] bytes = Convert.FromBase64String(content);
 		using MemoryStream compressedStream = new(bytes);

@@ -12,12 +12,14 @@ using System.Threading.Tasks;
 using NetworkCommsDotNet;
 using NetworkCommsDotNet.Connections;
 using Newtonsoft.Json;
+using static NetworkCommsDotNet.Tools.StreamTools;
 
 namespace PeerSync.SyncProviders.Penumbra;
 
 public class PenumbraSync : SyncProviderBase
 {
-	const ushort fileTimeout = 60000;
+	const int fileTimeout = 120_000;
+	const int fileChunkSize = 1024 * 512; // 512kb chunks
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -159,21 +161,43 @@ public class PenumbraSync : SyncProviderBase
 		foreach ((string gamePath, string hash) in data.Files)
 		{
 			FileInfo? file = this.fileCache.GetFile(hash);
-			if (file == null || !file.Exists)
+
+			if (file == null)
+				continue;
+
+			if (!file.Exists)
 			{
 				if (character.Connection == null || !character.Connection.ConnectionAlive())
 					continue;
 
-				byte[]? fileData = null;
-				character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, packet) => fileData = packet);
+				//We create a file on disk so that we can receive large files
+				FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
+
+				bool complete = false;
+				long receivedBytes = 0;
+				character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
+				{
+					if (data.Length == 1 || data[0] == 1)
+					{
+						complete = true;
+					}
+					else
+					{
+						fileStream.Write(data);
+						receivedBytes += data.Length;
+					}
+				});
+
 				character.Connection.SendObject("FileRequest", hash);
 
 				Stopwatch sw = new();
 				sw.Start();
-				while (fileData == null && sw.ElapsedMilliseconds < fileTimeout)
+				while (!complete && sw.ElapsedMilliseconds < fileTimeout)
 				{
 					await Task.Delay(100);
 				}
+
+				fileStream.Flush();
 
 				if (character.Connection == null || !character.Connection.ConnectionAlive())
 					return;
@@ -181,21 +205,18 @@ public class PenumbraSync : SyncProviderBase
 				character.Connection.RemoveIncomingPacketHandler(hash);
 
 				sw.Stop();
-				if (fileData == null || sw.ElapsedMilliseconds >= fileTimeout)
+				if (!complete || sw.ElapsedMilliseconds >= fileTimeout)
 				{
 					Plugin.Log.Warning($"File transfer timeout");
 					continue;
 				}
-				else if (fileData.Length <= 0)
+				else if (receivedBytes <= 0)
 				{
 					Plugin.Log.Warning($"Peer did not send file: {hash}");
 				}
 				else
 				{
-					int size = fileData.Length / 1024;
-					Plugin.Log.Information($"[{receivedFileCount} / {missingFileCount}] Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({size}kb)");
-
-					this.fileCache.SaveFile(fileData, hash);
+					Plugin.Log.Information($"[{receivedFileCount} / {missingFileCount}] Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({receivedBytes / 1024}kb)");
 				}
 
 				receivedFileCount++;
@@ -215,12 +236,27 @@ public class PenumbraSync : SyncProviderBase
 			return;
 		}
 
-		byte[] data = File.ReadAllBytes(fileInfo.FullName);
+		FileStream stream = new(fileInfo.FullName, FileMode.Open);
+		ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
+		Plugin.Log.Information($"Sending file: {hash} ({stream.Length / 1024}kb)");
 
-		int size = data.Length / 1024;
-		Plugin.Log.Information($"Sending file: {hash} ({size}kb)");
+		long totalBytesSent = 0;
+		do
+		{
+			long bytesToSend = fileChunkSize;
+			if (totalBytesSent + bytesToSend > stream.Length)
+				bytesToSend = stream.Length - totalBytesSent;
 
-		connection.SendObject(hash, data);
+			StreamSendWrapper streamWrapper = new StreamSendWrapper(threadSafeStream, totalBytesSent, bytesToSend);
+			long packetSequenceNumber;
+			connection.SendObject(hash, streamWrapper, out packetSequenceNumber);
+			totalBytesSent += bytesToSend;
+
+			Plugin.Log.Information($"> {totalBytesSent} / {stream.Length} > {(float)totalBytesSent / stream.Length}%");
+		}
+		while (totalBytesSent < stream.Length);
+
+		connection.SendObject(hash, new byte[1]);
 	}
 
 	public class PenumbraData

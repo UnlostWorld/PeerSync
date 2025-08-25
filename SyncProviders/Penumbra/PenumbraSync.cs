@@ -19,7 +19,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
-	const int fileChunkSize = 1024 * 512; // 512kb chunks
+	const int fileChunkSize = 1024 * 10; // 10kb chunks
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -155,74 +155,77 @@ public class PenumbraSync : SyncProviderBase
 			}
 		}
 
-		Plugin.Log.Information($"Requesting {missingFileCount} files.");
-
-		int receivedFileCount = 0;
-		foreach ((string gamePath, string hash) in data.Files)
+		if (missingFileCount > 0)
 		{
-			FileInfo? file = this.fileCache.GetFile(hash);
+			Plugin.Log.Information($"Requesting {missingFileCount} files.");
 
-			if (file == null)
-				continue;
-
-			if (!file.Exists)
+			int receivedFileCount = 0;
+			foreach ((string gamePath, string hash) in data.Files)
 			{
-				if (character.Connection == null || !character.Connection.ConnectionAlive())
+				FileInfo? file = this.fileCache.GetFile(hash);
+
+				if (file == null)
 					continue;
 
-				//We create a file on disk so that we can receive large files
-				FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
-
-				bool complete = false;
-				long receivedBytes = 0;
-				character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
+				if (!file.Exists)
 				{
-					if (data.Length == 1)
+					if (character.Connection == null || !character.Connection.ConnectionAlive())
+						continue;
+
+					//We create a file on disk so that we can receive large files
+					FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
+
+					bool complete = false;
+					long receivedBytes = 0;
+					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
 					{
-						if (data[0] == 0)
+						if (data.Length == 1)
 						{
-							complete = true;
+							if (data[0] == 0)
+							{
+								complete = true;
+							}
 						}
+						else
+						{
+							fileStream.Write(data);
+							receivedBytes += data.Length;
+						}
+					});
+
+					character.Connection.SendObject("FileRequest", hash);
+
+					Stopwatch sw = new();
+					sw.Start();
+					while (!complete && sw.ElapsedMilliseconds < fileTimeout)
+					{
+						await Task.Delay(100);
+					}
+
+					fileStream.Flush();
+
+					if (character.Connection == null || !character.Connection.ConnectionAlive())
+						return;
+
+					character.Connection.RemoveIncomingPacketHandler(hash);
+
+					sw.Stop();
+					if (!complete || sw.ElapsedMilliseconds >= fileTimeout)
+					{
+						Plugin.Log.Warning($"File transfer timeout");
+						continue;
+					}
+					else if (receivedBytes <= 0)
+					{
+						Plugin.Log.Warning($"Peer did not send file: {hash}");
 					}
 					else
 					{
-						fileStream.Write(data);
-						receivedBytes += data.Length;
+						Plugin.Log.Information($"[{receivedFileCount} / {missingFileCount}] Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({receivedBytes / 1024}kb)");
 					}
-				});
 
-				character.Connection.SendObject("FileRequest", hash);
-
-				Stopwatch sw = new();
-				sw.Start();
-				while (!complete && sw.ElapsedMilliseconds < fileTimeout)
-				{
-					await Task.Delay(100);
+					receivedFileCount++;
 				}
-
-				fileStream.Flush();
-
-				if (character.Connection == null || !character.Connection.ConnectionAlive())
-					return;
-
-				character.Connection.RemoveIncomingPacketHandler(hash);
-
-				sw.Stop();
-				if (!complete || sw.ElapsedMilliseconds >= fileTimeout)
-				{
-					Plugin.Log.Warning($"File transfer timeout");
-					continue;
-				}
-				else if (receivedBytes <= 0)
-				{
-					Plugin.Log.Warning($"Peer did not send file: {hash}");
-				}
-				else
-				{
-					Plugin.Log.Information($"[{receivedFileCount} / {missingFileCount}] Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({receivedBytes / 1024}kb)");
-				}
-
-				receivedFileCount++;
 			}
 		}
 
@@ -255,7 +258,8 @@ public class PenumbraSync : SyncProviderBase
 			connection.SendObject(hash, streamWrapper, out packetSequenceNumber);
 			totalBytesSent += bytesToSend;
 
-			Plugin.Log.Information($"> {totalBytesSent} / {stream.Length} > {(float)totalBytesSent / stream.Length}%");
+			int p = (int)(((float)totalBytesSent / stream.Length) * 100);
+			Plugin.Log.Information($"> {totalBytesSent} / {stream.Length} > {p}%");
 		}
 		while (totalBytesSent < stream.Length);
 

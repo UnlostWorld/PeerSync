@@ -98,6 +98,7 @@ public class MainWindow : Window, IDisposable
 									break;
 								}
 
+								case CharacterSync.Status.Disconnected:
 								case CharacterSync.Status.Offline:
 								{
 									ImGui.Text(FontAwesomeIcon.Bed.ToIconString());

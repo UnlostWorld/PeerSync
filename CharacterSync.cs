@@ -25,6 +25,7 @@ public class CharacterSync : IDisposable
 	private bool disposed = false;
 	private Connection? connection;
 	private CharacterData? lastData;
+	private bool isApplyingData = false;
 
 	public CharacterSync(string characterName, string world, string password)
 	{
@@ -64,6 +65,9 @@ public class CharacterSync : IDisposable
 
 		// They've established a connection back.
 		Connected,
+
+		// The connection was terminated.
+		Disconnected,
 	}
 
 	public ushort ObjectTableIndex { get; set; }
@@ -259,6 +263,9 @@ public class CharacterSync : IDisposable
 	private void OnConnectionClosed(Connection connection)
 	{
 		Plugin.Log.Information($"Connection to {this.CharacterName}@{this.World} was closed.");
+		this.CurrentStatus = Status.Disconnected;
+
+		this.Reconnect();
 	}
 
 	private void OnIAmPacket(PacketHeader packetHeader, Connection connection, string incomingObject)
@@ -278,54 +285,87 @@ public class CharacterSync : IDisposable
 		if (connection != this.connection)
 			return;
 
-		if (lastData == null || !characterData.IsPenumbraReplacementsSame(lastData))
-		{
-			Plugin.Log.Information($"{this.CharacterName}@{this.World} > Penumbra files");
-		}
+		if (this.isApplyingData)
+			return;
 
-		if (lastData == null || characterData.PenumbraManipulations != lastData.PenumbraManipulations)
-		{
-			Plugin.Log.Information($"> Penumbra meta");
-		}
+		Task.Run(() => ApplyCharacterData(characterData));
+	}
 
-		if (lastData == null || characterData.CustomizePlus != lastData.CustomizePlus)
-		{
-			Plugin.Log.Information($"> Customize+");
-		}
+	private async Task ApplyCharacterData(CharacterData characterData)
+	{
+		if (Plugin.Instance == null)
+			return;
 
-		if (lastData == null || characterData.Glamourer != lastData.Glamourer)
-		{
-			Plugin.Log.Information($"> Glamourer");
+		if (this.isApplyingData)
+			return;
 
-			Task.Run(async () =>
+		this.isApplyingData = true;
+		Plugin plugin = Plugin.Instance;
+
+		try
+		{
+			if (lastData == null || !characterData.IsPenumbraReplacementsSame(lastData))
 			{
-				if (Plugin.Instance == null || string.IsNullOrEmpty(characterData.Glamourer))
-					return;
+				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Penumbra files");
+			}
 
-				await Plugin.Instance.Glamourer.SetState(this.ObjectTableIndex, characterData.Glamourer);
-			});
+			if ((lastData == null && characterData.PenumbraManipulations != null)
+				|| (lastData != null && characterData.PenumbraManipulations != lastData.PenumbraManipulations))
+			{
+				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Penumbra meta");
+			}
+
+			if ((lastData == null && characterData.CustomizePlus != null)
+				|| (lastData != null && characterData.CustomizePlus != lastData.CustomizePlus))
+			{
+				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Customize+");
+			}
+
+			if ((lastData == null && characterData.Glamourer != null)
+				|| (lastData != null && characterData.Glamourer != lastData.Glamourer))
+			{
+				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Glamourer");
+
+				if (characterData.Glamourer != null)
+				{
+					await plugin.Glamourer.SetState(this.ObjectTableIndex, characterData.Glamourer);
+				}
+				else
+				{
+					////await plugin.Glamourer.ClearState(this.ObjectTableIndex, characterData.Glamourer);
+				}
+			}
+
+			if ((lastData == null && characterData.Heels != null)
+				|| (lastData != null && characterData.Heels != lastData.Heels))
+			{
+				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Heels");
+			}
+
+			if ((lastData == null && characterData.Honorific != null)
+				|| (lastData != null && characterData.Honorific != lastData.Honorific))
+			{
+				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Honorific");
+			}
+
+			if ((lastData == null && characterData.Moodles != null)
+				|| (lastData != null && characterData.Moodles != lastData.Moodles))
+			{
+				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Moodles");
+			}
+
+			if ((lastData == null && characterData.PetNames != null)
+				|| (lastData != null && characterData.PetNames != lastData.PetNames))
+			{
+				Plugin.Log.Information($"{this.CharacterName}@{this.World} > Pet Names");
+			}
 		}
-
-		if (lastData == null || characterData.Heels != lastData.Heels)
+		catch (Exception ex)
 		{
-			Plugin.Log.Information($"> Heels");
+			Plugin.Log.Error(ex, "Error applying character data");
 		}
 
-		if (lastData == null || characterData.Honorific != lastData.Honorific)
-		{
-			Plugin.Log.Information($"> Honorific");
-		}
-
-		if (lastData == null || characterData.Moodles != lastData.Moodles)
-		{
-			Plugin.Log.Information($"> Moodles");
-		}
-
-		if (lastData == null || characterData.PetNames != lastData.PetNames)
-		{
-			Plugin.Log.Information($"> Pet Names");
-		}
-
+		this.isApplyingData = false;
 		lastData = characterData;
 	}
 }

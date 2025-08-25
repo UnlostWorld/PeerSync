@@ -143,6 +143,17 @@ public class PenumbraSync : SyncProviderBase
 		if (data == null)
 			return;
 
+		int missingFileCount = 0;
+		foreach ((string gamePath, string hash) in data.Files)
+		{
+			FileInfo? file = this.fileCache.GetFile(hash);
+			if (file == null || !file.Exists)
+			{
+				missingFileCount++;
+			}
+		}
+
+		int receivedFileCount = 0;
 		foreach ((string gamePath, string hash) in data.Files)
 		{
 			FileInfo? file = this.fileCache.GetFile(hash);
@@ -180,10 +191,12 @@ public class PenumbraSync : SyncProviderBase
 				else
 				{
 					int size = fileData.Length / 1024;
-					Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({size}kb)");
+					Plugin.Log.Information($"[{receivedFileCount} / {missingFileCount}] Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({size}kb)");
 
 					this.fileCache.SaveFile(fileData, hash);
 				}
+
+				receivedFileCount++;
 			}
 		}
 

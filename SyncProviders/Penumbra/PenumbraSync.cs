@@ -84,7 +84,7 @@ public class PenumbraSync : SyncProviderBase
 				if (isFilePath)
 				{
 					FileInfo file = new(path);
-					FileStream stream = file.OpenRead();
+					using FileStream stream = file.OpenRead();
 
 					// Hopefully the same as Mare's hash which used the Deprecated SHA1CryptoServiceProvider
 					bytes = sha.ComputeHash(stream);

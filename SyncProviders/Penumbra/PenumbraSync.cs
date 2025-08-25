@@ -169,6 +169,8 @@ public class PenumbraSync : SyncProviderBase
 
 				if (!file.Exists)
 				{
+					receivedFileCount++;
+
 					if (character.Connection == null || !character.Connection.ConnectionAlive())
 						continue;
 
@@ -220,8 +222,6 @@ public class PenumbraSync : SyncProviderBase
 					{
 						Plugin.Log.Information($"[{receivedFileCount} / {missingFileCount}] Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({receivedBytes / 1024}kb)");
 					}
-
-					receivedFileCount++;
 				}
 			}
 		}
@@ -255,8 +255,8 @@ public class PenumbraSync : SyncProviderBase
 			connection.SendObject(hash, streamWrapper, out packetSequenceNumber);
 			totalBytesSent += bytesToSend;
 
-			int p = (int)(((float)totalBytesSent / stream.Length) * 100);
-			Plugin.Log.Information($"> {totalBytesSent} / {stream.Length} > {p}%");
+			/*int p = (int)(((float)totalBytesSent / stream.Length) * 100);
+			Plugin.Log.Information($"> {totalBytesSent} / {stream.Length} > {p}%");*/
 		}
 		while (totalBytesSent < stream.Length);
 

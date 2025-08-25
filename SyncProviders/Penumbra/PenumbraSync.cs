@@ -17,10 +17,12 @@ namespace PeerSync.SyncProviders.Penumbra;
 
 public class PenumbraSync : SyncProviderBase
 {
-	const ushort fileTimeout = 10000;
+	const ushort fileTimeout = 30000;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
+
+	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 
 	public override string Key => "Penumbra";
 
@@ -88,6 +90,7 @@ public class PenumbraSync : SyncProviderBase
 					str = str.Replace("-", string.Empty, StringComparison.Ordinal);
 					str += Path.GetExtension(path);
 
+					hashToFileLookup[str] = file;
 					data.Files[gamePath] = str;
 				}
 				else
@@ -140,17 +143,17 @@ public class PenumbraSync : SyncProviderBase
 		if (data == null)
 			return;
 
-		foreach ((string gamePath, string hashPath) in data.Files)
+		foreach ((string gamePath, string hash) in data.Files)
 		{
-			FileInfo? file = this.fileCache.GetFile(hashPath);
+			FileInfo? file = this.fileCache.GetFile(hash);
 			if (file == null || !file.Exists)
 			{
 				if (character.Connection == null || !character.Connection.ConnectionAlive())
 					continue;
 
 				byte[]? fileData = null;
-				character.Connection.AppendIncomingPacketHandler<byte[]>(hashPath, (_, _, packet) => fileData = packet);
-				character.Connection.SendObject("FileRequest", hashPath);
+				character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, packet) => fileData = packet);
+				character.Connection.SendObject("FileRequest", hash);
 
 				Stopwatch sw = new();
 				sw.Start();
@@ -162,17 +165,24 @@ public class PenumbraSync : SyncProviderBase
 				if (character.Connection == null || !character.Connection.ConnectionAlive())
 					return;
 
-				character.Connection.RemoveIncomingPacketHandler(hashPath);
+				character.Connection.RemoveIncomingPacketHandler(hash);
 
 				sw.Stop();
-				if (sw.ElapsedMilliseconds >= fileTimeout)
+				if (fileData == null || sw.ElapsedMilliseconds >= fileTimeout)
 				{
 					Plugin.Log.Warning($"File transfer timeout");
 					continue;
 				}
+				else if (fileData.Length <= 0)
+				{
+					Plugin.Log.Warning($"Peer did not send file: {hash}");
+				}
 				else
 				{
-					Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to transfer file: {hashPath}");
+					int size = fileData.Length / 1024;
+					Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({size}kb)");
+
+					this.fileCache.SaveFile(fileData, hash);
 				}
 			}
 		}
@@ -182,10 +192,18 @@ public class PenumbraSync : SyncProviderBase
 
 	private void OnFileRequest(PacketHeader packetHeader, Connection connection, string hash)
 	{
-		Plugin.Log.Information($"Got file request: {hash}");
+		FileInfo? fileInfo = null;
+		if (!hashToFileLookup.TryGetValue(hash, out fileInfo) || fileInfo == null || !fileInfo.Exists)
+		{
+			Plugin.Log.Warning($"File: {hash} missing!");
+			connection.SendObject(hash, new byte[0]);
+			return;
+		}
 
-		// 10Mb
-		byte[] data = new byte[1024 * 1024 * 10];
+		byte[] data = File.ReadAllBytes(fileInfo.FullName);
+
+		int size = data.Length / 1024;
+		Plugin.Log.Information($"Sending file: {hash} ({size}kb)");
 
 		connection.SendObject(hash, data);
 	}

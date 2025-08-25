@@ -223,8 +223,6 @@ public sealed class Plugin : IDalamudPlugin
 			Dictionary<string, string> dataProcessorOptions = new();
 
 			NetworkComms.DefaultSendReceiveOptions = new(serializer, dataProcessors, dataProcessorOptions);
-			NetworkComms.DefaultSendReceiveOptions.ReceiveConfirmationRequired = false;
-
 			NetworkComms.AppendGlobalConnectionEstablishHandler(this.OnClientEstablished);
 			NetworkComms.AppendGlobalConnectionCloseHandler(this.OnClientShutdown);
 			NetworkComms.AppendGlobalIncomingPacketHandler<string>("iam", this.OnIAmPacket);

@@ -1,7 +1,6 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 using System;
-using System.Buffers.Text;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -15,6 +14,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class PenumbraSync : SyncProviderBase
 {
 	private readonly PenumbraCommunicator penumbra = new();
+	private readonly FileCache fileCache = new();
 
 	public override string Key => "Penumbra";
 
@@ -86,6 +86,9 @@ public class PenumbraSync : SyncProviderBase
 		if (!penumbra.GetIsAvailable())
 			return;
 
+		if (!this.fileCache.IsValid())
+			return;
+
 		if (content == null)
 		{
 			// TODO: Disable mod collection
@@ -105,7 +108,14 @@ public class PenumbraSync : SyncProviderBase
 		if (data == null)
 			return;
 
-		// TODO
+		foreach ((string gamePath, string hashPath) in data.Files)
+		{
+			FileInfo? file = this.fileCache.GetFile(hashPath);
+			if (file == null || !file.Exists)
+			{
+				////Plugin.Log.Information($"Missing file: {gamePath} ({hashPath})");
+			}
+		}
 
 		await Task.Delay(100);
 	}

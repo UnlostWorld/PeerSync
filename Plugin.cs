@@ -29,13 +29,14 @@ using System.Text;
 using Newtonsoft.Json;
 using NetworkCommsDotNet.DPSBase.SevenZipLZMACompressor;
 using PeerSync.SyncProviders.Glamourer;
+using PeerSync.SyncProviders.Penumbra;
 
 public sealed class Plugin : IDalamudPlugin
 {
-	public readonly FileCache FileCache = new();
 	public readonly List<SyncProviderBase> SyncProviders = new()
 	{
 		new GlamourerSync(),
+		new PenumbraSync(),
 	};
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
@@ -192,12 +193,6 @@ public sealed class Plugin : IDalamudPlugin
 
 		if (shuttingDown)
 			return;
-
-		if (!FileCache.IsValid())
-		{
-			Status = $"Invalid cache directory";
-			return;
-		}
 
 		// Open port
 		ushort port = Configuration.Current.Port;

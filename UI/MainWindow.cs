@@ -34,6 +34,7 @@ public class MainWindow : Window, IDisposable
 			return;
 
 		ImGui.Text(plugin.Status);
+		ImGui.Text(plugin.Status);
 
 		if (ImGui.BeginTabBar("##tabs"))
 		{

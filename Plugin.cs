@@ -316,7 +316,7 @@ public sealed class Plugin : IDalamudPlugin
 
 				Status = $"Connected";
 				this.connected = true;
-				await Task.Delay(10000);
+				await Task.Delay(5000);
 			}
 			catch (Exception ex)
 			{

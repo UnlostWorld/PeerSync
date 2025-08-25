@@ -406,9 +406,6 @@ public sealed class Plugin : IDalamudPlugin
 			await Task.Delay(1).ConfigureAwait(false);
 			if (resourcePaths != null)
 			{
-				Stopwatch sw = new();
-				sw.Start();
-
 				LocalCharacterData.PenumbraFileReplacementHashes = new();
 				foreach ((string path, HashSet<string> gamePaths) in resourcePaths)
 				{
@@ -438,9 +435,6 @@ public sealed class Plugin : IDalamudPlugin
 						}
 					}
 				}
-
-				sw.Stop();
-				Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to hash penumbra files.");
 			}
 		}
 

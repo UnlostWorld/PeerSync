@@ -150,6 +150,7 @@ public class PenumbraSync : SyncProviderBase
 
 				byte[]? fileData = null;
 				character.Connection.AppendIncomingPacketHandler<byte[]>(hashPath, (_, _, packet) => fileData = packet);
+				character.Connection.SendObject("FileRequest", hashPath);
 
 				Stopwatch sw = new();
 				sw.Start();
@@ -157,6 +158,9 @@ public class PenumbraSync : SyncProviderBase
 				{
 					await Task.Delay(100);
 				}
+
+				if (character.Connection == null || !character.Connection.ConnectionAlive())
+					return;
 
 				character.Connection.RemoveIncomingPacketHandler(hashPath);
 

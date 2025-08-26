@@ -151,6 +151,11 @@ public sealed class Plugin : IDalamudPlugin
 			sync.Dispose();
 		}
 
+		foreach (SyncProviderBase sync in this.SyncProviders)
+		{
+			sync.Dispose();
+		}
+
 		this.checkedCharacters.Clear();
 
 		NetworkComms.Shutdown();
@@ -309,11 +314,6 @@ public sealed class Plugin : IDalamudPlugin
 			return;
 
 		Status = "Connecting to server...";
-
-		foreach (SyncProviderBase sync in this.SyncProviders)
-		{
-			sync.OnInitialized();
-		}
 
 		while (!shuttingDown)
 		{

@@ -31,6 +31,11 @@ public class PenumbraSync : SyncProviderBase
 
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 
+	public PenumbraSync()
+	{
+		NetworkComms.AppendGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
+	}
+
 	public override string Key => "Penumbra";
 	public override bool HasTab => true;
 
@@ -55,9 +60,10 @@ public class PenumbraSync : SyncProviderBase
 		".shpk"
 	];
 
-	public override void OnInitialized()
+	public override void Dispose()
 	{
-		NetworkComms.AppendGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
+		NetworkComms.RemoveGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
+		base.Dispose();
 	}
 
 	public override async Task<string?> Serialize(ushort objectIndex)
@@ -343,8 +349,8 @@ public class PenumbraSync : SyncProviderBase
 					if (character.Connection == null || !character.Connection.ConnectionAlive())
 						return;
 
-					byte[] bytes = new byte[thisChunkSize + 1];
-					stream.ReadExactly(bytes, this.BytesSent, thisChunkSize);
+					byte[] bytes = new byte[thisChunkSize];
+					stream.ReadExactly(bytes, 0, thisChunkSize);
 
 					this.character.Connection.SendObject(hash, bytes);
 					this.BytesSent += thisChunkSize;
@@ -415,7 +421,7 @@ public class PenumbraSync : SyncProviderBase
 
 				this.IsComplete = false;
 				this.IsWaiting = true;
-				while (sync.GetActiveDownloadCount() >= maxConcurrentDownloads && !this.IsComplete)
+				while (sync.GetActiveDownloadCount() >= maxConcurrentDownloads && !this.sync.IsDisposed)
 					await Task.Delay(500);
 
 				this.IsWaiting = false;
@@ -426,7 +432,7 @@ public class PenumbraSync : SyncProviderBase
 
 				if (!file.Exists)
 				{
-					if (character.Connection == null || !character.Connection.ConnectionAlive())
+					if (character.Connection == null || !character.Connection.ConnectionAlive() || this.sync.IsDisposed)
 						return;
 
 					//We create a file on disk so that we can receive large files
@@ -437,7 +443,7 @@ public class PenumbraSync : SyncProviderBase
 
 					Stopwatch sw = new();
 					sw.Start();
-					while (!this.IsComplete && sw.ElapsedMilliseconds < PenumbraSync.fileTimeout)
+					while (!this.IsComplete && sw.ElapsedMilliseconds < PenumbraSync.fileTimeout && !this.sync.IsDisposed)
 					{
 						await Task.Delay(100);
 					}

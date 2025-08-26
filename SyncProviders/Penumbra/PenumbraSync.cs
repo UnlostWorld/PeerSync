@@ -158,20 +158,16 @@ public class PenumbraSync : SyncProviderBase
 			FileInfo? file = this.fileCache.GetFile(hash);
 			if (file == null || !file.Exists)
 			{
-				FileDownload transfer = new(this, hash, character);
-				transfer.Begin();
-				this.Downloads.Add(transfer);
+				new FileDownload(this, hash, character);
 			}
+		}
 
-			Plugin.Log.Information($"Requesting {this.Downloads.Count} files.");
-
-			// Wait for all downloads from the target character to complete...
-			foreach (FileDownload t in this.Downloads)
+		// Wait for all downloads from the target character to complete...
+		foreach (FileDownload t in this.Downloads)
+		{
+			if (t.Character == character)
 			{
-				if (t.Character == character)
-				{
-					await t.Await();
-				}
+				await t.Await();
 			}
 		}
 
@@ -279,8 +275,6 @@ public class PenumbraSync : SyncProviderBase
 				// File complete flag
 				byte[] b = [1];
 				this.character.Connection?.SendObject(hash, b);
-
-				this.sync.Uploads.Remove(this);
 			}
 			catch (Exception ex)
 			{
@@ -288,20 +282,29 @@ public class PenumbraSync : SyncProviderBase
 			}
 			finally
 			{
+				this.sync.Uploads.Remove(this);
 				this.sync.ActiveUploadCount--;
 			}
 		}
 	}
 
-	public class FileDownload(PenumbraSync sync, string hash, CharacterSync character)
+	public class FileDownload
 	{
 		public long BytesReceived = 0;
 
-		private Task? transferTask;
+		private readonly Task? transferTask;
+		private readonly PenumbraSync sync;
+		private readonly string hash;
+		private readonly CharacterSync character;
 
-		public void Begin()
+		public FileDownload(PenumbraSync sync, string hash, CharacterSync character)
 		{
+			this.sync = sync;
+			this.hash = hash;
+			this.character = character;
 			this.transferTask = this.Transfer();
+
+			this.sync.Downloads.Add(this);
 		}
 
 		public CharacterSync Character => character;
@@ -381,6 +384,7 @@ public class PenumbraSync : SyncProviderBase
 			finally
 			{
 				sync.ActiveDownloadCount--;
+				this.sync.Downloads.Remove(this);
 			}
 		}
 	}

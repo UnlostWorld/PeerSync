@@ -163,15 +163,23 @@ public class PenumbraSync : SyncProviderBase
 		}
 
 		// Wait for all downloads from the target character to complete...
-		foreach (FileDownload t in this.Downloads)
+		bool done = false;
+		while (!done)
 		{
-			if (t.Character == character)
+			done = true;
+			foreach (FileDownload t in this.Downloads)
 			{
-				await t.Await();
+				if (t.Character == character)
+				{
+					done = false;
+					await t.Await();
+					break;
+				}
 			}
 		}
 
 		// TODO: Make mod collection!
+		Plugin.Log.Warning($"Files synced!");
 	}
 
 	private void OnFileRequest(PacketHeader packetHeader, Connection connection, string hash)

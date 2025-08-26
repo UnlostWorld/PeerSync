@@ -231,7 +231,7 @@ public sealed class Plugin : IDalamudPlugin
 		Status = $"listen for connections...";
 		try
 		{
-			NetworkComms.EnableLogging(new NetworkLogger());
+			////NetworkComms.EnableLogging(new NetworkLogger());
 
 			JSONSerializer serializer = new();
 			DPSManager.AddDataSerializer(serializer);

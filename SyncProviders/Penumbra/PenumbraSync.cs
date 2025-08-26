@@ -23,7 +23,7 @@ public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
 	const int fileChunkSize = 1024 * 10; // 10kb chunks
-	const int maxConcurrentUploads = 3;
+	const int maxConcurrentUploads = 10;
 	const int maxConcurrentDownloads = 10;
 
 	private readonly PenumbraCommunicator penumbra = new();
@@ -295,19 +295,17 @@ public class PenumbraSync : SyncProviderBase
 			this.Name = file.Name;
 			sync.Uploads.Add(this);
 
-			ThreadStart ts = new(this.Transfer);
-			Thread thread = new(ts);
-			thread.Start();
+			Task.Run(this.Transfer);
 		}
 
 		public bool IsWaiting { get; private set; }
 		public float Progress => (float)this.BytesSent / (float)this.BytesToSend;
 
-		private void Transfer()
+		private async Task Transfer()
 		{
 			this.IsWaiting = true;
 			while (sync.GetActiveUploadCount() >= maxConcurrentUploads)
-				Thread.Sleep(500);
+				await Task.Delay(500);
 
 			this.IsWaiting = false;
 			try
@@ -326,7 +324,7 @@ public class PenumbraSync : SyncProviderBase
 						lastException = ex;
 						stream?.Dispose();
 						stream = null;
-						Thread.Sleep(100);
+						await Task.Delay(100);
 					}
 				}
 
@@ -354,6 +352,8 @@ public class PenumbraSync : SyncProviderBase
 
 					this.character.Connection.SendObject(hash, bytes);
 					this.BytesSent += thisChunkSize;
+
+					await Task.Delay(1).ConfigureAwait(false);
 				}
 				while (this.BytesSent < this.BytesToSend);
 

@@ -39,6 +39,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="ConcurrentHashSet" Version="1.3.0" />
 		<PackageReference Include="lz4net" Version="1.0.15.93" />
 		<PackageReference Include="NetworkCommsDotNetStandard" Version="3.0.4.1" />
 		<PackageReference Include="SharpOpenNat" Version="4.0.17" />

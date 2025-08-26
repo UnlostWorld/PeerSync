@@ -1,6 +1,7 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -9,6 +10,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
 using NetworkCommsDotNet;
 using NetworkCommsDotNet.Connections;
@@ -32,11 +34,8 @@ public class PenumbraSync : SyncProviderBase
 	public override string Key => "Penumbra";
 	public override bool HasTab => true;
 
-	private List<FileDownload> Downloads { get; init; } = new();
-	private HashSet<FileDownload> ActiveDownloads { get; init; } = new();
-
-	private List<FileUpload> Uploads { get; init; } = new();
-	private HashSet<FileUpload> ActiveUploads { get; init; } = new();
+	private ConcurrentHashSet<FileDownload> Downloads { get; init; } = new();
+	private ConcurrentHashSet<FileUpload> Uploads { get; init; } = new();
 
 	public static readonly HashSet<string> AllowedFileExtensions =
 	[
@@ -184,6 +183,34 @@ public class PenumbraSync : SyncProviderBase
 		Plugin.Log.Warning($"Files synced!");
 	}
 
+	public int GetActiveDownloadCount()
+	{
+		int count = 0;
+		foreach (FileDownload download in this.Downloads)
+		{
+			if (download.IsWaiting)
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
+	public int GetActiveUploadCount()
+	{
+		int count = 0;
+		foreach (FileUpload upload in this.Uploads)
+		{
+			if (upload.IsWaiting)
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
 	private void OnFileRequest(PacketHeader packetHeader, Connection connection, string hash)
 	{
 		FileInfo? fileInfo = null;
@@ -208,16 +235,16 @@ public class PenumbraSync : SyncProviderBase
 	{
 		base.DrawTab();
 
-		ImGui.Text($"Uploading {this.ActiveUploads.Count} / {this.Uploads.Count}");
+		ImGui.Text($"Uploading {this.GetActiveUploadCount()} / {this.Uploads.Count}");
 		foreach (FileUpload upload in this.Uploads)
 		{
-			ImGui.Text($"{upload.Name} - {(int)(upload.Progress * 100)}%");
+			ImGui.Text($" > {upload.Name} - {(int)(upload.Progress * 100)}%");
 		}
 
-		ImGui.Text($"Downloading {this.ActiveDownloads.Count} / {this.Downloads.Count}");
+		ImGui.Text($"Downloading {this.GetActiveDownloadCount()} / {this.Downloads.Count}");
 		foreach (FileDownload download in this.Downloads)
 		{
-			ImGui.Text($"{download.Name} - {(int)(download.Progress * 100)}%");
+			ImGui.Text($" > {download.Name} - {(int)(download.Progress * 100)}%");
 		}
 	}
 
@@ -261,11 +288,10 @@ public class PenumbraSync : SyncProviderBase
 		private async Task Transfer()
 		{
 			this.IsWaiting = true;
-			while (sync.ActiveUploads.Count >= maxConcurrentUploads)
+			while (sync.GetActiveUploadCount() >= maxConcurrentUploads)
 				await Task.Delay(500);
 
 			this.IsWaiting = false;
-			sync.ActiveUploads.Add(this);
 			try
 			{
 				FileStream? stream = null;
@@ -331,8 +357,10 @@ public class PenumbraSync : SyncProviderBase
 			}
 			finally
 			{
-				this.sync.Uploads.Remove(this);
-				this.sync.ActiveUploads.Remove(this);
+				if (!this.sync.Uploads.TryRemove(this))
+				{
+					Plugin.Log.Error("Error removing upload from queue");
+				}
 			}
 		}
 	}
@@ -369,11 +397,10 @@ public class PenumbraSync : SyncProviderBase
 			try
 			{
 				this.IsWaiting = true;
-				while (sync.ActiveDownloads.Count >= maxConcurrentDownloads)
+				while (sync.GetActiveDownloadCount() >= maxConcurrentDownloads)
 					await Task.Delay(500);
 
 				this.IsWaiting = false;
-				sync.ActiveDownloads.Add(this);
 				FileInfo? file = sync.fileCache.GetFile(hash);
 
 				if (file == null)
@@ -420,27 +447,25 @@ public class PenumbraSync : SyncProviderBase
 					sw.Stop();
 					if (!complete || sw.ElapsedMilliseconds >= fileTimeout)
 					{
-						Plugin.Log.Warning($"File transfer timeout");
+						Plugin.Log.Warning($"File download timeout");
 						return;
 					}
 					else if (BytesReceived <= 0)
 					{
 						Plugin.Log.Warning($"Peer did not send file: {hash}");
 					}
-					else
-					{
-						Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({BytesReceived / 1024}kb)");
-					}
 				}
 			}
 			catch (Exception ex)
 			{
-				Plugin.Log.Error(ex, "Error transferring file");
+				Plugin.Log.Error(ex, "Error downloading file");
 			}
 			finally
 			{
-				this.sync.ActiveDownloads.Remove(this);
-				this.sync.Downloads.Remove(this);
+				if (!this.sync.Downloads.TryRemove(this))
+				{
+					Plugin.Log.Error("Error removing download from queue");
+				}
 			}
 		}
 	}

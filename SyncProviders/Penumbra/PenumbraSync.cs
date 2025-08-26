@@ -102,11 +102,13 @@ public class PenumbraSync : SyncProviderBase
 
 					hashToFileLookup[str] = file;
 					data.Files[gamePath] = str;
+					data.FileSizes[str] = stream.Length;
 				}
 				else
 				{
-					// for redirects that are not modded files, don't hash it, just send it as is.
-					data.Files[gamePath] = path;
+					// Unsure about this one.
+					Plugin.Log.Warning("I haven't written this part yet.");
+					////data.Files[gamePath] = path;
 				}
 			}
 		}
@@ -158,8 +160,11 @@ public class PenumbraSync : SyncProviderBase
 			FileInfo? file = this.fileCache.GetFile(hash);
 			if (file == null || !file.Exists)
 			{
+				long expectedSize = 0;
+				data.FileSizes.TryGetValue(hash, out expectedSize);
+
 				string name = Path.GetFileName(gamePath);
-				new FileDownload(this, name, hash, character);
+				new FileDownload(this, name, hash, expectedSize, character);
 			}
 		}
 
@@ -238,12 +243,18 @@ public class PenumbraSync : SyncProviderBase
 		ImGui.Text($"Uploading {this.GetActiveUploadCount()} / {this.Uploads.Count}");
 		foreach (FileUpload upload in this.Uploads)
 		{
+			if (upload.IsWaiting)
+				continue;
+
 			ImGui.Text($" > {upload.Name} - {(int)(upload.Progress * 100)}%");
 		}
 
 		ImGui.Text($"Downloading {this.GetActiveDownloadCount()} / {this.Downloads.Count}");
 		foreach (FileDownload download in this.Downloads)
 		{
+			if (download.IsWaiting)
+				continue;
+
 			ImGui.Text($" > {download.Name} - {(int)(download.Progress * 100)}%");
 		}
 	}
@@ -251,6 +262,7 @@ public class PenumbraSync : SyncProviderBase
 	public class PenumbraData
 	{
 		public Dictionary<string, string> Files { get; set; } = new();
+		public Dictionary<string, long> FileSizes { get; set; } = new();
 		public string? MetaManipulations { get; set; }
 	}
 
@@ -367,6 +379,7 @@ public class PenumbraSync : SyncProviderBase
 
 	public class FileDownload
 	{
+		public long BytesToReceive = 0;
 		public long BytesReceived = 0;
 
 		public readonly string Name;
@@ -376,12 +389,13 @@ public class PenumbraSync : SyncProviderBase
 		private readonly string hash;
 		private readonly CharacterSync character;
 
-		public FileDownload(PenumbraSync sync, string name, string hash, CharacterSync character)
+		public FileDownload(PenumbraSync sync, string name, string hash, long expectedSize, CharacterSync character)
 		{
 			this.sync = sync;
 			this.Name = name;
 			this.hash = hash;
 			this.character = character;
+			this.BytesToReceive = expectedSize;
 			this.transferTask = Task.Run(this.Transfer);
 
 			this.sync.Downloads.Add(this);
@@ -389,7 +403,7 @@ public class PenumbraSync : SyncProviderBase
 
 		public CharacterSync Character => character;
 		public bool IsWaiting { get; private set; }
-		public float Progress = -1;
+		public float Progress => (float)this.BytesReceived / (float)this.BytesToReceive;
 		public Task Await() => this.transferTask ?? Task.CompletedTask;
 
 		private async Task Transfer()

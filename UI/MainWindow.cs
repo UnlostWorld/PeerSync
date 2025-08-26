@@ -33,9 +33,6 @@ public class MainWindow : Window, IDisposable
 		if (plugin == null)
 			return;
 
-		string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
-		ImGui.Text($"v{pluginVersion}");
-
 		ImGui.Text(plugin.Status);
 
 		if (ImGui.BeginTabBar("##tabs"))

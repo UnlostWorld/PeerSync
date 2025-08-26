@@ -21,8 +21,8 @@ public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
 	const int fileChunkSize = 1024 * 100; // 100kb chunks
-	const int maxConcurrentUploads = 10;
-	const int maxConcurrentDownloads = 10;
+	const int maxConcurrentUploads = 5;
+	const int maxConcurrentDownloads = 5;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -207,11 +207,15 @@ public class PenumbraSync : SyncProviderBase
 		base.DrawTab();
 
 		ImGui.Text($"Uploading {this.ActiveUploadCount} / {this.Uploads.Count}");
-		ImGui.Text($"Downloading {this.ActiveDownloadCount} / {this.Downloads.Count}");
-
 		foreach (FileUpload upload in this.Uploads)
 		{
 			ImGui.Text($"{(int)(upload.Progress * 100)}%");
+		}
+
+		ImGui.Text($"Downloading {this.ActiveDownloadCount} / {this.Downloads.Count}");
+		foreach (FileDownload upload in this.Downloads)
+		{
+			ImGui.Text($"...%");
 		}
 	}
 
@@ -243,15 +247,18 @@ public class PenumbraSync : SyncProviderBase
 			this.transferTask = Task.Run(this.Transfer);
 		}
 
+		public bool IsWaiting { get; private set; }
 		public float Progress => (float)this.BytesSent / (float)this.BytesToSend;
 
 		public Task Await() => this.transferTask ?? Task.CompletedTask;
 
 		private async Task Transfer()
 		{
+			this.IsWaiting = true;
 			while (sync.ActiveUploadCount >= maxConcurrentUploads)
 				await Task.Delay(500);
 
+			this.IsWaiting = false;
 			sync.ActiveUploadCount++;
 			try
 			{
@@ -264,7 +271,7 @@ public class PenumbraSync : SyncProviderBase
 
 				do
 				{
-					await Task.Yield();
+					await Task.Delay(10);
 					long thisChunkSize = fileChunkSize;
 					if (this.BytesSent + thisChunkSize > this.BytesToSend)
 						thisChunkSize = this.BytesToSend - this.BytesSent;
@@ -274,11 +281,17 @@ public class PenumbraSync : SyncProviderBase
 						this.BytesSent,
 						thisChunkSize);
 
+					if (character.Connection == null || !character.Connection.ConnectionAlive())
+						return;
+
 					long packetSequenceNumber;
-					this.character.Connection?.SendObject(hash, streamWrapper, out packetSequenceNumber);
+					this.character.Connection.SendObject(hash, streamWrapper, out packetSequenceNumber);
 					this.BytesSent += thisChunkSize;
 				}
 				while (this.BytesSent < this.BytesToSend);
+
+				if (character.Connection == null || !character.Connection.ConnectionAlive())
+					return;
 
 				// File complete flag
 				byte[] b = [1];
@@ -316,15 +329,18 @@ public class PenumbraSync : SyncProviderBase
 		}
 
 		public CharacterSync Character => character;
+		public bool IsWaiting { get; private set; }
 		public Task Await() => this.transferTask ?? Task.CompletedTask;
 
 		private async Task Transfer()
 		{
 			try
 			{
+				this.IsWaiting = true;
 				while (sync.ActiveDownloadCount >= maxConcurrentDownloads)
 					await Task.Delay(500);
 
+				this.IsWaiting = false;
 				sync.ActiveDownloadCount++;
 				FileInfo? file = sync.fileCache.GetFile(hash);
 

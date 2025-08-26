@@ -240,7 +240,7 @@ public class PenumbraSync : SyncProviderBase
 			this.character = character;
 
 			sync.Uploads.Add(this);
-			this.transferTask = this.Transfer();
+			this.transferTask = Task.Run(this.Transfer);
 		}
 
 		public float Progress => (float)this.BytesSent / (float)this.BytesToSend;
@@ -310,7 +310,7 @@ public class PenumbraSync : SyncProviderBase
 			this.sync = sync;
 			this.hash = hash;
 			this.character = character;
-			this.transferTask = this.Transfer();
+			this.transferTask = Task.Run(this.Transfer);
 
 			this.sync.Downloads.Add(this);
 		}

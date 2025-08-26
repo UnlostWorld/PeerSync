@@ -180,6 +180,17 @@ public class MainWindow : Window, IDisposable
 				ImGui.EndTabItem();
 			}
 
+			foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
+			{
+				if (!syncProvider.HasTab)
+					continue;
+
+				if (ImGui.BeginTabItem(syncProvider.Key))
+				{
+					syncProvider.DrawTab();
+				}
+			}
+
 			ImGui.EndTabBar();
 		}
 	}

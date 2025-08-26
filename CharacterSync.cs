@@ -3,6 +3,7 @@
 namespace PeerSync;
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -32,8 +33,6 @@ public class CharacterSync : IDisposable
 		this.CharacterName = characterName;
 		this.World = world;
 		this.Identifier = GetIdentifier(characterName, world, password);
-
-		Plugin.Log?.Info($"Create Sync: {characterName}@{world} ({this.Identifier})");
 
 		Task.Run(this.Connect);
 	}
@@ -98,7 +97,7 @@ public class CharacterSync : IDisposable
 			|| this.CurrentStatus == Status.Handshake)
 			return;
 
-		Plugin.Log?.Info($"Reconnect Sync: {this.CharacterName}@{this.World} ({this.Identifier})");
+		Plugin.Log?.Info($"Reconnecting...");
 
 		this.connection?.Dispose();
 		this.connection = null;
@@ -137,7 +136,6 @@ public class CharacterSync : IDisposable
 		this.disposed = true;
 		this.connection?.CloseConnection(false);
 		this.connection?.Dispose();
-		Plugin.Log?.Info($"Destroy Sync: {this.CharacterName}@{this.World} ({this.Identifier})");
 	}
 
 	public bool Update()

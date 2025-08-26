@@ -5,9 +5,11 @@ using PeerSync;
 
 public abstract class SyncProviderBase
 {
+	public virtual bool HasTab => false;
 	public abstract string Key { get; }
 
 	public virtual void OnInitialized() { }
 	public abstract Task<string?> Serialize(ushort objectIndex);
 	public abstract Task Deserialize(string? content, CharacterSync character);
+	public virtual void DrawTab() { }
 }

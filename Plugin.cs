@@ -30,6 +30,9 @@ using Newtonsoft.Json;
 using NetworkCommsDotNet.DPSBase.SevenZipLZMACompressor;
 using PeerSync.SyncProviders.Glamourer;
 using PeerSync.SyncProviders.Penumbra;
+using NetworkCommsDotNet.Connections.TCP;
+using System.Reflection;
+using NetworkCommsDotNet.Tools;
 
 public sealed class Plugin : IDalamudPlugin
 {
@@ -63,6 +66,7 @@ public sealed class Plugin : IDalamudPlugin
 
 	private bool connected = false;
 	private bool shuttingDown = false;
+	private List<ConnectionListenerBase>? connectionListeners;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
 
@@ -109,6 +113,19 @@ public sealed class Plugin : IDalamudPlugin
 		foreach (CharacterSync sync in this.checkedCharacters.Values)
 		{
 			if (sync.Identifier == identifier)
+			{
+				return sync;
+			}
+		}
+
+		return null;
+	}
+
+	public CharacterSync? GetCharacterSync(Connection connection)
+	{
+		foreach (CharacterSync sync in this.checkedCharacters.Values)
+		{
+			if (sync.Connection == connection)
 			{
 				return sync;
 			}
@@ -226,7 +243,8 @@ public sealed class Plugin : IDalamudPlugin
 			NetworkComms.AppendGlobalConnectionEstablishHandler(this.OnClientEstablished);
 			NetworkComms.AppendGlobalConnectionCloseHandler(this.OnClientShutdown);
 			NetworkComms.AppendGlobalIncomingPacketHandler<string>("iam", this.OnIAmPacket);
-			Connection.StartListening(ConnectionType.TCP, new IPEndPoint(IPAddress.Any, port));
+			this.connectionListeners = Connection.StartListening(ConnectionType.TCP, new IPEndPoint(IPAddress.Any, port));
+
 			Status = $"Started listening for connections";
 			Plugin.Log.Information("Started listening for connections");
 		}

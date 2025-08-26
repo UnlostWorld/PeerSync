@@ -9,6 +9,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Dalamud.Bindings.ImGui;
 using NetworkCommsDotNet;
 using NetworkCommsDotNet.Connections;
 using Newtonsoft.Json;
@@ -20,15 +21,21 @@ public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
 	const int fileChunkSize = 1024 * 100; // 100kb chunks
-	const int maxConcurrentTransfers = 10;
+	const int maxConcurrentUploads = 10;
+	const int maxConcurrentDownloads = 10;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
 
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
-	private int ConcurrentTransfers = 0;
 
 	public override string Key => "Penumbra";
+	public override bool HasTab => true;
+
+	private List<FileDownload> Downloads { get; init; } = new();
+	private List<FileUpload> Uploads { get; init; } = new();
+	private int ActiveUploadCount { get; set; } = 0;
+	private int ActiveDownloadCount { get; set; } = 0;
 
 	public static readonly HashSet<string> AllowedFileExtensions =
 	[
@@ -86,7 +93,7 @@ public class PenumbraSync : SyncProviderBase
 				if (isFilePath)
 				{
 					FileInfo file = new(path);
-					using FileStream stream = file.OpenRead();
+					using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, fileChunkSize, false);
 
 					bytes = sha.ComputeHash(stream);
 					string str = BitConverter.ToString(bytes);
@@ -146,112 +153,29 @@ public class PenumbraSync : SyncProviderBase
 		if (data == null)
 			return;
 
-		int missingFileCount = 0;
 		foreach ((string gamePath, string hash) in data.Files)
 		{
 			FileInfo? file = this.fileCache.GetFile(hash);
 			if (file == null || !file.Exists)
 			{
-				missingFileCount++;
+				FileDownload transfer = new(this, hash, character);
+				transfer.Begin();
+				this.Downloads.Add(transfer);
 			}
-		}
 
-		if (missingFileCount > 0)
-		{
-			Plugin.Log.Information($"Requesting {missingFileCount} files.");
+			Plugin.Log.Information($"Requesting {this.Downloads.Count} files.");
 
-			List<Task> transferTasks = new();
-			foreach ((string gamePath, string hash) in data.Files)
+			// Wait for all downloads from the target character to complete...
+			foreach (FileDownload t in this.Downloads)
 			{
-				Task t = Task.Run(async () => await this.TransferFile(hash, character));
-				transferTasks.Add(t);
-			}
-
-			foreach (Task t in transferTasks)
-			{
-				await t;
-			}
-		}
-
-		await Task.Delay(100);
-	}
-
-	private async Task TransferFile(string hash, CharacterSync character)
-	{
-		try
-		{
-			while (ConcurrentTransfers >= maxConcurrentTransfers)
-				await Task.Delay(500);
-
-			ConcurrentTransfers++;
-			FileInfo? file = this.fileCache.GetFile(hash);
-
-			if (file == null)
-				return;
-
-			if (!file.Exists)
-			{
-				if (character.Connection == null || !character.Connection.ConnectionAlive())
-					return;
-
-				//We create a file on disk so that we can receive large files
-				FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
-
-				bool complete = false;
-				long receivedBytes = 0;
-				character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
+				if (t.Character == character)
 				{
-					if (data.Length <= 1)
-					{
-						complete = true;
-					}
-					else
-					{
-						fileStream.Write(data);
-						receivedBytes += data.Length;
-					}
-				});
-
-				character.Connection.SendObject("FileRequest", hash);
-
-				Stopwatch sw = new();
-				sw.Start();
-				while (!complete && sw.ElapsedMilliseconds < fileTimeout)
-				{
-					await Task.Delay(100);
-				}
-
-				fileStream.Flush();
-
-				if (character.Connection == null || !character.Connection.ConnectionAlive())
-					return;
-
-				character.Connection.RemoveIncomingPacketHandler(hash);
-
-				sw.Stop();
-				if (!complete || sw.ElapsedMilliseconds >= fileTimeout)
-				{
-					Plugin.Log.Warning($"File transfer timeout");
-					return;
-				}
-				else if (receivedBytes <= 0)
-				{
-					Plugin.Log.Warning($"Peer did not send file: {hash}");
-				}
-				else
-				{
-					Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({receivedBytes / 1024}kb)");
+					await t.Await();
 				}
 			}
 		}
-		catch (Exception ex)
-		{
-			Plugin.Log.Error(ex, "Error transferring file");
-		}
-		finally
-		{
-			ConcurrentTransfers--;
-		}
+
+		// TODO: Make mod collection!
 	}
 
 	private void OnFileRequest(PacketHeader packetHeader, Connection connection, string hash)
@@ -264,35 +188,181 @@ public class PenumbraSync : SyncProviderBase
 			return;
 		}
 
-		using FileStream stream = new(fileInfo.FullName, FileMode.Open);
-		using ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
-		Plugin.Log.Information($"Sending file: {hash} ({stream.Length / 1024}kb)");
-
-		long totalBytesSent = 0;
-		do
+		CharacterSync? character = Plugin.Instance?.GetCharacterSync(connection);
+		if (character == null)
 		{
-			long bytesToSend = fileChunkSize;
-			if (totalBytesSent + bytesToSend > stream.Length)
-				bytesToSend = stream.Length - totalBytesSent;
-
-			using StreamSendWrapper streamWrapper = new StreamSendWrapper(threadSafeStream, totalBytesSent, bytesToSend);
-			long packetSequenceNumber;
-			connection.SendObject(hash, streamWrapper, out packetSequenceNumber);
-			totalBytesSent += bytesToSend;
-
-			/*int p = (int)(((float)totalBytesSent / stream.Length) * 100);
-			Plugin.Log.Information($"> {totalBytesSent} / {stream.Length} > {p}%");*/
+			Plugin.Log.Warning($"File request from unknown connection!");
+			return;
 		}
-		while (totalBytesSent < stream.Length);
 
-		byte[] b = new byte[1];
-		b[0] = 1;
-		connection.SendObject(hash, b);
+		FileUpload upload = new FileUpload(this, hash, fileInfo, character);
+		upload.Begin();
+		this.Uploads.Add(upload);
+	}
+
+	public override void DrawTab()
+	{
+		base.DrawTab();
+
+		ImGui.Text($"Uploading {this.ActiveUploadCount} / {this.Uploads.Count}");
+		ImGui.Text($"Downloading {this.ActiveDownloadCount} / {this.Downloads.Count}");
 	}
 
 	public class PenumbraData
 	{
 		public Dictionary<string, string> Files { get; set; } = new();
 		public string? MetaManipulations { get; set; }
+	}
+
+	public class FileUpload(PenumbraSync sync, string hash, FileInfo file, CharacterSync character)
+	{
+		public float Progress = 0;
+		public long BytesSent = 0;
+		public long FileSize = 0;
+
+		private Task? transferTask;
+
+		public Task Await() => this.transferTask ?? Task.CompletedTask;
+
+		public void Begin()
+		{
+			this.transferTask = this.Transfer();
+		}
+
+		private async Task Transfer()
+		{
+			while (sync.ActiveUploadCount >= maxConcurrentUploads)
+				await Task.Delay(500);
+
+			sync.ActiveUploadCount++;
+			try
+			{
+				using FileStream stream = new(file.FullName, FileMode.Open);
+				using ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
+				Plugin.Log.Information($"Sending file: {hash} ({stream.Length / 1024}kb)");
+
+				long totalBytesSent = 0;
+				do
+				{
+					await Task.Yield();
+					long bytesToSend = fileChunkSize;
+					if (totalBytesSent + bytesToSend > stream.Length)
+						bytesToSend = stream.Length - totalBytesSent;
+
+					using StreamSendWrapper streamWrapper = new StreamSendWrapper(threadSafeStream, totalBytesSent, bytesToSend);
+					long packetSequenceNumber;
+					character.Connection?.SendObject(hash, streamWrapper, out packetSequenceNumber);
+					totalBytesSent += bytesToSend;
+
+					/*int p = (int)(((float)totalBytesSent / stream.Length) * 100);
+					Plugin.Log.Information($"> {totalBytesSent} / {stream.Length} > {p}%");*/
+				}
+				while (totalBytesSent < stream.Length);
+
+				byte[] b = new byte[1];
+				b[0] = 1;
+				character.Connection?.SendObject(hash, b);
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, "Error uploading file");
+			}
+			finally
+			{
+				sync.ActiveUploadCount--;
+			}
+		}
+	}
+
+	public class FileDownload(PenumbraSync sync, string hash, CharacterSync character)
+	{
+		public long BytesReceived = 0;
+
+		private Task? transferTask;
+
+		public void Begin()
+		{
+			this.transferTask = this.Transfer();
+		}
+
+		public CharacterSync Character => character;
+		public Task Await() => this.transferTask ?? Task.CompletedTask;
+
+		private async Task Transfer()
+		{
+			try
+			{
+				while (sync.ActiveDownloadCount >= maxConcurrentDownloads)
+					await Task.Delay(500);
+
+				sync.ActiveDownloadCount++;
+				FileInfo? file = sync.fileCache.GetFile(hash);
+
+				if (file == null)
+					return;
+
+				if (!file.Exists)
+				{
+					if (character.Connection == null || !character.Connection.ConnectionAlive())
+						return;
+
+					//We create a file on disk so that we can receive large files
+					FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
+
+					bool complete = false;
+					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
+					{
+						if (data.Length <= 1)
+						{
+							complete = true;
+						}
+						else
+						{
+							fileStream.Write(data);
+							BytesReceived += data.Length;
+						}
+					});
+
+					character.Connection.SendObject("FileRequest", hash);
+
+					Stopwatch sw = new();
+					sw.Start();
+					while (!complete && sw.ElapsedMilliseconds < fileTimeout)
+					{
+						await Task.Delay(100);
+					}
+
+					fileStream.Flush();
+
+					if (character.Connection == null || !character.Connection.ConnectionAlive())
+						return;
+
+					character.Connection.RemoveIncomingPacketHandler(hash);
+
+					sw.Stop();
+					if (!complete || sw.ElapsedMilliseconds >= fileTimeout)
+					{
+						Plugin.Log.Warning($"File transfer timeout");
+						return;
+					}
+					else if (BytesReceived <= 0)
+					{
+						Plugin.Log.Warning($"Peer did not send file: {hash}");
+					}
+					else
+					{
+						Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({BytesReceived / 1024}kb)");
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, "Error transferring file");
+			}
+			finally
+			{
+				sync.ActiveDownloadCount--;
+			}
+		}
 	}
 }

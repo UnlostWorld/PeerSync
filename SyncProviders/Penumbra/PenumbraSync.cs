@@ -33,9 +33,10 @@ public class PenumbraSync : SyncProviderBase
 	public override bool HasTab => true;
 
 	private List<FileDownload> Downloads { get; init; } = new();
+	private HashSet<FileDownload> ActiveDownloads { get; init; } = new();
+
 	private List<FileUpload> Uploads { get; init; } = new();
-	private int ActiveUploadCount { get; set; } = 0;
-	private int ActiveDownloadCount { get; set; } = 0;
+	private HashSet<FileUpload> ActiveUploads { get; init; } = new();
 
 	public static readonly HashSet<string> AllowedFileExtensions =
 	[
@@ -158,7 +159,8 @@ public class PenumbraSync : SyncProviderBase
 			FileInfo? file = this.fileCache.GetFile(hash);
 			if (file == null || !file.Exists)
 			{
-				new FileDownload(this, hash, character);
+				string name = Path.GetFileName(gamePath);
+				new FileDownload(this, name, hash, character);
 			}
 		}
 
@@ -206,16 +208,16 @@ public class PenumbraSync : SyncProviderBase
 	{
 		base.DrawTab();
 
-		ImGui.Text($"Uploading {this.ActiveUploadCount} / {this.Uploads.Count}");
+		ImGui.Text($"Uploading {this.ActiveUploads.Count} / {this.Uploads.Count}");
 		foreach (FileUpload upload in this.Uploads)
 		{
 			ImGui.Text($"{(int)(upload.Progress * 100)}%");
 		}
 
-		ImGui.Text($"Downloading {this.ActiveDownloadCount} / {this.Downloads.Count}");
-		foreach (FileDownload upload in this.Downloads)
+		ImGui.Text($"Downloading {this.ActiveDownloads.Count} / {this.Downloads.Count}");
+		foreach (FileDownload download in this.Downloads)
 		{
-			ImGui.Text($"...%");
+			ImGui.Text($"{download.Name} - ??%");
 		}
 	}
 
@@ -255,11 +257,11 @@ public class PenumbraSync : SyncProviderBase
 		private async Task Transfer()
 		{
 			this.IsWaiting = true;
-			while (sync.ActiveUploadCount >= maxConcurrentUploads)
+			while (sync.ActiveUploads.Count >= maxConcurrentUploads)
 				await Task.Delay(500);
 
 			this.IsWaiting = false;
-			sync.ActiveUploadCount++;
+			sync.ActiveUploads.Add(this);
 			try
 			{
 				using FileStream stream = new(file.FullName, FileMode.Open);
@@ -304,7 +306,7 @@ public class PenumbraSync : SyncProviderBase
 			finally
 			{
 				this.sync.Uploads.Remove(this);
-				this.sync.ActiveUploadCount--;
+				this.sync.ActiveUploads.Remove(this);
 			}
 		}
 	}
@@ -313,14 +315,17 @@ public class PenumbraSync : SyncProviderBase
 	{
 		public long BytesReceived = 0;
 
+		public readonly string Name;
+
 		private readonly Task? transferTask;
 		private readonly PenumbraSync sync;
 		private readonly string hash;
 		private readonly CharacterSync character;
 
-		public FileDownload(PenumbraSync sync, string hash, CharacterSync character)
+		public FileDownload(PenumbraSync sync, string name, string hash, CharacterSync character)
 		{
 			this.sync = sync;
+			this.Name = name;
 			this.hash = hash;
 			this.character = character;
 			this.transferTask = Task.Run(this.Transfer);
@@ -337,11 +342,11 @@ public class PenumbraSync : SyncProviderBase
 			try
 			{
 				this.IsWaiting = true;
-				while (sync.ActiveDownloadCount >= maxConcurrentDownloads)
+				while (sync.ActiveDownloads.Count >= maxConcurrentDownloads)
 					await Task.Delay(500);
 
 				this.IsWaiting = false;
-				sync.ActiveDownloadCount++;
+				sync.ActiveDownloads.Add(this);
 				FileInfo? file = sync.fileCache.GetFile(hash);
 
 				if (file == null)
@@ -407,7 +412,7 @@ public class PenumbraSync : SyncProviderBase
 			}
 			finally
 			{
-				sync.ActiveDownloadCount--;
+				this.sync.ActiveDownloads.Remove(this);
 				this.sync.Downloads.Remove(this);
 			}
 		}

@@ -23,16 +23,12 @@ using SharpOpenNat;
 using NetworkCommsDotNet;
 using NetworkCommsDotNet.Connections;
 using System.IO;
-using System.Security.Cryptography;
 using NetworkCommsDotNet.DPSBase;
 using System.Text;
 using Newtonsoft.Json;
 using NetworkCommsDotNet.DPSBase.SevenZipLZMACompressor;
 using PeerSync.SyncProviders.Glamourer;
 using PeerSync.SyncProviders.Penumbra;
-using NetworkCommsDotNet.Connections.TCP;
-using System.Reflection;
-using NetworkCommsDotNet.Tools;
 
 public sealed class Plugin : IDalamudPlugin
 {

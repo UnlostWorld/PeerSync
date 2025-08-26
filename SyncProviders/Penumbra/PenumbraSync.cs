@@ -337,7 +337,7 @@ public class PenumbraSync : SyncProviderBase
 
 				do
 				{
-					await Task.Delay(10);
+					await Task.Delay(100);
 					long thisChunkSize = fileChunkSize;
 					if (this.BytesSent + thisChunkSize > this.BytesToSend)
 						thisChunkSize = this.BytesToSend - this.BytesSent;

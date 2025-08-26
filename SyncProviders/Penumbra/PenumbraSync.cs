@@ -195,9 +195,7 @@ public class PenumbraSync : SyncProviderBase
 			return;
 		}
 
-		FileUpload upload = new FileUpload(this, hash, fileInfo, character);
-		upload.Begin();
-		this.Uploads.Add(upload);
+		new FileUpload(this, hash, fileInfo, character);
 	}
 
 	public override void DrawTab()
@@ -206,6 +204,11 @@ public class PenumbraSync : SyncProviderBase
 
 		ImGui.Text($"Uploading {this.ActiveUploadCount} / {this.Uploads.Count}");
 		ImGui.Text($"Downloading {this.ActiveDownloadCount} / {this.Downloads.Count}");
+
+		foreach (FileUpload upload in this.Uploads)
+		{
+			ImGui.Text($"{(int)(upload.Progress * 100)}%");
+		}
 	}
 
 	public class PenumbraData
@@ -214,20 +217,31 @@ public class PenumbraSync : SyncProviderBase
 		public string? MetaManipulations { get; set; }
 	}
 
-	public class FileUpload(PenumbraSync sync, string hash, FileInfo file, CharacterSync character)
+	public class FileUpload
 	{
-		public float Progress = 0;
 		public long BytesSent = 0;
-		public long FileSize = 0;
+		public long BytesToSend = 0;
 
-		private Task? transferTask;
+		private readonly Task? transferTask;
+		private readonly PenumbraSync sync;
+		private readonly string hash;
+		private readonly FileInfo file;
+		private readonly CharacterSync character;
 
-		public Task Await() => this.transferTask ?? Task.CompletedTask;
-
-		public void Begin()
+		public FileUpload(PenumbraSync sync, string hash, FileInfo file, CharacterSync character)
 		{
+			this.sync = sync;
+			this.hash = hash;
+			this.file = file;
+			this.character = character;
+
+			sync.Uploads.Add(this);
 			this.transferTask = this.Transfer();
 		}
+
+		public float Progress => (float)this.BytesSent / (float)this.BytesToSend;
+
+		public Task Await() => this.transferTask ?? Task.CompletedTask;
 
 		private async Task Transfer()
 		{
@@ -241,27 +255,32 @@ public class PenumbraSync : SyncProviderBase
 				using ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
 				Plugin.Log.Information($"Sending file: {hash} ({stream.Length / 1024}kb)");
 
-				long totalBytesSent = 0;
+				this.BytesSent = 0;
+				this.BytesToSend = stream.Length;
+
 				do
 				{
 					await Task.Yield();
-					long bytesToSend = fileChunkSize;
-					if (totalBytesSent + bytesToSend > stream.Length)
-						bytesToSend = stream.Length - totalBytesSent;
+					long thisChunkSize = fileChunkSize;
+					if (this.BytesSent + thisChunkSize > this.BytesToSend)
+						thisChunkSize = this.BytesToSend - this.BytesSent;
 
-					using StreamSendWrapper streamWrapper = new StreamSendWrapper(threadSafeStream, totalBytesSent, bytesToSend);
+					using StreamSendWrapper streamWrapper = new StreamSendWrapper(
+						threadSafeStream,
+						this.BytesSent,
+						thisChunkSize);
+
 					long packetSequenceNumber;
-					character.Connection?.SendObject(hash, streamWrapper, out packetSequenceNumber);
-					totalBytesSent += bytesToSend;
-
-					/*int p = (int)(((float)totalBytesSent / stream.Length) * 100);
-					Plugin.Log.Information($"> {totalBytesSent} / {stream.Length} > {p}%");*/
+					this.character.Connection?.SendObject(hash, streamWrapper, out packetSequenceNumber);
+					this.BytesSent += thisChunkSize;
 				}
-				while (totalBytesSent < stream.Length);
+				while (this.BytesSent < this.BytesToSend);
 
-				byte[] b = new byte[1];
-				b[0] = 1;
-				character.Connection?.SendObject(hash, b);
+				// File complete flag
+				byte[] b = [1];
+				this.character.Connection?.SendObject(hash, b);
+
+				this.sync.Uploads.Remove(this);
 			}
 			catch (Exception ex)
 			{
@@ -269,7 +288,7 @@ public class PenumbraSync : SyncProviderBase
 			}
 			finally
 			{
-				sync.ActiveUploadCount--;
+				this.sync.ActiveUploadCount--;
 			}
 		}
 	}

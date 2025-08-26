@@ -275,7 +275,7 @@ public class CharacterSync : IDisposable
 		Plugin.Log.Information($"Connection to {this.CharacterName}@{this.World} was closed.");
 		this.CurrentStatus = Status.Disconnected;
 
-		this.Reconnect();
+		////this.Reconnect();
 	}
 
 	private void OnIAmPacket(PacketHeader packetHeader, Connection connection, string incomingObject)

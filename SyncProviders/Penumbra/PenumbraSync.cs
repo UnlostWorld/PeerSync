@@ -211,13 +211,13 @@ public class PenumbraSync : SyncProviderBase
 		ImGui.Text($"Uploading {this.ActiveUploads.Count} / {this.Uploads.Count}");
 		foreach (FileUpload upload in this.Uploads)
 		{
-			ImGui.Text($"{(int)(upload.Progress * 100)}%");
+			ImGui.Text($"{upload.Name} - {(int)(upload.Progress * 100)}%");
 		}
 
 		ImGui.Text($"Downloading {this.ActiveDownloads.Count} / {this.Downloads.Count}");
 		foreach (FileDownload download in this.Downloads)
 		{
-			ImGui.Text($"{download.Name} - ??%");
+			ImGui.Text($"{download.Name} - {(int)(download.Progress * 100)}%");
 		}
 	}
 
@@ -232,6 +232,8 @@ public class PenumbraSync : SyncProviderBase
 		public long BytesSent = 0;
 		public long BytesToSend = 0;
 
+		public readonly string Name;
+
 		private readonly Task? transferTask;
 		private readonly PenumbraSync sync;
 		private readonly string hash;
@@ -244,6 +246,8 @@ public class PenumbraSync : SyncProviderBase
 			this.hash = hash;
 			this.file = file;
 			this.character = character;
+
+			this.Name = file.Name;
 
 			sync.Uploads.Add(this);
 			this.transferTask = Task.Run(this.Transfer);
@@ -289,7 +293,6 @@ public class PenumbraSync : SyncProviderBase
 				}
 
 				using ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
-				Plugin.Log.Information($"Sending file: {hash} ({stream.Length / 1024}kb)");
 
 				this.BytesSent = 0;
 				this.BytesToSend = stream.Length;
@@ -358,6 +361,7 @@ public class PenumbraSync : SyncProviderBase
 
 		public CharacterSync Character => character;
 		public bool IsWaiting { get; private set; }
+		public float Progress = -1;
 		public Task Await() => this.transferTask ?? Task.CompletedTask;
 
 		private async Task Transfer()

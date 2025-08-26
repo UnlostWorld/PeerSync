@@ -11,21 +11,18 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Timers;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
-using Lumina.Excel.Sheets;
 using NetworkCommsDotNet;
 using NetworkCommsDotNet.Connections;
 using Newtonsoft.Json;
-using static NetworkCommsDotNet.Tools.StreamTools;
 
 namespace PeerSync.SyncProviders.Penumbra;
 
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
-	const int fileChunkSize = 1024 * 10; // 10kb chunks
+	const int fileChunkSize = 1024; // 1kb chunks
 	const int maxConcurrentUploads = 3;
 	const int maxConcurrentDownloads = 10;
 
@@ -339,7 +336,7 @@ public class PenumbraSync : SyncProviderBase
 				do
 				{
 					int thisChunkSize = fileChunkSize;
-					if (this.BytesSent + thisChunkSize > this.BytesToSend)
+					if (this.BytesSent + thisChunkSize >= this.BytesToSend)
 						thisChunkSize = (int)this.BytesToSend - this.BytesSent;
 
 					if (character.Connection == null || !character.Connection.ConnectionAlive())

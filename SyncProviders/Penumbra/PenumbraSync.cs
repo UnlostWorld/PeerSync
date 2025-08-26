@@ -25,7 +25,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
-	const int fileChunkSize = 1024 * 10; // 10kb chunks
+	const int fileChunkSize = 1024; // 1kb chunks
 	const int maxConcurrentUploads = 5;
 	const int maxConcurrentDownloads = 5;
 
@@ -441,11 +441,33 @@ public class PenumbraSync : SyncProviderBase
 
 					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, this.OnDataReceived);
 					character.Connection.SendObject("FileRequest", hash);
+
+					Stopwatch sw = new();
+					sw.Start();
+					while (!this.IsComplete && sw.ElapsedMilliseconds < PenumbraSync.fileTimeout)
+					{
+						await Task.Delay(100);
+					}
+
+					if (sw.ElapsedMilliseconds >= PenumbraSync.fileTimeout)
+					{
+						throw new TimeoutException();
+					}
 				}
 			}
 			catch (Exception ex)
 			{
 				Plugin.Log.Error(ex, "Error downloading file");
+			}
+			finally
+			{
+				this.IsComplete = true;
+				this.fileStream?.Flush();
+
+				this.character.Connection?.RemoveIncomingPacketHandler(this.hash);
+				this.fileStream?.Dispose();
+
+				this.sync.Downloads.TryRemove(this);
 			}
 		}
 
@@ -453,25 +475,13 @@ public class PenumbraSync : SyncProviderBase
 		{
 			if (data.Length <= 1)
 			{
-				this.Complete();
+				this.IsComplete = true;
 			}
 			else
 			{
-				this.IsComplete = false;
 				this.fileStream?.Write(data);
 				BytesReceived += data.Length;
 			}
-		}
-
-		private void Complete()
-		{
-			this.IsComplete = true;
-			this.fileStream?.Flush();
-
-			this.character.Connection?.RemoveIncomingPacketHandler(this.hash);
-			this.fileStream?.Dispose();
-
-			this.sync.Downloads.TryRemove(this);
 		}
 	}
 }

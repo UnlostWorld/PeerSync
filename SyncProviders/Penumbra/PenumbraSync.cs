@@ -332,17 +332,18 @@ public class PenumbraSync : SyncProviderBase
 
 				this.BytesSent = 0;
 				this.BytesToSend = stream.Length;
+				stream.Position = 0;
 
 				do
 				{
 					int thisChunkSize = fileChunkSize;
-					if (this.BytesSent + thisChunkSize >= this.BytesToSend)
+					if (this.BytesSent + thisChunkSize > this.BytesToSend)
 						thisChunkSize = (int)this.BytesToSend - this.BytesSent;
 
 					if (character.Connection == null || !character.Connection.ConnectionAlive())
 						return;
 
-					byte[] bytes = new byte[thisChunkSize];
+					byte[] bytes = new byte[thisChunkSize + 1];
 					stream.ReadExactly(bytes, this.BytesSent, thisChunkSize);
 
 					this.character.Connection.SendObject(hash, bytes);

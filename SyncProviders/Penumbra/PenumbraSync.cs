@@ -300,12 +300,10 @@ public class PenumbraSync : SyncProviderBase
 
 		private void Transfer()
 		{
-			Plugin.Log.Information("Start upload thread");
 			this.IsWaiting = true;
 			while (sync.GetActiveUploadCount() >= maxConcurrentUploads)
 				Thread.Sleep(500);
 
-			Plugin.Log.Information("Finished waiting");
 			this.IsWaiting = false;
 			try
 			{
@@ -333,8 +331,6 @@ public class PenumbraSync : SyncProviderBase
 					return;
 				}
 
-				Plugin.Log.Information("Got file handle");
-
 				using ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
 
 				this.BytesSent = 0;
@@ -358,9 +354,7 @@ public class PenumbraSync : SyncProviderBase
 					this.character.Connection.SendObject(hash, streamWrapper, out packetSequenceNumber);
 					this.BytesSent += thisChunkSize;
 
-					Plugin.Log.Information("Upload chunk");
-
-					Thread.Sleep(1000);
+					Thread.Sleep(50);
 				}
 				while (this.BytesSent < this.BytesToSend);
 

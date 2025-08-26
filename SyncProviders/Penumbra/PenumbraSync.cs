@@ -459,17 +459,26 @@ public class PenumbraSync : SyncProviderBase
 			finally
 			{
 				this.IsComplete = true;
-				this.fileStream?.Flush();
+
+				if (this.fileStream != null)
+				{
+					lock (this.fileStream)
+					{
+						this.fileStream.Flush();
+						this.fileStream.Dispose();
+					}
+				}
 
 				this.character.Connection?.RemoveIncomingPacketHandler(this.hash);
-				this.fileStream?.Dispose();
-
 				this.sync.Downloads.TryRemove(this);
 			}
 		}
 
 		private void OnDataReceived(PacketHeader packetHeader, Connection connection, byte[] data)
 		{
+			if (this.sync.IsDisposed || this.fileStream == null || !this.fileStream.CanWrite)
+				return;
+
 			try
 			{
 				if (data.Length <= 1)
@@ -478,7 +487,11 @@ public class PenumbraSync : SyncProviderBase
 				}
 				else
 				{
-					this.fileStream?.Write(data);
+					lock (this.fileStream)
+					{
+						this.fileStream.Write(data);
+					}
+
 					BytesReceived += data.Length;
 				}
 			}

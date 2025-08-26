@@ -353,6 +353,8 @@ public class PenumbraSync : SyncProviderBase
 					long packetSequenceNumber;
 					this.character.Connection.SendObject(hash, streamWrapper, out packetSequenceNumber);
 					this.BytesSent += thisChunkSize;
+
+					Thread.Sleep(100);
 				}
 				while (this.BytesSent < this.BytesToSend);
 

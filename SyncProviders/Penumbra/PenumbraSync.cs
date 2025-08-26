@@ -362,7 +362,7 @@ public class PenumbraSync : SyncProviderBase
 
 				// File complete flag
 				byte[] b = [1];
-				this.character.Connection?.SendObject(hash, b);
+				this.character.Connection.SendObject(hash, b);
 			}
 			catch (Exception ex)
 			{

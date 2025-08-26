@@ -29,6 +29,7 @@ using Newtonsoft.Json;
 using NetworkCommsDotNet.DPSBase.SevenZipLZMACompressor;
 using PeerSync.SyncProviders.Glamourer;
 using PeerSync.SyncProviders.Penumbra;
+using NetworkCommsDotNet.Tools;
 
 public sealed class Plugin : IDalamudPlugin
 {
@@ -230,6 +231,8 @@ public sealed class Plugin : IDalamudPlugin
 		Status = $"listen for connections...";
 		try
 		{
+			NetworkComms.EnableLogging(new NetworkLogger());
+
 			JSONSerializer serializer = new();
 			DPSManager.AddDataSerializer(serializer);
 
@@ -468,4 +471,16 @@ public class JSONSerializer : DataSerializer
 		inputStream.ReadExactly(data);
 		return JsonConvert.DeserializeObject(new String(Encoding.Unicode.GetChars(data)), resultType);
 	}
+}
+
+public class NetworkLogger : ILogger
+{
+	public void Debug(string message) => Plugin.Log.Debug(message);
+	public void Error(string message) => Plugin.Log.Error(message);
+	public void Fatal(string message) => Plugin.Log.Error(message);
+	public void Fatal(string message, Exception ex) => Plugin.Log.Error(ex, message);
+	public void Info(string message) => Plugin.Log.Info(message);
+	public void Shutdown() { }
+	public void Trace(string message) => Plugin.Log.Verbose(message);
+	public void Warn(string message) => Plugin.Log.Warning(message);
 }

@@ -392,7 +392,6 @@ public class PenumbraSync : SyncProviderBase
 		private readonly string hash;
 		private readonly CharacterSync character;
 		private FileStream? fileStream;
-		private readonly System.Timers.Timer timer;
 
 		public FileDownload(
 			PenumbraSync sync,
@@ -407,18 +406,7 @@ public class PenumbraSync : SyncProviderBase
 			this.character = character;
 			this.BytesToReceive = expectedSize;
 
-			this.timer = new();
-			this.timer.Elapsed += this.OnTimeout;
-			this.timer.Interval = fileTimeout;
-			this.timer.Start();
-
 			Task.Run(this.Transfer);
-		}
-
-		private void OnTimeout(object? sender, ElapsedEventArgs e)
-		{
-			this.Complete();
-			Plugin.Log.Error("File download timeout");
 		}
 
 		public CharacterSync Character => character;
@@ -477,8 +465,6 @@ public class PenumbraSync : SyncProviderBase
 
 		private void Complete()
 		{
-			this.timer.Stop();
-			this.timer.Elapsed -= this.OnTimeout;
 			this.IsComplete = true;
 			this.fileStream?.Flush();
 

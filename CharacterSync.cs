@@ -130,8 +130,6 @@ public class CharacterSync : IDisposable
 		this.connection.AppendShutdownHandler(this.OnConnectionClosed);
 		this.connection.AppendIncomingPacketHandler<string>("iam", this.OnIAmPacket);
 		this.connection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
-		this.connection.AppendIncomingPacketHandler<FileData>("FileDataRequest", this.OnFileDataRequest);
-		this.connection.AppendIncomingPacketHandler<FileData>("FileData", this.OnFileData);
 	}
 
 	public void Dispose()
@@ -334,14 +332,5 @@ public class CharacterSync : IDisposable
 
 		this.isApplyingData = false;
 		lastData = characterData;
-	}
-
-	private void OnFileDataRequest(PacketHeader packetHeader, Connection connection, FileData incomingObject)
-	{
-		Plugin.Log.Information($"File request: {incomingObject.Hash}");
-	}
-
-	private void OnFileData(PacketHeader packetHeader, Connection connection, FileData incomingObject)
-	{
 	}
 }

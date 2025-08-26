@@ -20,11 +20,13 @@ public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
 	const int fileChunkSize = 1024 * 100; // 100kb chunks
+	const int maxConcurrentTransfers = 10;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
 
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
+	private int ConcurrentTransfers = 0;
 
 	public override string Key => "Penumbra";
 
@@ -86,7 +88,6 @@ public class PenumbraSync : SyncProviderBase
 					FileInfo file = new(path);
 					using FileStream stream = file.OpenRead();
 
-					// Hopefully the same as Mare's hash which used the Deprecated SHA1CryptoServiceProvider
 					bytes = sha.ComputeHash(stream);
 					string str = BitConverter.ToString(bytes);
 					str = str.Replace("-", string.Empty, StringComparison.Ordinal);
@@ -159,74 +160,98 @@ public class PenumbraSync : SyncProviderBase
 		{
 			Plugin.Log.Information($"Requesting {missingFileCount} files.");
 
-			int receivedFileCount = 0;
+			List<Task> transferTasks = new();
 			foreach ((string gamePath, string hash) in data.Files)
 			{
-				FileInfo? file = this.fileCache.GetFile(hash);
+				Task t = Task.Run(async () => await this.TransferFile(hash, character));
+				transferTasks.Add(t);
+			}
 
-				if (file == null)
-					continue;
-
-				if (!file.Exists)
-				{
-					receivedFileCount++;
-
-					if (character.Connection == null || !character.Connection.ConnectionAlive())
-						continue;
-
-					//We create a file on disk so that we can receive large files
-					FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
-
-					bool complete = false;
-					long receivedBytes = 0;
-					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
-					{
-						if (data.Length <= 1)
-						{
-							complete = true;
-						}
-						else
-						{
-							fileStream.Write(data);
-							receivedBytes += data.Length;
-						}
-					});
-
-					character.Connection.SendObject("FileRequest", hash);
-
-					Stopwatch sw = new();
-					sw.Start();
-					while (!complete && sw.ElapsedMilliseconds < fileTimeout)
-					{
-						await Task.Delay(100);
-					}
-
-					fileStream.Flush();
-
-					if (character.Connection == null || !character.Connection.ConnectionAlive())
-						return;
-
-					character.Connection.RemoveIncomingPacketHandler(hash);
-
-					sw.Stop();
-					if (!complete || sw.ElapsedMilliseconds >= fileTimeout)
-					{
-						Plugin.Log.Warning($"File transfer timeout");
-						continue;
-					}
-					else if (receivedBytes <= 0)
-					{
-						Plugin.Log.Warning($"Peer did not send file: {hash}");
-					}
-					else
-					{
-						Plugin.Log.Information($"[{receivedFileCount} / {missingFileCount}] Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({receivedBytes / 1024}kb)");
-					}
-				}
+			foreach (Task t in transferTasks)
+			{
+				await t;
 			}
 		}
 
 		await Task.Delay(100);
+	}
+
+	private async Task TransferFile(string hash, CharacterSync character)
+	{
+		try
+		{
+			while (ConcurrentTransfers >= maxConcurrentTransfers)
+				await Task.Delay(500);
+
+			ConcurrentTransfers++;
+			FileInfo? file = this.fileCache.GetFile(hash);
+
+			if (file == null)
+				return;
+
+			if (!file.Exists)
+			{
+				if (character.Connection == null || !character.Connection.ConnectionAlive())
+					return;
+
+				//We create a file on disk so that we can receive large files
+				FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
+
+				bool complete = false;
+				long receivedBytes = 0;
+				character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
+				{
+					if (data.Length <= 1)
+					{
+						complete = true;
+					}
+					else
+					{
+						fileStream.Write(data);
+						receivedBytes += data.Length;
+					}
+				});
+
+				character.Connection.SendObject("FileRequest", hash);
+
+				Stopwatch sw = new();
+				sw.Start();
+				while (!complete && sw.ElapsedMilliseconds < fileTimeout)
+				{
+					await Task.Delay(100);
+				}
+
+				fileStream.Flush();
+
+				if (character.Connection == null || !character.Connection.ConnectionAlive())
+					return;
+
+				character.Connection.RemoveIncomingPacketHandler(hash);
+
+				sw.Stop();
+				if (!complete || sw.ElapsedMilliseconds >= fileTimeout)
+				{
+					Plugin.Log.Warning($"File transfer timeout");
+					return;
+				}
+				else if (receivedBytes <= 0)
+				{
+					Plugin.Log.Warning($"Peer did not send file: {hash}");
+				}
+				else
+				{
+					Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to transfer file: {hash} ({receivedBytes / 1024}kb)");
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Plugin.Log.Error(ex, "Error transferring file");
+		}
+		finally
+		{
+			ConcurrentTransfers--;
+		}
 	}
 
 	private void OnFileRequest(PacketHeader packetHeader, Connection connection, string hash)

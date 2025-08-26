@@ -409,7 +409,7 @@ public class PenumbraSync : SyncProviderBase
 
 			this.timer = new();
 			this.timer.Elapsed += this.OnTimeout;
-			this.timer.Interval = 5000;
+			this.timer.Interval = fileTimeout;
 			this.timer.Start();
 
 			Task.Run(this.Transfer);
@@ -477,6 +477,8 @@ public class PenumbraSync : SyncProviderBase
 
 		private void Complete()
 		{
+			this.timer.Stop();
+			this.timer.Elapsed -= this.OnTimeout;
 			this.IsComplete = true;
 			this.fileStream?.Flush();
 

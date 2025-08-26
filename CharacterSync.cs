@@ -170,7 +170,7 @@ public class CharacterSync : IDisposable
 				return;
 
 			int sort = Plugin.Instance.LocalCharacterIdentifier.CompareTo(this.Identifier);
-			if (sort <= 0)
+			if (sort >= 0)
 			{
 				// We're the host.
 				this.CurrentStatus = Status.Listening;

@@ -355,7 +355,7 @@ public class PenumbraSync : SyncProviderBase
 					this.character.Connection.SendObject(hash, bytes);
 					this.BytesSent += thisChunkSize;
 
-					Thread.Sleep(50);
+					Thread.Sleep(10);
 				}
 				while (this.BytesSent < this.BytesToSend);
 
@@ -472,14 +472,21 @@ public class PenumbraSync : SyncProviderBase
 
 		private void OnDataReceived(PacketHeader packetHeader, Connection connection, byte[] data)
 		{
-			if (data.Length <= 1)
+			try
 			{
-				this.IsComplete = true;
+				if (data.Length <= 1)
+				{
+					this.IsComplete = true;
+				}
+				else
+				{
+					this.fileStream?.Write(data);
+					BytesReceived += data.Length;
+				}
 			}
-			else
+			catch (Exception ex)
 			{
-				this.fileStream?.Write(data);
-				BytesReceived += data.Length;
+				Plugin.Log.Error(ex, "Error receiving file data");
 			}
 		}
 	}

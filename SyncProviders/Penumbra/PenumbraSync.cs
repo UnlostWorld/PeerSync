@@ -264,7 +264,30 @@ public class PenumbraSync : SyncProviderBase
 			sync.ActiveUploads.Add(this);
 			try
 			{
-				using FileStream stream = new(file.FullName, FileMode.Open);
+				FileStream? stream = null;
+				int attempts = 5;
+				Exception? lastException = null;
+				while (stream == null && attempts > 0)
+				{
+					try
+					{
+						stream = new(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
+					}
+					catch (IOException ex)
+					{
+						lastException = ex;
+						stream?.Dispose();
+						stream = null;
+						await Task.Delay(100);
+					}
+				}
+
+				if (stream == null)
+				{
+					Plugin.Log.Error(lastException, "Error reading file for upload");
+					return;
+				}
+
 				using ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
 				Plugin.Log.Information($"Sending file: {hash} ({stream.Length / 1024}kb)");
 

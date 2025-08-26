@@ -25,9 +25,9 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
-	const int fileChunkSize = 1024; // 1kb chunks
-	const int maxConcurrentUploads = 5;
-	const int maxConcurrentDownloads = 5;
+	const int fileChunkSize = 1024 * 10; // 10kb chunks
+	const int maxConcurrentUploads = 3;
+	const int maxConcurrentDownloads = 10;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -272,7 +272,7 @@ public class PenumbraSync : SyncProviderBase
 
 	public class FileUpload
 	{
-		public long BytesSent = 0;
+		public int BytesSent = 0;
 		public long BytesToSend = 0;
 
 		public readonly string Name;
@@ -333,30 +333,25 @@ public class PenumbraSync : SyncProviderBase
 					return;
 				}
 
-				using ThreadSafeStream threadSafeStream = new ThreadSafeStream(stream);
-
 				this.BytesSent = 0;
 				this.BytesToSend = stream.Length;
 
 				do
 				{
-					long thisChunkSize = fileChunkSize;
+					int thisChunkSize = fileChunkSize;
 					if (this.BytesSent + thisChunkSize > this.BytesToSend)
-						thisChunkSize = this.BytesToSend - this.BytesSent;
-
-					using StreamSendWrapper streamWrapper = new StreamSendWrapper(
-						threadSafeStream,
-						this.BytesSent,
-						thisChunkSize);
+						thisChunkSize = (int)this.BytesToSend - this.BytesSent;
 
 					if (character.Connection == null || !character.Connection.ConnectionAlive())
 						return;
 
-					long packetSequenceNumber;
-					this.character.Connection.SendObject(hash, streamWrapper, out packetSequenceNumber);
+					byte[] bytes = new byte[thisChunkSize];
+					stream.ReadExactly(bytes, this.BytesSent, thisChunkSize);
+
+					this.character.Connection.SendObject(hash, bytes);
 					this.BytesSent += thisChunkSize;
 
-					Thread.Sleep(25);
+					Thread.Sleep(50);
 				}
 				while (this.BytesSent < this.BytesToSend);
 

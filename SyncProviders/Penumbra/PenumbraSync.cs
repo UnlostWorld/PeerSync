@@ -9,6 +9,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
@@ -175,13 +176,14 @@ public class PenumbraSync : SyncProviderBase
 			done = true;
 			foreach (FileDownload t in this.Downloads)
 			{
-				if (t.Character == character)
+				if (t.Character == character && !t.IsComplete)
 				{
 					done = false;
-					await t.Await();
 					break;
 				}
 			}
+
+			await Task.Delay(100);
 		}
 
 		// TODO: Make mod collection!
@@ -273,7 +275,6 @@ public class PenumbraSync : SyncProviderBase
 
 		public readonly string Name;
 
-		private readonly Task? transferTask;
 		private readonly PenumbraSync sync;
 		private readonly string hash;
 		private readonly FileInfo file;
@@ -287,21 +288,21 @@ public class PenumbraSync : SyncProviderBase
 			this.character = character;
 
 			this.Name = file.Name;
-
 			sync.Uploads.Add(this);
-			this.transferTask = Task.Run(this.Transfer);
+
+			ThreadStart ts = new(this.Transfer);
+			Thread thread = new(ts);
+			thread.Start();
 		}
 
 		public bool IsWaiting { get; private set; }
 		public float Progress => (float)this.BytesSent / (float)this.BytesToSend;
 
-		public Task Await() => this.transferTask ?? Task.CompletedTask;
-
-		private async Task Transfer()
+		private void Transfer()
 		{
 			this.IsWaiting = true;
 			while (sync.GetActiveUploadCount() >= maxConcurrentUploads)
-				await Task.Delay(500);
+				Thread.Sleep(500);
 
 			this.IsWaiting = false;
 			try
@@ -320,7 +321,7 @@ public class PenumbraSync : SyncProviderBase
 						lastException = ex;
 						stream?.Dispose();
 						stream = null;
-						await Task.Delay(100);
+						Thread.Sleep(100);
 					}
 				}
 
@@ -337,7 +338,6 @@ public class PenumbraSync : SyncProviderBase
 
 				do
 				{
-					await Task.Delay(10).ConfigureAwait(false);
 					long thisChunkSize = fileChunkSize;
 					if (this.BytesSent + thisChunkSize > this.BytesToSend)
 						thisChunkSize = this.BytesToSend - this.BytesSent;
@@ -377,42 +377,70 @@ public class PenumbraSync : SyncProviderBase
 		}
 	}
 
-	public class FileDownload
+	public class FileDownload : IDisposable
 	{
 		public long BytesToReceive = 0;
 		public long BytesReceived = 0;
 
 		public readonly string Name;
 
-		private readonly Task? transferTask;
 		private readonly PenumbraSync sync;
 		private readonly string hash;
 		private readonly CharacterSync character;
+		private FileStream? fileStream;
+		private readonly CancellationTokenSource cts;
 
-		public FileDownload(PenumbraSync sync, string name, string hash, long expectedSize, CharacterSync character)
+		public FileDownload(
+			PenumbraSync sync,
+			string name,
+			string hash,
+			long expectedSize,
+			CharacterSync character)
 		{
+			this.cts = new(fileTimeout);
+			this.cts.Token.Register(this.OnTimeout);
+
 			this.sync = sync;
 			this.Name = name;
 			this.hash = hash;
 			this.character = character;
 			this.BytesToReceive = expectedSize;
-			this.transferTask = Task.Run(this.Transfer);
 
-			this.sync.Downloads.Add(this);
+			this.Transfer();
+		}
+
+		private void OnTimeout()
+		{
+			throw new TimeoutException();
 		}
 
 		public CharacterSync Character => character;
 		public bool IsWaiting { get; private set; }
 		public float Progress => (float)this.BytesReceived / (float)this.BytesToReceive;
-		public Task Await() => this.transferTask ?? Task.CompletedTask;
+		public bool IsComplete { get; private set; }
 
-		private async Task Transfer()
+		public void Dispose()
+		{
+			this.character.Connection?.RemoveIncomingPacketHandler(this.hash);
+			this.fileStream?.Dispose();
+			this.cts?.Dispose();
+
+			if (!this.sync.Downloads.TryRemove(this))
+			{
+				Plugin.Log.Error("Error removing download from queue");
+			}
+		}
+
+		private void Transfer()
 		{
 			try
 			{
+				this.sync.Downloads.Add(this);
+
+				this.IsComplete = false;
 				this.IsWaiting = true;
 				while (sync.GetActiveDownloadCount() >= maxConcurrentDownloads)
-					await Task.Delay(500);
+					Thread.Sleep(500);
 
 				this.IsWaiting = false;
 				FileInfo? file = sync.fileCache.GetFile(hash);
@@ -426,60 +454,46 @@ public class PenumbraSync : SyncProviderBase
 						return;
 
 					//We create a file on disk so that we can receive large files
-					using FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
+					this.fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
 
-					bool complete = false;
-					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>
-					{
-						if (data.Length <= 1)
-						{
-							complete = true;
-						}
-						else
-						{
-							fileStream.Write(data);
-							BytesReceived += data.Length;
-						}
-					});
+					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, this.OnDataReceived);
 
 					character.Connection.SendObject("FileRequest", hash);
-
-					Stopwatch sw = new();
-					sw.Start();
-					while (!complete && sw.ElapsedMilliseconds < fileTimeout)
-					{
-						await Task.Delay(100);
-					}
-
-					fileStream.Flush();
-
-					if (character.Connection == null || !character.Connection.ConnectionAlive())
-						return;
-
-					character.Connection.RemoveIncomingPacketHandler(hash);
-
-					sw.Stop();
-					if (!complete || sw.ElapsedMilliseconds >= fileTimeout)
-					{
-						Plugin.Log.Warning($"File download timeout");
-						return;
-					}
-					else if (BytesReceived <= 0)
-					{
-						Plugin.Log.Warning($"Peer did not send file: {hash}");
-					}
 				}
 			}
 			catch (Exception ex)
 			{
 				Plugin.Log.Error(ex, "Error downloading file");
 			}
-			finally
+		}
+
+		private void OnDataReceived(PacketHeader packetHeader, Connection connection, byte[] data)
+		{
+			if (data.Length <= 1)
 			{
-				if (!this.sync.Downloads.TryRemove(this))
-				{
-					Plugin.Log.Error("Error removing download from queue");
-				}
+				this.IsComplete = true;
+			}
+			else
+			{
+				this.IsComplete = false;
+				this.fileStream?.Write(data);
+				BytesReceived += data.Length;
+			}
+
+			if (this.IsComplete)
+			{
+				this.fileStream?.Flush();
+				this.fileStream?.Dispose();
+				this.fileStream = null;
+			}
+
+			if (cts.IsCancellationRequested)
+			{
+				Plugin.Log.Warning($"File download timeout");
+			}
+			else if (BytesReceived <= 0)
+			{
+				Plugin.Log.Warning($"Peer did not send file: {hash}");
 			}
 		}
 	}

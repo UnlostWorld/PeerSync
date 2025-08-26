@@ -329,7 +329,7 @@ public class PenumbraSync : SyncProviderBase
 						return;
 
 					//We create a file on disk so that we can receive large files
-					FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
+					using FileStream fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
 
 					bool complete = false;
 					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, (_, _, data) =>

@@ -23,8 +23,8 @@ public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 120_000;
 	const int fileChunkSize = 1024 * 10; // 10kb chunks
-	const int maxConcurrentUploads = 10;
-	const int maxConcurrentDownloads = 10;
+	const int maxConcurrentUploads = 5;
+	const int maxConcurrentDownloads = 5;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -353,7 +353,7 @@ public class PenumbraSync : SyncProviderBase
 					this.character.Connection.SendObject(hash, bytes);
 					this.BytesSent += thisChunkSize;
 
-					await Task.Delay(1).ConfigureAwait(false);
+					await Task.Delay(100);
 				}
 				while (this.BytesSent < this.BytesToSend);
 

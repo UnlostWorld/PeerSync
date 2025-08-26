@@ -414,7 +414,7 @@ public class PenumbraSync : SyncProviderBase
 			this.character = character;
 			this.BytesToReceive = expectedSize;
 
-			this.Transfer();
+			Task.Run(this.Transfer);
 		}
 
 		private void OnTimeout()
@@ -439,7 +439,7 @@ public class PenumbraSync : SyncProviderBase
 			}
 		}
 
-		private void Transfer()
+		private async Task Transfer()
 		{
 			try
 			{
@@ -447,8 +447,11 @@ public class PenumbraSync : SyncProviderBase
 
 				this.IsComplete = false;
 				this.IsWaiting = true;
-				while (sync.GetActiveDownloadCount() >= maxConcurrentDownloads)
-					Thread.Sleep(500);
+				while (sync.GetActiveDownloadCount() >= maxConcurrentDownloads && !cts.IsCancellationRequested)
+					await Task.Delay(500);
+
+				if (cts.IsCancellationRequested)
+					return;
 
 				this.IsWaiting = false;
 				FileInfo? file = sync.fileCache.GetFile(hash);
@@ -458,14 +461,13 @@ public class PenumbraSync : SyncProviderBase
 
 				if (!file.Exists)
 				{
-					if (character.Connection == null || !character.Connection.ConnectionAlive())
+					if (cts.IsCancellationRequested || character.Connection == null || !character.Connection.ConnectionAlive())
 						return;
 
 					//We create a file on disk so that we can receive large files
 					this.fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, fileChunkSize, FileOptions.None);
 
 					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, this.OnDataReceived);
-
 					character.Connection.SendObject("FileRequest", hash);
 				}
 			}

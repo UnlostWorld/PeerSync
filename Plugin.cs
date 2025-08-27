@@ -407,7 +407,14 @@ public sealed class Plugin : IDalamudPlugin
 
 		foreach (CharacterSync sync in checkedCharacters.Values)
 		{
-			await sync.SendData(LocalCharacterData);
+			try
+			{
+				await sync.SendData(LocalCharacterData);
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, "Error sending character data");
+			}
 		}
 	}
 }

@@ -168,6 +168,9 @@ public class CharacterSync : IDisposable
 		if (this.connection == null || Plugin.Instance?.LocalCharacterIdentifier == null)
 			return;
 
+		if (!this.connection.IsConnected)
+			return;
+
 		string identifier = Plugin.Instance.LocalCharacterIdentifier;
 		byte[] identifierBytes = Encoding.UTF8.GetBytes(identifier);
 		await this.connection.SendAsync(Objects.IAm, identifierBytes);

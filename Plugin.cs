@@ -35,7 +35,7 @@ public sealed class Plugin : IDalamudPlugin
 	public readonly List<SyncProviderBase> SyncProviders = new()
 	{
 		new GlamourerSync(),
-		new PenumbraSync(),
+		////new PenumbraSync(),
 	};
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;

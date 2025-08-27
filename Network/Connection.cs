@@ -91,11 +91,8 @@ public class Connection : IDisposable
 				int bytesReceived = 0;
 				while (bytesToReceive > 0 && !this.tokenSource.IsCancellationRequested)
 				{
-					int availableBytes = Math.Min(readBufferSize, bytesToReceive);
-					if (client.Available < availableBytes)
-						availableBytes = client.Available;
-
-					stream.ReadExactly(data, bytesReceived, availableBytes);
+					int availableBytes = Math.Min(client.Available, Math.Min(readBufferSize, bytesToReceive));
+					await stream.ReadExactlyAsync(data, bytesReceived, availableBytes);
 
 					bytesReceived += availableBytes;
 					bytesToReceive -= availableBytes;

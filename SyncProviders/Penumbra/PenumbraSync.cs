@@ -5,8 +5,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -30,7 +28,6 @@ public class PenumbraSync : SyncProviderBase
 
 	private readonly ConcurrentHashSet<FileDownload> downloads = new();
 	private readonly ConcurrentHashSet<FileUpload> uploads = new();
-	private readonly ConcurrentHashSet<Connection> currentUploadPerConnection = new();
 
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 
@@ -307,7 +304,7 @@ public class PenumbraSync : SyncProviderBase
 			while (sync.GetActiveUploadCount() >= maxConcurrentUploadPeers)
 				await Task.Delay(250);
 
-			while (this.character.Connection != null && sync.currentUploadPerConnection.Contains(this.character.Connection))
+			while (this.character.Connection != null)
 			{
 				await Task.Delay(250);
 			}
@@ -317,11 +314,6 @@ public class PenumbraSync : SyncProviderBase
 			{
 				if (this.character.Connection == null)
 					return;
-
-				lock (sync.currentUploadPerConnection)
-				{
-					sync.currentUploadPerConnection.Add(this.character.Connection);
-				}
 
 				FileStream? stream = null;
 				int attempts = 5;
@@ -388,14 +380,6 @@ public class PenumbraSync : SyncProviderBase
 				if (!this.sync.uploads.TryRemove(this))
 				{
 					Plugin.Log.Error("Error removing upload from queue");
-				}
-
-				lock (sync.currentUploadPerConnection)
-				{
-					if (this.character.Connection != null && !sync.currentUploadPerConnection.TryRemove(this.character.Connection))
-					{
-						Plugin.Log.Error("Error removing upload from connection map");
-					}
 				}
 
 				GC.Collect();

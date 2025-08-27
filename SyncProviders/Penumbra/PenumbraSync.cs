@@ -80,6 +80,8 @@ public class PenumbraSync : SyncProviderBase
 
 			string hash = Encoding.UTF8.GetString(hashData);
 
+			Plugin.Log.Info($"Got file request Id: {clientQueueIndex}, {hash}");
+
 			string? fileExtension = Path.GetExtension(hash);
 			if (fileExtension == null)
 				throw new Exception("Invalid file request");

@@ -84,10 +84,12 @@ public class Connection : IDisposable
 				byte[] chunkLengthBytes = new byte[sizeof(int)];
 				await stream.ReadExactlyAsync(chunkLengthBytes, 0, sizeof(int), this.tokenSource.Token);
 
-				int packetLength = BitConverter.ToInt32(chunkLengthBytes);
-				byte[] data = new byte[packetLength];
+				int chunkLength = BitConverter.ToInt32(chunkLengthBytes);
+				Plugin.Log.Information($">> {chunkLength}");
 
-				int bytesToReceive = packetLength;
+				byte[] data = new byte[chunkLength];
+
+				int bytesToReceive = chunkLength;
 				int bytesReceived = 0;
 				while (bytesToReceive > 0 && !this.tokenSource.IsCancellationRequested)
 				{
@@ -100,7 +102,7 @@ public class Connection : IDisposable
 
 				try
 				{
-					////Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
+					Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
 					this.Received?.Invoke(this, typeBytes[0], data);
 				}
 				catch (Exception ex)

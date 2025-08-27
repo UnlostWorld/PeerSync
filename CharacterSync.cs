@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using Newtonsoft.Json;
-using StudioOnline.Sync;
+using PeerSync.Online;
 
 public class CharacterSync : IDisposable
 {

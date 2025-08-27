@@ -1,6 +1,6 @@
 ﻿// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace StudioOnline;
+namespace PeerSync.Online;
 
 using System;
 using System.Net;

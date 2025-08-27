@@ -11,7 +11,6 @@ using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using StudioOnline.Sync;
 using PeerSync.UI;
 using System;
 using System.Collections.Generic;
@@ -23,6 +22,7 @@ using PeerSync.SyncProviders.Penumbra;
 using System.Text;
 using System.Threading;
 using SharpOpenNat;
+using PeerSync.Online;
 
 public static class Objects
 {

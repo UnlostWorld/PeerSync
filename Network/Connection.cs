@@ -53,7 +53,7 @@ public class Connection : IDisposable
 			await Task.Delay(5);
 
 		if (data.Length > 1024 * 1024 * 10)
-			throw new Exception("chunk too large!");
+			throw new Exception($"chunk {objectType} too large ({data.Length} bytes)");
 
 		try
 		{
@@ -101,7 +101,7 @@ public class Connection : IDisposable
 				int chunkLength = BitConverter.ToInt32(chunkLengthBytes);
 
 				if (chunkLength > 1024 * 1024 * 10)
-					throw new Exception("chunk too large!");
+					throw new Exception($"chunk {typeBytes[0]} too large ({chunkLength} bytes)");
 
 				byte[] data = new byte[chunkLength];
 

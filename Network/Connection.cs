@@ -16,7 +16,6 @@ public class Connection : IDisposable
 	private readonly CancellationTokenSource tokenSource = new();
 	private readonly TcpClient client;
 	private readonly NetworkStream stream;
-	private bool isWriting = false;
 
 	public event ConnectionDelegate? Disconnected;
 
@@ -47,34 +46,22 @@ public class Connection : IDisposable
 		this.client.Dispose();
 	}
 
-	public async Task SendAsync(byte objectType, byte[] data)
+	public void Send(byte objectType, byte[] data)
 	{
-		bool canWrite = false;
-		do
-		{
-			lock (this.stream)
-				canWrite = !this.isWriting;
-
-			await Task.Delay(5);
-		}
-		while (!canWrite);
-
 		if (data.Length > 1024 * 1024 * 10)
 			throw new Exception($"chunk {objectType} too large ({data.Length} bytes)");
 
 		try
 		{
 			lock (this.stream)
-				this.isWriting = true;
+			{
 
-			byte[] lengthBytes = BitConverter.GetBytes(data.Length);
-			await this.stream.WriteAsync((byte[])[objectType], this.tokenSource.Token);
-			await this.stream.WriteAsync(lengthBytes, this.tokenSource.Token);
-			await this.stream.WriteAsync(data, this.tokenSource.Token);
-			await this.stream.WriteAsync(lengthBytes, this.tokenSource.Token);
-
-			lock (this.stream)
-				this.isWriting = false;
+				byte[] lengthBytes = BitConverter.GetBytes(data.Length);
+				this.stream.Write((byte[])[objectType]);
+				this.stream.Write(lengthBytes);
+				this.stream.Write(data);
+				this.stream.Write(lengthBytes);
+			}
 		}
 		catch (TaskCanceledException)
 		{

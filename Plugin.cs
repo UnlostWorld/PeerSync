@@ -430,7 +430,7 @@ public sealed class Plugin : IDalamudPlugin
 
 			try
 			{
-				await sync.SendData(LocalCharacterData);
+				sync.SendData(LocalCharacterData);
 			}
 			catch (Exception ex)
 			{

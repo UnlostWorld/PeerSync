@@ -95,22 +95,22 @@ public class CharacterSync : IDisposable
 		return input;
 	}
 
-	public async Task SendIAm()
+	public void SendIAm()
 	{
 		string? identifier = Plugin.Instance?.LocalCharacterIdentifier;
 		if (identifier == null)
 			return;
 
 		byte[] data = Encoding.UTF8.GetBytes(identifier);
-		await this.SendAsync(Objects.IAm, data);
+		this.Send(Objects.IAm, data);
 	}
 
-	public async Task SendAsync(byte objectType, byte[] data)
+	public void Send(byte objectType, byte[] data)
 	{
 		if (this.connection == null || !this.connection.IsConnected)
 			return;
 
-		await this.connection.SendAsync(objectType, data);
+		this.connection.Send(objectType, data);
 	}
 
 	public void Reconnect()
@@ -127,7 +127,7 @@ public class CharacterSync : IDisposable
 		////Task.Run(this.Connect);
 	}
 
-	public async Task SetConnection(Connection connection)
+	public void SetConnection(Connection connection)
 	{
 		if (this.CurrentStatus != Status.Listening)
 			return;
@@ -140,7 +140,7 @@ public class CharacterSync : IDisposable
 		this.CurrentStatus = Status.Connected;
 		this.Connected?.Invoke(this);
 
-		await this.SendIAm();
+		this.SendIAm();
 	}
 
 	private void SetupConnection()
@@ -201,7 +201,7 @@ public class CharacterSync : IDisposable
 		return true;
 	}
 
-	public async Task SendData(CharacterData data)
+	public void SendData(CharacterData data)
 	{
 		if (this.connection == null)
 			return;
@@ -213,7 +213,7 @@ public class CharacterSync : IDisposable
 
 		string json = JsonConvert.SerializeObject(data);
 		byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
-		await this.connection.SendAsync(Objects.CharacterData, jsonBytes);
+		this.connection.Send(Objects.CharacterData, jsonBytes);
 	}
 
 	private async Task Connect()
@@ -306,7 +306,7 @@ public class CharacterSync : IDisposable
 					return;
 
 				attempts++;
-				await this.SendIAm();
+				this.SendIAm();
 				await Task.Delay(3000);
 			}
 

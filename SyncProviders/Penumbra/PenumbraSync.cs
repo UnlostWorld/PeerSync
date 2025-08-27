@@ -361,7 +361,7 @@ public class PenumbraSync : SyncProviderBase
 				if (!sync.hashToFileLookup.TryGetValue(hash, out fileInfo) || fileInfo == null || !fileInfo.Exists)
 				{
 					Plugin.Log.Warning($"File: {hash} missing!");
-					await this.character.SendAsync(Objects.FileData, [this.clientQueueIndex]);
+					this.character.Send(Objects.FileData, [this.clientQueueIndex]);
 					return;
 				}
 
@@ -408,7 +408,7 @@ public class PenumbraSync : SyncProviderBase
 					bytes[0] = this.clientQueueIndex;
 					stream.ReadExactly(bytes, 1, thisChunkSize);
 
-					await this.character.SendAsync(Objects.FileData, bytes);
+					this.character.Send(Objects.FileData, bytes);
 					this.BytesSent += thisChunkSize;
 					await Task.Delay(10);
 				}
@@ -417,7 +417,7 @@ public class PenumbraSync : SyncProviderBase
 				Plugin.Log.Info($"End upload file: {this.Name}");
 
 				// File complete flag
-				await this.character.SendAsync(Objects.FileData, [this.clientQueueIndex]);
+				this.character.Send(Objects.FileData, [this.clientQueueIndex]);
 			}
 			catch (Exception ex)
 			{
@@ -509,7 +509,7 @@ public class PenumbraSync : SyncProviderBase
 					objectBytes[0] = this.queueIndex;
 					Array.Copy(hashBytes, 0, objectBytes, 1, hashBytes.Length);
 
-					await character.SendAsync(Objects.FileRequest, objectBytes);
+					character.Send(Objects.FileRequest, objectBytes);
 
 					Stopwatch sw = new();
 					sw.Start();

@@ -76,6 +76,7 @@ public class CharacterSync : IDisposable
 
 	public ushort ObjectTableIndex { get; set; }
 	public Connection? Connection => this.connection;
+	public bool IsConnected => this.connection?.IsConnected == true;
 
 	public static string GetIdentifier(string characterName, string world, string password, int iterations = 1000)
 	{
@@ -116,7 +117,7 @@ public class CharacterSync : IDisposable
 		////Task.Run(this.Connect);
 	}
 
-	public void SetConnection(Connection connection)
+	public async Task SetConnection(Connection connection)
 	{
 		if (this.CurrentStatus != Status.Listening)
 			return;
@@ -128,6 +129,13 @@ public class CharacterSync : IDisposable
 		this.SetupConnection();
 		this.CurrentStatus = Status.Connected;
 		this.Connected?.Invoke(this);
+
+		string? identifier = Plugin.Instance?.LocalCharacterIdentifier;
+		if (identifier == null)
+			throw new Exception("No identifier");
+
+		byte[] identifierBytes = Encoding.UTF8.GetBytes(identifier);
+		await this.SendAsync(Objects.IAm, identifierBytes);
 	}
 
 	private void SetupConnection()

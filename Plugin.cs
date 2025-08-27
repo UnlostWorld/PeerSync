@@ -425,6 +425,9 @@ public sealed class Plugin : IDalamudPlugin
 
 		foreach (CharacterSync sync in checkedCharacters.Values)
 		{
+			if (!sync.IsConnected)
+				continue;
+
 			try
 			{
 				await sync.SendData(LocalCharacterData);
@@ -454,7 +457,7 @@ public sealed class Plugin : IDalamudPlugin
 				return;
 			}
 
-			sync.SetConnection(connection);
+			Task.Run(() => sync.SetConnection(connection));
 			connection.Received -= this.OnReceived;
 		}
 	}

@@ -3,16 +3,14 @@
 namespace PeerSync;
 
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
-using NetworkCommsDotNet;
-using NetworkCommsDotNet.Connections;
-using NetworkCommsDotNet.Connections.TCP;
+using Newtonsoft.Json;
 using StudioOnline.Sync;
 
 public class CharacterSync : IDisposable
@@ -23,21 +21,21 @@ public class CharacterSync : IDisposable
 
 	public Status CurrentStatus { get; private set; } = Status.None;
 
-	private bool disposed = false;
-	private Connection? connection;
+	private readonly CancellationTokenSource tokenSource = new();
 	private CharacterData? lastData;
 	private bool isApplyingData = false;
+	private Connection? connection;
+	private readonly Network network;
 
-	public CharacterSync(string characterName, string world, string password)
+	public CharacterSync(Network network, string characterName, string world, string password)
 	{
+		this.network = network;
 		this.CharacterName = characterName;
 		this.World = world;
 		this.Identifier = GetIdentifier(characterName, world, password);
 
-		Task.Run(this.Connect);
+		Task.Run(this.Connect, tokenSource.Token);
 	}
-
-	public Connection? Connection => this.connection;
 
 	public enum Status
 	{
@@ -99,15 +97,9 @@ public class CharacterSync : IDisposable
 
 		Plugin.Log?.Info($"Reconnecting...");
 
-		this.connection?.Dispose();
-		this.connection = null;
-
-		this.connection?.Dispose();
-		this.connection = null;
-
 		this.CurrentStatus = Status.None;
 
-		Task.Run(this.Connect);
+		////Task.Run(this.Connect);
 	}
 
 	public void SetConnection(Connection connection)
@@ -116,26 +108,44 @@ public class CharacterSync : IDisposable
 			return;
 
 		this.connection = connection;
-		this.SetupConnection();
 
+		this.SetupConnection();
 		this.CurrentStatus = Status.Connected;
 	}
 
 	private void SetupConnection()
 	{
 		if (this.connection == null)
-			return;
+			throw new Exception();
 
-		this.connection.AppendShutdownHandler(this.OnConnectionClosed);
-		this.connection.AppendIncomingPacketHandler<string>("iam", this.OnIAmPacket);
-		this.connection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
+		this.connection.Received += this.OnReceived;
+		////this.connection.AppendShutdownHandler(this.OnConnectionClosed);
+
+		////this.connection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
+	}
+
+	private void OnReceived(Connection connection, byte typeId, byte[] data)
+	{
+		if (typeId == Objects.IAm)
+		{
+			string identifier = Encoding.UTF8.GetString(data);
+			this.OnIAm(connection, identifier);
+		}
+		else
+		{
+			string json = Encoding.UTF8.GetString(data);
+			CharacterData? characterData = JsonConvert.DeserializeObject<CharacterData>(json);
+			if (characterData == null)
+				throw new Exception();
+
+			this.OnCharacterData(connection, characterData);
+		}
 	}
 
 	public void Dispose()
 	{
-		this.disposed = true;
-		this.connection?.CloseConnection(false);
-		this.connection?.Dispose();
+		tokenSource.Cancel();
+		tokenSource.Dispose();
 	}
 
 	public bool Update()
@@ -153,13 +163,18 @@ public class CharacterSync : IDisposable
 		return true;
 	}
 
-	public void SendData(CharacterData data)
+	public async Task SendData(CharacterData data)
 	{
-		if (this.connection == null)
+		if (this.connection == null || Plugin.Instance?.LocalCharacterIdentifier == null)
 			return;
 
-		this.connection.SendObject("iam", Plugin.Instance?.LocalCharacterIdentifier);
-		this.connection.SendObject("CharacterData", data);
+		string identifier = Plugin.Instance.LocalCharacterIdentifier;
+		byte[] identifierBytes = Encoding.UTF8.GetBytes(identifier);
+		await this.connection.SendAsync(Objects.IAm, identifierBytes);
+
+		string json = JsonConvert.SerializeObject(data);
+		byte[] jsonBytes = Encoding.UTF8.GetBytes(identifier);
+		await this.connection.SendAsync(Objects.CharacterData, jsonBytes);
 	}
 
 	private async Task Connect()
@@ -183,7 +198,7 @@ public class CharacterSync : IDisposable
 			request.Identifier = this.Identifier;
 			SyncStatus? response = await request.Send();
 
-			if (disposed)
+			if (this.tokenSource.IsCancellationRequested)
 				return;
 
 			if (response == null || response.Address == null)
@@ -207,8 +222,8 @@ public class CharacterSync : IDisposable
 			{
 				try
 				{
-					IPEndPoint endpoint = new(localAddress, response.Port);
-					this.connection = TCPConnection.GetConnection(new(endpoint));
+					IPEndPoint endPoint = new(localAddress, response.Port);
+					this.connection = await this.network.Connect(endPoint, tokenSource.Token);
 				}
 				catch (Exception)
 				{
@@ -220,8 +235,8 @@ public class CharacterSync : IDisposable
 			{
 				if (this.connection == null)
 				{
-					IPEndPoint endpoint = new(address, response.Port);
-					this.connection = TCPConnection.GetConnection(new(endpoint));
+					IPEndPoint endPoint = new(address, response.Port);
+					this.connection = await this.network.Connect(endPoint, tokenSource.Token);
 				}
 			}
 			catch (Exception)
@@ -231,29 +246,38 @@ public class CharacterSync : IDisposable
 				return;
 			}
 
+			if (this.connection == null)
+			{
+				this.CurrentStatus = Status.ConnectionFailed;
+				return;
+			}
+
 			// Send who packet to identify ourselves.
 			this.CurrentStatus = Status.Handshake;
 
-			if (this.connection == null)
-				return;
-
 			this.SetupConnection();
 
-			if (this.disposed)
+			if (this.tokenSource.IsCancellationRequested)
 				return;
+
+			string? identifier = Plugin.Instance?.LocalCharacterIdentifier;
+			if (identifier == null)
+				throw new Exception("No identifier");
+
+			byte[] identifierBytes = Encoding.UTF8.GetBytes(identifier);
 
 			int attempts = 0;
 			while (this.CurrentStatus == Status.Handshake && attempts < 10)
 			{
-				if (this.disposed)
+				if (this.tokenSource.IsCancellationRequested)
 					return;
 
 				attempts++;
-				this.connection.SendObject("iam", Plugin.Instance?.LocalCharacterIdentifier);
+				await this.connection.SendAsync(Objects.IAm, identifierBytes);
 				await Task.Delay(3000);
 			}
 
-			if (this.disposed)
+			if (this.tokenSource.IsCancellationRequested)
 				return;
 
 			if (attempts >= 10)
@@ -261,8 +285,6 @@ public class CharacterSync : IDisposable
 				this.CurrentStatus = Status.HandshakeFailed;
 				throw new Exception("Handshake failed");
 			}
-
-
 		}
 		catch (Exception ex)
 		{
@@ -278,9 +300,10 @@ public class CharacterSync : IDisposable
 		////this.Reconnect();
 	}
 
-	private void OnIAmPacket(PacketHeader packetHeader, Connection connection, string incomingObject)
+	private void OnIAm(Connection connection, string identifier)
 	{
-		if (connection != this.connection || incomingObject != this.Identifier)
+		// Sanity check
+		if (connection != this.connection || identifier != this.Identifier)
 			return;
 
 		if (this.CurrentStatus == Status.Handshake)
@@ -289,7 +312,7 @@ public class CharacterSync : IDisposable
 		}
 	}
 
-	private void OnCharacterDataPacket(PacketHeader packetHeader, Connection connection, CharacterData characterData)
+	private void OnCharacterData(Connection connection, CharacterData characterData)
 	{
 		// Sanity check
 		if (connection != this.connection)

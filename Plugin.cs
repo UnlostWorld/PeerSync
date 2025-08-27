@@ -16,27 +16,26 @@ using PeerSync.UI;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Threading;
 using System.Net.Sockets;
 using System.Net;
-using SharpOpenNat;
-using NetworkCommsDotNet;
-using NetworkCommsDotNet.Connections;
-using System.IO;
-using NetworkCommsDotNet.DPSBase;
-using System.Text;
-using Newtonsoft.Json;
-using NetworkCommsDotNet.DPSBase.SevenZipLZMACompressor;
 using PeerSync.SyncProviders.Glamourer;
 using PeerSync.SyncProviders.Penumbra;
-using NetworkCommsDotNet.Tools;
+using System.Text;
+using System.Threading;
+using SharpOpenNat;
+
+public static class Objects
+{
+	public const byte IAm = 1;
+	public const byte CharacterData = 2;
+}
 
 public sealed class Plugin : IDalamudPlugin
 {
 	public readonly List<SyncProviderBase> SyncProviders = new()
 	{
 		new GlamourerSync(),
-		//new PenumbraSync(),
+		new PenumbraSync(),
 	};
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
@@ -63,9 +62,9 @@ public sealed class Plugin : IDalamudPlugin
 
 	private bool connected = false;
 	private bool shuttingDown = false;
-	private List<ConnectionListenerBase>? connectionListeners;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
+	private readonly Network network = new();
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
@@ -92,6 +91,28 @@ public sealed class Plugin : IDalamudPlugin
 		{
 			providerLookup.Add(provider.Key, provider);
 		}
+
+		this.network.IncomingConnected += this.OnIncomingConnected;
+	}
+
+	private void OnIncomingConnected(Connection connection)
+	{
+		connection.Received += this.OnReceived;
+	}
+
+	private void OnReceived(Connection connection, byte typeId, byte[] data)
+	{
+		if (typeId == Objects.IAm)
+		{
+			string identifier = Encoding.UTF8.GetString(data);
+
+			CharacterSync? sync = this.GetCharacterSync(identifier);
+			if (sync != null)
+			{
+				sync.SetConnection(connection);
+				connection.Received -= this.OnReceived;
+			}
+		}
 	}
 
 	public string Name => "Peer Sync";
@@ -110,19 +131,6 @@ public sealed class Plugin : IDalamudPlugin
 		foreach (CharacterSync sync in this.checkedCharacters.Values)
 		{
 			if (sync.Identifier == identifier)
-			{
-				return sync;
-			}
-		}
-
-		return null;
-	}
-
-	public CharacterSync? GetCharacterSync(Connection connection)
-	{
-		foreach (CharacterSync sync in this.checkedCharacters.Values)
-		{
-			if (sync.Connection == connection)
 			{
 				return sync;
 			}
@@ -159,7 +167,7 @@ public sealed class Plugin : IDalamudPlugin
 
 		this.checkedCharacters.Clear();
 
-		NetworkComms.Shutdown();
+		this.network.Dispose();
 		Instance = null;
 	}
 
@@ -217,7 +225,7 @@ public sealed class Plugin : IDalamudPlugin
 		ushort port = Configuration.Current.Port;
 
 		if (port <= 0)
-			port = (ushort)(15550 + Random.Shared.Next(50));
+			port = (ushort)(15400 + Random.Shared.Next(99));
 
 		Plugin.Log.Information($"Opening port {port}");
 		Status = $"Opening port {port}";
@@ -231,26 +239,10 @@ public sealed class Plugin : IDalamudPlugin
 		Status = $"listen for connections...";
 		try
 		{
-			////NetworkComms.EnableLogging(new NetworkLogger());
+			this.network.BeginListen(port);
 
-			JSONSerializer serializer = new();
-			DPSManager.AddDataSerializer(serializer);
-
-			List<DataProcessor> dataProcessors = new()
-			{
-				DPSManager.GetDataProcessor<LZMACompressor>(),
-			};
-
-			Dictionary<string, string> dataProcessorOptions = new();
-
-			NetworkComms.DefaultSendReceiveOptions = new(serializer, dataProcessors, dataProcessorOptions);
-			NetworkComms.AppendGlobalConnectionEstablishHandler(this.OnClientEstablished);
-			NetworkComms.AppendGlobalConnectionCloseHandler(this.OnClientShutdown);
-			NetworkComms.AppendGlobalIncomingPacketHandler<string>("iam", this.OnIAmPacket);
-			this.connectionListeners = Connection.StartListening(ConnectionType.TCP, new IPEndPoint(IPAddress.Any, port));
-
-			Status = $"Started listening for connections";
-			Plugin.Log.Information("Started listening for connections");
+			Status = $"Started listening for connections on port {port}";
+			Plugin.Log.Information($"Started listening for connections on port {port}");
 		}
 		catch (Exception ex)
 		{
@@ -260,16 +252,17 @@ public sealed class Plugin : IDalamudPlugin
 		}
 
 		IPAddress? localIp = null;
-		foreach (IPEndPoint localEndPoint in Connection.ExistingLocalListenEndPoints(ConnectionType.TCP))
+		IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+		foreach (IPAddress ipAddress in host.AddressList)
 		{
-			if (localEndPoint.AddressFamily != AddressFamily.InterNetwork)
+			if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
 				continue;
 
-			if (IPAddress.IsLoopback(localEndPoint.Address))
+			if (IPAddress.IsLoopback(ipAddress))
 				continue;
 
-			localIp = localEndPoint.Address;
-			Plugin.Log.Information($"Got Local Address: {localEndPoint.Address}");
+			localIp = ipAddress;
+			Plugin.Log.Information($"Got Local Address: {ipAddress}");
 		}
 
 		// Get local character id
@@ -343,25 +336,6 @@ public sealed class Plugin : IDalamudPlugin
 		}
 	}
 
-	private void OnIAmPacket(PacketHeader packetHeader, Connection connection, string incomingObject)
-	{
-		CharacterSync? sync = this.GetCharacterSync(incomingObject);
-		if (sync == null)
-			return;
-
-		sync.SetConnection(connection);
-	}
-
-	private void OnClientEstablished(Connection connection)
-	{
-		Plugin.Log.Information("Client " + connection.ConnectionInfo + " connected.");
-	}
-
-	private void OnClientShutdown(Connection connection)
-	{
-		Plugin.Log.Information("Client " + connection.ConnectionInfo + " disconnected.");
-	}
-
 	private void OnFrameworkUpdate(IFramework framework)
 	{
 		if (!this.connected)
@@ -403,7 +377,7 @@ public sealed class Plugin : IDalamudPlugin
 				if (password == null)
 					continue;
 
-				CharacterSync sync = new(characterName, world, password);
+				CharacterSync sync = new(this.network, characterName, world, password);
 				sync.ObjectTableIndex = character.ObjectIndex;
 				this.checkedCharacters.Add(compoundName, sync);
 			}
@@ -433,54 +407,7 @@ public sealed class Plugin : IDalamudPlugin
 
 		foreach (CharacterSync sync in checkedCharacters.Values)
 		{
-			sync.SendData(LocalCharacterData);
+			await sync.SendData(LocalCharacterData);
 		}
 	}
-}
-
-[DataSerializerProcessor(4)]
-public class JSONSerializer : DataSerializer
-{
-	public JSONSerializer()
-	{
-	}
-
-	protected override void SerialiseDataObjectInt(
-		Stream outputStream,
-		object objectToSerialise,
-		Dictionary<string, string> options)
-	{
-		if (outputStream == null)
-			throw new ArgumentNullException("outputStream");
-
-		if (objectToSerialise == null)
-			throw new ArgumentNullException("objectToSerialize");
-
-		outputStream.Seek(0, 0);
-		var data = Encoding.Unicode.GetBytes(JsonConvert.SerializeObject(objectToSerialise));
-		outputStream.Write(data, 0, data.Length);
-		outputStream.Seek(0, 0);
-	}
-
-	protected override object? DeserialiseDataObjectInt(
-		Stream inputStream,
-		Type resultType,
-		Dictionary<string, string> options)
-	{
-		byte[] data = new byte[inputStream.Length];
-		inputStream.ReadExactly(data);
-		return JsonConvert.DeserializeObject(new String(Encoding.Unicode.GetChars(data)), resultType);
-	}
-}
-
-public class NetworkLogger : ILogger
-{
-	public void Debug(string message) => Plugin.Log.Debug(message);
-	public void Error(string message) => Plugin.Log.Error(message);
-	public void Fatal(string message) => Plugin.Log.Error(message);
-	public void Fatal(string message, Exception ex) => Plugin.Log.Error(ex, message);
-	public void Info(string message) => Plugin.Log.Info(message);
-	public void Shutdown() { }
-	public void Trace(string message) => Plugin.Log.Verbose(message);
-	public void Warn(string message) => Plugin.Log.Warning(message);
 }

@@ -10,8 +10,6 @@ using System.Text;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
-using NetworkCommsDotNet;
-using NetworkCommsDotNet.Connections;
 using Newtonsoft.Json;
 
 namespace PeerSync.SyncProviders.Penumbra;
@@ -33,7 +31,7 @@ public class PenumbraSync : SyncProviderBase
 
 	public PenumbraSync()
 	{
-		NetworkComms.AppendGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
+		////NetworkComms.AppendGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
 	}
 
 	public override string Key => "Penumbra";
@@ -59,7 +57,7 @@ public class PenumbraSync : SyncProviderBase
 
 	public override void Dispose()
 	{
-		NetworkComms.RemoveGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
+		////NetworkComms.RemoveGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
 		base.Dispose();
 	}
 
@@ -220,7 +218,7 @@ public class PenumbraSync : SyncProviderBase
 		return count;
 	}
 
-	private void OnFileRequest(PacketHeader packetHeader, Connection connection, string hash)
+	/*private void OnFileRequest(PacketHeader packetHeader, Connection connection, string hash)
 	{
 		FileInfo? fileInfo = null;
 		if (!hashToFileLookup.TryGetValue(hash, out fileInfo) || fileInfo == null || !fileInfo.Exists)
@@ -238,7 +236,7 @@ public class PenumbraSync : SyncProviderBase
 		}
 
 		new FileUpload(this, hash, fileInfo, character);
-	}
+	}*/
 
 	public override void DrawTab()
 	{
@@ -304,17 +302,9 @@ public class PenumbraSync : SyncProviderBase
 			while (sync.GetActiveUploadCount() >= maxConcurrentUploadPeers)
 				await Task.Delay(250);
 
-			while (this.character.Connection != null)
-			{
-				await Task.Delay(250);
-			}
-
 			this.IsWaiting = false;
 			try
 			{
-				if (this.character.Connection == null)
-					return;
-
 				FileStream? stream = null;
 				int attempts = 5;
 				Exception? lastException = null;
@@ -349,27 +339,17 @@ public class PenumbraSync : SyncProviderBase
 					if (this.BytesSent + thisChunkSize > this.BytesToSend)
 						thisChunkSize = (int)this.BytesToSend - this.BytesSent;
 
-					if (character.Connection == null || !character.Connection.ConnectionAlive())
-						return;
-
 					byte[] bytes = new byte[thisChunkSize];
 					stream.ReadExactly(bytes, 0, thisChunkSize);
 
-					this.character.Connection.SendObject(hash, bytes);
+					////this.character.Connection.SendObject(hash, bytes);
 					this.BytesSent += thisChunkSize;
 				}
 				while (this.BytesSent < this.BytesToSend);
 
-				if (character.Connection == null || !character.Connection.ConnectionAlive())
-					return;
-
 				// File complete flag
 				byte[] b = [1];
-				this.character.Connection.SendObject(hash, b);
-			}
-			catch (CommunicationException)
-			{
-				Plugin.Log.Warning("Connection terminated while uploading file");
+				////this.character.Connection.SendObject(hash, b);
 			}
 			catch (Exception ex)
 			{
@@ -439,14 +419,14 @@ public class PenumbraSync : SyncProviderBase
 
 				if (!file.Exists)
 				{
-					if (character.Connection == null || !character.Connection.ConnectionAlive() || this.sync.IsDisposed)
+					if (this.sync.IsDisposed)
 						return;
 
 					//We create a file on disk so that we can receive large files
 					this.fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.None);
 
-					character.Connection.AppendIncomingPacketHandler<byte[]>(hash, this.OnDataReceived);
-					character.Connection.SendObject("FileRequest", hash);
+					////character.Connection.AppendIncomingPacketHandler<byte[]>(hash, this.OnDataReceived);
+					////character.Connection.SendObject("FileRequest", hash);
 
 					Stopwatch sw = new();
 					sw.Start();
@@ -466,10 +446,6 @@ public class PenumbraSync : SyncProviderBase
 					}
 				}
 			}
-			catch (CommunicationException)
-			{
-				Plugin.Log.Warning("Connection terminated while downloading file");
-			}
 			catch (Exception ex)
 			{
 				Plugin.Log.Error(ex, "Error downloading file");
@@ -487,14 +463,14 @@ public class PenumbraSync : SyncProviderBase
 					}
 				}
 
-				this.character.Connection?.RemoveIncomingPacketHandler(this.hash);
+				////this.character.Connection?.RemoveIncomingPacketHandler(this.hash);
 				this.sync.downloads.TryRemove(this);
 
 				GC.Collect();
 			}
 		}
 
-		private void OnDataReceived(PacketHeader packetHeader, Connection connection, byte[] data)
+		/*private void OnDataReceived(PacketHeader packetHeader, Connection connection, byte[] data)
 		{
 			if (this.sync.IsDisposed || this.fileStream == null || !this.fileStream.CanWrite)
 				return;
@@ -519,6 +495,6 @@ public class PenumbraSync : SyncProviderBase
 			{
 				Plugin.Log.Error(ex, "Error receiving file data");
 			}
-		}
+		}*/
 	}
 }

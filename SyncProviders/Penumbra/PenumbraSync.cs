@@ -79,6 +79,14 @@ public class PenumbraSync : SyncProviderBase
 			Array.Copy(data, 1, hashData, 0, data.Length - 1);
 
 			string hash = Encoding.UTF8.GetString(hashData);
+
+			string? fileExtension = Path.GetExtension(hash);
+			if (fileExtension == null)
+				throw new Exception("Invalid file request");
+
+			if (!AllowedFileExtensions.Contains(fileExtension))
+				throw new Exception("Attempt to request forbidden file extension");
+
 			this.OnFileRequest(connection, clientQueueIndex, hash);
 		}
 	}

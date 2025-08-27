@@ -89,7 +89,7 @@ public class Connection : IDisposable
 
 				try
 				{
-					Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
+					////Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
 					this.Received?.Invoke(this, typeBytes[0], data);
 				}
 				catch (Exception ex)

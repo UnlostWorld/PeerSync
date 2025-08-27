@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
 using Newtonsoft.Json;
+using PeerSync.Network;
 
 namespace PeerSync.SyncProviders.Penumbra;
 

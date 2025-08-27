@@ -58,9 +58,11 @@ public class Connection : IDisposable
 		try
 		{
 			this.isWriting = true;
+			byte[] lengthBytes = BitConverter.GetBytes(data.Length);
 			await this.stream.WriteAsync((byte[])[objectType], this.tokenSource.Token);
-			await this.stream.WriteAsync(BitConverter.GetBytes(data.Length), this.tokenSource.Token);
+			await this.stream.WriteAsync(lengthBytes, this.tokenSource.Token);
 			await this.stream.WriteAsync(data, this.tokenSource.Token);
+			await this.stream.WriteAsync(lengthBytes, this.tokenSource.Token);
 			this.isWriting = false;
 		}
 		catch (TaskCanceledException)
@@ -101,7 +103,7 @@ public class Connection : IDisposable
 				if (chunkLength > 1024 * 1024 * 10)
 					throw new Exception("chunk too large!");
 
-				Plugin.Log.Information($">> {typeBytes} - {chunkLength}");
+				Plugin.Log.Information($">> {typeBytes[0]} - {chunkLength}");
 
 				byte[] data = new byte[chunkLength];
 
@@ -110,11 +112,18 @@ public class Connection : IDisposable
 				while (bytesToReceive > 0 && !this.tokenSource.IsCancellationRequested)
 				{
 					int availableBytes = Math.Min(client.Available, Math.Min(readBufferSize, bytesToReceive));
-					await stream.ReadExactlyAsync(data, bytesReceived, availableBytes);
+					await stream.ReadExactlyAsync(data, bytesReceived, availableBytes, this.tokenSource.Token);
 
 					bytesReceived += availableBytes;
 					bytesToReceive -= availableBytes;
 				}
+
+				byte[] chunkVerifyLengthBytes = new byte[sizeof(int)];
+				await stream.ReadExactlyAsync(chunkVerifyLengthBytes, 0, sizeof(int), this.tokenSource.Token);
+				int chunkVerifyLength = BitConverter.ToInt32(chunkVerifyLengthBytes);
+
+				if (chunkVerifyLength != chunkLength)
+					throw new Exception("Chunk length failed to verify");
 
 				try
 				{

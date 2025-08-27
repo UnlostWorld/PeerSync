@@ -367,7 +367,7 @@ public class PenumbraSync : SyncProviderBase
 
 				this.Name = fileInfo.Name;
 
-				Plugin.Log.Warning($"Upload file: {this.Name}");
+				Plugin.Log.Information($"Upload file: {this.Name}");
 
 				FileStream? stream = null;
 				int attempts = 5;

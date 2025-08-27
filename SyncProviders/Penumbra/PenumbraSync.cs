@@ -19,7 +19,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 240_000;
-	const int fileChunkSize = 1024 * 256; // 256kb chunks
+	const int fileChunkSize = 1024 * 128; // 128kb chunks
 	const int maxConcurrentUploads = 1;
 	const int maxConcurrentDownloads = 10;
 

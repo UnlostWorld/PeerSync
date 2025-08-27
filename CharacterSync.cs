@@ -131,7 +131,7 @@ public class CharacterSync : IDisposable
 			string identifier = Encoding.UTF8.GetString(data);
 			this.OnIAm(connection, identifier);
 		}
-		else
+		else if (typeId == Objects.CharacterData)
 		{
 			string json = Encoding.UTF8.GetString(data);
 			CharacterData? characterData = JsonConvert.DeserializeObject<CharacterData>(json);

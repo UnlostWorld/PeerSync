@@ -67,6 +67,11 @@ public class Network : IDisposable
 		{
 			await client.ConnectAsync(endPoint, token);
 		}
+		catch (OperationCanceledException)
+		{
+			client.Dispose();
+			return null;
+		}
 		catch (SocketException ex)
 		{
 			if (ex.ErrorCode == 10060)

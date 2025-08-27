@@ -447,11 +447,14 @@ public sealed class Plugin : IDalamudPlugin
 			string identifier = Encoding.UTF8.GetString(data);
 
 			CharacterSync? sync = this.GetCharacterSync(identifier);
-			if (sync != null)
+			if (sync == null)
 			{
-				sync.SetConnection(connection);
-				connection.Received -= this.OnReceived;
+				Plugin.Log.Warning($"Invalid I am identifier: {identifier}");
+				return;
 			}
+
+			sync.SetConnection(connection);
+			connection.Received -= this.OnReceived;
 		}
 	}
 }

@@ -7,6 +7,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
@@ -285,8 +286,23 @@ public class PenumbraSync : SyncProviderBase
 		new FileUpload(this, clientQueueIndex, hash, character);
 	}
 
-	private void OnFileData(Connection connection, byte clientQueueIndex, byte[] data)
+	public override void Dispose()
 	{
+		base.Dispose();
+
+		foreach (FileDownload download in this.downloads)
+		{
+			download.Dispose();
+		}
+
+		this.downloads.Clear();
+
+		foreach (FileUpload upload in this.uploads)
+		{
+			upload.Dispose();
+		}
+
+		this.uploads.Clear();
 	}
 
 	public class PenumbraData
@@ -296,7 +312,7 @@ public class PenumbraSync : SyncProviderBase
 		public string? MetaManipulations { get; set; }
 	}
 
-	public class FileUpload
+	public class FileUpload : IDisposable
 	{
 		public int BytesSent = 0;
 		public long BytesToSend = 0;
@@ -305,6 +321,7 @@ public class PenumbraSync : SyncProviderBase
 		private readonly string hash;
 		private readonly CharacterSync character;
 		private readonly byte clientQueueIndex;
+		private readonly CancellationTokenSource tokenSource = new();
 
 		public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterSync character)
 		{
@@ -322,6 +339,14 @@ public class PenumbraSync : SyncProviderBase
 		public string Name { get; private set; }
 		public bool IsWaiting { get; private set; }
 		public float Progress => (float)this.BytesSent / (float)this.BytesToSend;
+
+		public void Dispose()
+		{
+			if (!this.tokenSource.IsCancellationRequested)
+				this.tokenSource.Cancel();
+
+			this.tokenSource.Dispose();
+		}
 
 		private async Task Transfer()
 		{
@@ -374,20 +399,19 @@ public class PenumbraSync : SyncProviderBase
 
 				do
 				{
-					int thisChunkSize = fileChunkSize;
-					if (this.BytesSent + (thisChunkSize - 1) > this.BytesToSend)
-						thisChunkSize = (int)this.BytesToSend - this.BytesSent;
+					long bytesLeft = this.BytesToSend - this.BytesSent;
+					int thisChunkSize = (int)Math.Min(fileChunkSize, bytesLeft);
 
-					byte[] bytes = new byte[thisChunkSize];
+					byte[] bytes = new byte[thisChunkSize + 1];
 					bytes[0] = this.clientQueueIndex;
-					stream.ReadExactly(bytes, 1, thisChunkSize - 1);
+					stream.ReadExactly(bytes, 1, thisChunkSize);
 
 					Plugin.Log.Info($"Send file bytes: {bytes.Length}");
 
 					await this.character.SendAsync(Objects.FileData, bytes);
-					this.BytesSent += thisChunkSize - 1;
+					this.BytesSent += thisChunkSize;
 				}
-				while (this.BytesSent < this.BytesToSend);
+				while (this.BytesSent < this.BytesToSend && !this.tokenSource.IsCancellationRequested);
 
 				// File complete flag
 				await this.character.SendAsync(Objects.FileData, [this.clientQueueIndex]);
@@ -408,7 +432,7 @@ public class PenumbraSync : SyncProviderBase
 		}
 	}
 
-	public class FileDownload
+	public class FileDownload : IDisposable
 	{
 		public long BytesToReceive = 0;
 		public long BytesReceived = 0;
@@ -420,6 +444,7 @@ public class PenumbraSync : SyncProviderBase
 		private readonly CharacterSync character;
 		private FileStream? fileStream;
 		private byte queueIndex;
+		private readonly CancellationTokenSource tokenSource = new();
 
 		public FileDownload(
 			PenumbraSync sync,
@@ -441,6 +466,15 @@ public class PenumbraSync : SyncProviderBase
 		public bool IsWaiting { get; private set; }
 		public float Progress => (float)this.BytesReceived / (float)this.BytesToReceive;
 		public bool IsComplete { get; private set; }
+
+		public void Dispose()
+		{
+			this.fileStream?.Dispose();
+			if (this.character.Connection != null)
+				this.character.Connection.Received -= this.OnReceived;
+
+			this.sync.downloads.TryRemove(this);
+		}
 
 		private async Task Transfer()
 		{
@@ -479,7 +513,7 @@ public class PenumbraSync : SyncProviderBase
 
 					Stopwatch sw = new();
 					sw.Start();
-					while (!this.IsComplete && sw.ElapsedMilliseconds < PenumbraSync.fileTimeout && !this.sync.IsDisposed)
+					while (!this.IsComplete && sw.ElapsedMilliseconds < PenumbraSync.fileTimeout && !this.tokenSource.IsCancellationRequested)
 					{
 						await Task.Delay(10);
 					}

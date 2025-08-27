@@ -393,8 +393,6 @@ public class PenumbraSync : SyncProviderBase
 
 				await Task.Delay(10);
 
-				Plugin.Log.Info($"Begin upload file: {this.Name}");
-
 				this.BytesSent = 0;
 				this.BytesToSend = stream.Length;
 				stream.Position = 0;
@@ -413,8 +411,6 @@ public class PenumbraSync : SyncProviderBase
 					await Task.Delay(10);
 				}
 				while (this.BytesSent < this.BytesToSend && !this.tokenSource.IsCancellationRequested);
-
-				Plugin.Log.Info($"End upload file: {this.Name}");
 
 				// File complete flag
 				this.character.Send(Objects.FileData, [this.clientQueueIndex]);
@@ -472,6 +468,10 @@ public class PenumbraSync : SyncProviderBase
 
 		public void Dispose()
 		{
+			if (!this.tokenSource.IsCancellationRequested)
+				this.tokenSource.Cancel();
+
+			this.tokenSource.Dispose();
 			this.fileStream?.Dispose();
 			if (this.character.Connection != null)
 				this.character.Connection.Received -= this.OnReceived;
@@ -513,12 +513,16 @@ public class PenumbraSync : SyncProviderBase
 
 					Stopwatch sw = new();
 					sw.Start();
-					while (!this.IsComplete && sw.ElapsedMilliseconds < PenumbraSync.fileTimeout && !this.tokenSource.IsCancellationRequested)
+					while (!this.IsComplete && sw.ElapsedMilliseconds < PenumbraSync.fileTimeout
+						 && !this.tokenSource.IsCancellationRequested)
 					{
 						await Task.Delay(10);
 					}
 
 					sw.Stop();
+
+					if (this.tokenSource.IsCancellationRequested)
+						return;
 
 					if (sw.ElapsedMilliseconds >= PenumbraSync.fileTimeout)
 					{
@@ -577,7 +581,7 @@ public class PenumbraSync : SyncProviderBase
 
 		private void OnFileData(byte[] data)
 		{
-			if (this.sync.IsDisposed || this.fileStream == null || !this.fileStream.CanWrite)
+			if (this.sync.IsDisposed || this.tokenSource.IsCancellationRequested)
 				return;
 
 			try

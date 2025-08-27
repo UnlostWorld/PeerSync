@@ -173,7 +173,7 @@ public class CharacterSync : IDisposable
 		await this.connection.SendAsync(Objects.IAm, identifierBytes);
 
 		string json = JsonConvert.SerializeObject(data);
-		byte[] jsonBytes = Encoding.UTF8.GetBytes(identifier);
+		byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
 		await this.connection.SendAsync(Objects.CharacterData, jsonBytes);
 	}
 

@@ -49,21 +49,32 @@ public class Connection : IDisposable
 
 	public async Task SendAsync(byte objectType, byte[] data)
 	{
-		while (this.isWriting)
+		bool canWrite = false;
+		do
+		{
+			lock (this.stream)
+				canWrite = !this.isWriting;
+
 			await Task.Delay(5);
+		}
+		while (!canWrite);
 
 		if (data.Length > 1024 * 1024 * 10)
 			throw new Exception($"chunk {objectType} too large ({data.Length} bytes)");
 
 		try
 		{
-			this.isWriting = true;
+			lock (this.stream)
+				this.isWriting = true;
+
 			byte[] lengthBytes = BitConverter.GetBytes(data.Length);
 			await this.stream.WriteAsync((byte[])[objectType], this.tokenSource.Token);
 			await this.stream.WriteAsync(lengthBytes, this.tokenSource.Token);
 			await this.stream.WriteAsync(data, this.tokenSource.Token);
 			await this.stream.WriteAsync(lengthBytes, this.tokenSource.Token);
-			this.isWriting = false;
+
+			lock (this.stream)
+				this.isWriting = false;
 		}
 		catch (TaskCanceledException)
 		{

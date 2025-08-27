@@ -21,7 +21,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 240_000;
-	const int fileChunkSize = 1024 * 1024; // 1Mb chunks
+	const int fileChunkSize = 1024 * 512; // 512kb chunks
 	const int maxConcurrentUploadPeers = 3;
 	const int maxConcurrentDownloads = 10;
 
@@ -318,7 +318,10 @@ public class PenumbraSync : SyncProviderBase
 				if (this.character.Connection == null)
 					return;
 
-				sync.currentUploadPerConnection.Add(this.character.Connection);
+				lock (sync.currentUploadPerConnection)
+				{
+					sync.currentUploadPerConnection.Add(this.character.Connection);
+				}
 
 				FileStream? stream = null;
 				int attempts = 5;
@@ -387,9 +390,12 @@ public class PenumbraSync : SyncProviderBase
 					Plugin.Log.Error("Error removing upload from queue");
 				}
 
-				if (this.character.Connection != null && !sync.currentUploadPerConnection.TryRemove(this.character.Connection))
+				lock (sync.currentUploadPerConnection)
 				{
-					Plugin.Log.Error("Error removing upload from connection map");
+					if (this.character.Connection != null && !sync.currentUploadPerConnection.TryRemove(this.character.Connection))
+					{
+						Plugin.Log.Error("Error removing upload from connection map");
+					}
 				}
 
 				GC.Collect();
@@ -468,6 +474,11 @@ public class PenumbraSync : SyncProviderBase
 					if (sw.ElapsedMilliseconds >= PenumbraSync.fileTimeout)
 					{
 						throw new TimeoutException();
+					}
+
+					if (this.BytesReceived <= 0)
+					{
+						throw new Exception("Received 0 length file");
 					}
 				}
 			}

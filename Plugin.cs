@@ -231,7 +231,7 @@ public sealed class Plugin : IDalamudPlugin
 		Status = $"listen for connections...";
 		try
 		{
-			NetworkComms.EnableLogging(new NetworkLogger());
+			////NetworkComms.EnableLogging(new NetworkLogger());
 
 			JSONSerializer serializer = new();
 			DPSManager.AddDataSerializer(serializer);
@@ -247,7 +247,7 @@ public sealed class Plugin : IDalamudPlugin
 			NetworkComms.AppendGlobalConnectionEstablishHandler(this.OnClientEstablished);
 			NetworkComms.AppendGlobalConnectionCloseHandler(this.OnClientShutdown);
 			NetworkComms.AppendGlobalIncomingPacketHandler<string>("iam", this.OnIAmPacket);
-			this.connectionListeners = Connection.StartListening(ConnectionType.UDP, new IPEndPoint(IPAddress.Any, port));
+			this.connectionListeners = Connection.StartListening(ConnectionType.TCP, new IPEndPoint(IPAddress.Any, port));
 
 			Status = $"Started listening for connections";
 			Plugin.Log.Information("Started listening for connections");
@@ -260,7 +260,7 @@ public sealed class Plugin : IDalamudPlugin
 		}
 
 		IPAddress? localIp = null;
-		foreach (IPEndPoint localEndPoint in Connection.ExistingLocalListenEndPoints(ConnectionType.UDP))
+		foreach (IPEndPoint localEndPoint in Connection.ExistingLocalListenEndPoints(ConnectionType.TCP))
 		{
 			if (localEndPoint.AddressFamily != AddressFamily.InterNetwork)
 				continue;

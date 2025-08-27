@@ -22,9 +22,9 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 240_000;
-	const int fileChunkSize = 1024 * 10; // 10kb chunks
-	const int maxConcurrentUploads = 5;
-	const int maxConcurrentDownloads = 5;
+	const int fileChunkSize = 1024 * 1024; // 1Mb chunks
+	const int maxConcurrentUploads = 2;
+	const int maxConcurrentDownloads = 10;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -364,6 +364,10 @@ public class PenumbraSync : SyncProviderBase
 				byte[] b = [1];
 				this.character.Connection.SendObject(hash, b);
 			}
+			catch (CommunicationException)
+			{
+				Plugin.Log.Warning("Connection terminated while uploading file");
+			}
 			catch (Exception ex)
 			{
 				Plugin.Log.Error(ex, "Error uploading file");
@@ -374,6 +378,8 @@ public class PenumbraSync : SyncProviderBase
 				{
 					Plugin.Log.Error("Error removing upload from queue");
 				}
+
+				GC.Collect();
 			}
 		}
 	}
@@ -452,6 +458,10 @@ public class PenumbraSync : SyncProviderBase
 					}
 				}
 			}
+			catch (CommunicationException)
+			{
+				Plugin.Log.Warning("Connection terminated while downloading file");
+			}
 			catch (Exception ex)
 			{
 				Plugin.Log.Error(ex, "Error downloading file");
@@ -471,6 +481,8 @@ public class PenumbraSync : SyncProviderBase
 
 				this.character.Connection?.RemoveIncomingPacketHandler(this.hash);
 				this.sync.Downloads.TryRemove(this);
+
+				GC.Collect();
 			}
 		}
 

@@ -12,7 +12,7 @@ using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using NetworkCommsDotNet;
 using NetworkCommsDotNet.Connections;
-using NetworkCommsDotNet.Connections.UDP;
+using NetworkCommsDotNet.Connections.TCP;
 using StudioOnline.Sync;
 
 public class CharacterSync : IDisposable
@@ -208,7 +208,7 @@ public class CharacterSync : IDisposable
 				try
 				{
 					IPEndPoint endpoint = new(localAddress, response.Port);
-					this.connection = UDPConnection.GetConnection(new(endpoint), UDPOptions.Handshake);
+					this.connection = TCPConnection.GetConnection(new(endpoint));
 				}
 				catch (Exception)
 				{
@@ -221,7 +221,7 @@ public class CharacterSync : IDisposable
 				if (this.connection == null)
 				{
 					IPEndPoint endpoint = new(address, response.Port);
-					this.connection = UDPConnection.GetConnection(new(endpoint), UDPOptions.Handshake);
+					this.connection = TCPConnection.GetConnection(new(endpoint));
 				}
 			}
 			catch (Exception)

@@ -1,6 +1,6 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace PeerSync;
+namespace PeerSync.Network;
 
 using System;
 using System.IO;
@@ -89,7 +89,7 @@ public class Connection : IDisposable
 
 				try
 				{
-					////Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
+					Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
 					this.Received?.Invoke(this, typeBytes[0], data);
 				}
 				catch (Exception ex)

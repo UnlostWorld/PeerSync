@@ -23,6 +23,7 @@ using System.Text;
 using System.Threading;
 using SharpOpenNat;
 using PeerSync.Online;
+using PeerSync.Network;
 
 public static class Objects
 {
@@ -66,7 +67,7 @@ public sealed class Plugin : IDalamudPlugin
 	private bool shuttingDown = false;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
-	private readonly Network network = new();
+	private readonly ConnectionManager network = new();
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{

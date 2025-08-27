@@ -1,6 +1,6 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace PeerSync;
+namespace PeerSync.Network;
 
 using System;
 using System.Collections.Generic;
@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 public delegate void ConnectionDelegate(Connection connection);
 
-public class Network : IDisposable
+public class ConnectionManager : IDisposable
 {
 	private int listenPort;
 

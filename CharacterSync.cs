@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using Newtonsoft.Json;
+using PeerSync.Network;
 using PeerSync.Online;
 
 public class CharacterSync : IDisposable
@@ -24,14 +25,14 @@ public class CharacterSync : IDisposable
 	private CharacterData? lastData;
 	private bool isApplyingData = false;
 	private Connection? connection;
-	private readonly Network network;
+	private readonly ConnectionManager network;
 
 	public delegate void CharacterSyncDelegate(CharacterSync character);
 
 	public event CharacterSyncDelegate? Connected;
 	public event CharacterSyncDelegate? Disconnected;
 
-	public CharacterSync(Network network, string characterName, string world, string password)
+	public CharacterSync(ConnectionManager network, string characterName, string world, string password)
 	{
 		this.network = network;
 		this.CharacterName = characterName;

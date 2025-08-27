@@ -1,15 +1,14 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
@@ -23,11 +22,15 @@ public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 240_000;
 	const int fileChunkSize = 1024 * 1024; // 1Mb chunks
-	const int maxConcurrentUploads = 2;
+	const int maxConcurrentUploadPeers = 3;
 	const int maxConcurrentDownloads = 10;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
+
+	private readonly ConcurrentHashSet<FileDownload> downloads = new();
+	private readonly ConcurrentHashSet<FileUpload> uploads = new();
+	private readonly ConcurrentHashSet<Connection> currentUploadPerConnection = new();
 
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 
@@ -38,9 +41,6 @@ public class PenumbraSync : SyncProviderBase
 
 	public override string Key => "Penumbra";
 	public override bool HasTab => true;
-
-	private ConcurrentHashSet<FileDownload> Downloads { get; init; } = new();
-	private ConcurrentHashSet<FileUpload> Uploads { get; init; } = new();
 
 	public static readonly HashSet<string> AllowedFileExtensions =
 	[
@@ -179,7 +179,7 @@ public class PenumbraSync : SyncProviderBase
 		while (!done)
 		{
 			done = true;
-			foreach (FileDownload t in this.Downloads)
+			foreach (FileDownload t in this.downloads)
 			{
 				if (t.Character == character && !t.IsComplete)
 				{
@@ -198,7 +198,7 @@ public class PenumbraSync : SyncProviderBase
 	public int GetActiveDownloadCount()
 	{
 		int count = 0;
-		foreach (FileDownload download in this.Downloads)
+		foreach (FileDownload download in this.downloads)
 		{
 			if (download.IsWaiting)
 				continue;
@@ -212,7 +212,7 @@ public class PenumbraSync : SyncProviderBase
 	public int GetActiveUploadCount()
 	{
 		int count = 0;
-		foreach (FileUpload upload in this.Uploads)
+		foreach (FileUpload upload in this.uploads)
 		{
 			if (upload.IsWaiting)
 				continue;
@@ -247,8 +247,8 @@ public class PenumbraSync : SyncProviderBase
 	{
 		base.DrawTab();
 
-		ImGui.Text($"Uploading {this.GetActiveUploadCount()} / {this.Uploads.Count}");
-		foreach (FileUpload upload in this.Uploads)
+		ImGui.Text($"Uploading {this.GetActiveUploadCount()} / {this.uploads.Count}");
+		foreach (FileUpload upload in this.uploads)
 		{
 			if (upload.IsWaiting)
 				continue;
@@ -256,8 +256,8 @@ public class PenumbraSync : SyncProviderBase
 			ImGui.Text($" > {upload.Name} - {(int)(upload.Progress * 100)}%");
 		}
 
-		ImGui.Text($"Downloading {this.GetActiveDownloadCount()} / {this.Downloads.Count}");
-		foreach (FileDownload download in this.Downloads)
+		ImGui.Text($"Downloading {this.GetActiveDownloadCount()} / {this.downloads.Count}");
+		foreach (FileDownload download in this.downloads)
 		{
 			if (download.IsWaiting)
 				continue;
@@ -293,7 +293,7 @@ public class PenumbraSync : SyncProviderBase
 			this.character = character;
 
 			this.Name = file.Name;
-			sync.Uploads.Add(this);
+			sync.uploads.Add(this);
 
 			Task.Run(this.Transfer);
 		}
@@ -304,12 +304,22 @@ public class PenumbraSync : SyncProviderBase
 		private async Task Transfer()
 		{
 			this.IsWaiting = true;
-			while (sync.GetActiveUploadCount() >= maxConcurrentUploads)
-				await Task.Delay(500);
+			while (sync.GetActiveUploadCount() >= maxConcurrentUploadPeers)
+				await Task.Delay(250);
+
+			while (this.character.Connection != null && sync.currentUploadPerConnection.Contains(this.character.Connection))
+			{
+				await Task.Delay(250);
+			}
 
 			this.IsWaiting = false;
 			try
 			{
+				if (this.character.Connection == null)
+					return;
+
+				sync.currentUploadPerConnection.Add(this.character.Connection);
+
 				FileStream? stream = null;
 				int attempts = 5;
 				Exception? lastException = null;
@@ -352,8 +362,6 @@ public class PenumbraSync : SyncProviderBase
 
 					this.character.Connection.SendObject(hash, bytes);
 					this.BytesSent += thisChunkSize;
-
-					await Task.Delay(100);
 				}
 				while (this.BytesSent < this.BytesToSend);
 
@@ -374,9 +382,14 @@ public class PenumbraSync : SyncProviderBase
 			}
 			finally
 			{
-				if (!this.sync.Uploads.TryRemove(this))
+				if (!this.sync.uploads.TryRemove(this))
 				{
 					Plugin.Log.Error("Error removing upload from queue");
+				}
+
+				if (this.character.Connection != null && !sync.currentUploadPerConnection.TryRemove(this.character.Connection))
+				{
+					Plugin.Log.Error("Error removing upload from connection map");
 				}
 
 				GC.Collect();
@@ -421,7 +434,7 @@ public class PenumbraSync : SyncProviderBase
 		{
 			try
 			{
-				this.sync.Downloads.Add(this);
+				this.sync.downloads.Add(this);
 
 				this.IsComplete = false;
 				this.IsWaiting = true;
@@ -480,7 +493,7 @@ public class PenumbraSync : SyncProviderBase
 				}
 
 				this.character.Connection?.RemoveIncomingPacketHandler(this.hash);
-				this.sync.Downloads.TryRemove(this);
+				this.sync.downloads.TryRemove(this);
 
 				GC.Collect();
 			}

@@ -518,6 +518,8 @@ public class PenumbraSync : SyncProviderBase
 						await Task.Delay(10);
 					}
 
+					sw.Stop();
+
 					if (sw.ElapsedMilliseconds >= PenumbraSync.fileTimeout)
 					{
 						throw new TimeoutException();

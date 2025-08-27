@@ -55,7 +55,6 @@ public class Connection : IDisposable
 		{
 			lock (this.stream)
 			{
-
 				byte[] lengthBytes = BitConverter.GetBytes(data.Length);
 				this.stream.Write((byte[])[objectType]);
 				this.stream.Write(lengthBytes);

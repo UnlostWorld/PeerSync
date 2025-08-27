@@ -16,6 +16,7 @@ public class Connection : IDisposable
 	private readonly CancellationTokenSource tokenSource = new();
 	private readonly TcpClient client;
 	private readonly NetworkStream stream;
+	private bool isWriting = false;
 
 	public event ConnectionDelegate? Disconnected;
 
@@ -48,11 +49,16 @@ public class Connection : IDisposable
 
 	public async Task SendAsync(byte objectType, byte[] data)
 	{
+		while (this.isWriting)
+			await Task.Delay(1);
+
 		try
 		{
+			this.isWriting = true;
 			await this.stream.WriteAsync((byte[])[objectType], this.tokenSource.Token);
 			await this.stream.WriteAsync(BitConverter.GetBytes(data.Length), this.tokenSource.Token);
 			await this.stream.WriteAsync(data, this.tokenSource.Token);
+			this.isWriting = false;
 		}
 		catch (SocketException ex)
 		{

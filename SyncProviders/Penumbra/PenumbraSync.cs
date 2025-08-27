@@ -500,9 +500,6 @@ public class PenumbraSync : SyncProviderBase
 					this.queueIndex = this.sync.lastQueueIndex++;
 					this.character.Connection.Received += this.OnReceived;
 
-					//We create a file on disk so that we can receive large files
-					this.fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.None);
-
 					byte[] hashBytes = Encoding.UTF8.GetBytes(hash);
 					byte[] objectBytes = new byte[hashBytes.Length + 1];
 					objectBytes[0] = this.queueIndex;
@@ -585,6 +582,12 @@ public class PenumbraSync : SyncProviderBase
 				}
 				else
 				{
+					if (this.fileStream == null)
+					{
+						FileInfo? file = sync.fileCache.GetFile(hash);
+						this.fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.None);
+					}
+
 					lock (this.fileStream)
 					{
 						this.fileStream.Write(data);

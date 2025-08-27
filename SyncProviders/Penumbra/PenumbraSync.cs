@@ -19,7 +19,7 @@ public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 240_000;
 	const int fileChunkSize = 1024 * 512; // 512kb chunks
-	const int maxConcurrentUploadPeers = 3;
+	const int maxConcurrentUploads = 1;
 	const int maxConcurrentDownloads = 10;
 
 	private readonly PenumbraCommunicator penumbra = new();
@@ -326,7 +326,7 @@ public class PenumbraSync : SyncProviderBase
 		private async Task Transfer()
 		{
 			this.IsWaiting = true;
-			while (sync.GetActiveUploadCount() >= maxConcurrentUploadPeers)
+			while (sync.GetActiveUploadCount() >= maxConcurrentUploads)
 				await Task.Delay(250);
 
 			this.IsWaiting = false;
@@ -381,6 +381,8 @@ public class PenumbraSync : SyncProviderBase
 					byte[] bytes = new byte[thisChunkSize];
 					bytes[0] = this.clientQueueIndex;
 					stream.ReadExactly(bytes, 1, thisChunkSize - 1);
+
+					Plugin.Log.Info($"Send file bytes: {bytes.Length}");
 
 					await this.character.SendAsync(Objects.FileData, bytes);
 					this.BytesSent += thisChunkSize - 1;

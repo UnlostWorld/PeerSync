@@ -63,6 +63,9 @@ public class Connection : IDisposable
 			await this.stream.WriteAsync(data, this.tokenSource.Token);
 			this.isWriting = false;
 		}
+		catch (TaskCanceledException)
+		{
+		}
 		catch (SocketException ex)
 		{
 			if (ex.ErrorCode == 10053)
@@ -98,7 +101,7 @@ public class Connection : IDisposable
 				if (chunkLength > 1024 * 1024 * 10)
 					throw new Exception("chunk too large!");
 
-				Plugin.Log.Information($">> {chunkLength}");
+				Plugin.Log.Information($">> {typeBytes} - {chunkLength}");
 
 				byte[] data = new byte[chunkLength];
 

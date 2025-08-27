@@ -107,6 +107,8 @@ public class CharacterSync : IDisposable
 		if (this.CurrentStatus != Status.Listening)
 			return;
 
+		Plugin.Log.Info($"{this.CharacterName} @ {this.World} Connected from {connection.EndPoint}");
+
 		this.connection = connection;
 
 		this.SetupConnection();
@@ -119,9 +121,7 @@ public class CharacterSync : IDisposable
 			throw new Exception();
 
 		this.connection.Received += this.OnReceived;
-		////this.connection.AppendShutdownHandler(this.OnConnectionClosed);
-
-		////this.connection.AppendIncomingPacketHandler<CharacterData>("CharacterData", this.OnCharacterDataPacket);
+		this.connection.Disconnected += this.OnDisconnected;
 	}
 
 	private void OnReceived(Connection connection, byte typeId, byte[] data)
@@ -292,9 +292,9 @@ public class CharacterSync : IDisposable
 		}
 	}
 
-	private void OnConnectionClosed(Connection connection)
+	private void OnDisconnected(Connection connection)
 	{
-		Plugin.Log.Information($"Connection to {this.CharacterName}@{this.World} was closed.");
+		Plugin.Log.Information($"Connection to {this.CharacterName} @ {this.World} was closed.");
 		this.CurrentStatus = Status.Disconnected;
 
 		////this.Reconnect();
@@ -308,6 +308,7 @@ public class CharacterSync : IDisposable
 
 		if (this.CurrentStatus == Status.Handshake)
 		{
+			Plugin.Log.Info($"Connected to {this.CharacterName} @ {this.World} at {connection.EndPoint}");
 			this.CurrentStatus = Status.Connected;
 		}
 	}

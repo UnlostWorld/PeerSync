@@ -50,14 +50,16 @@ public class Connection : IDisposable
 	public async Task SendAsync(byte objectType, byte[] data)
 	{
 		while (this.isWriting)
-			await Task.Delay(1);
+			await Task.Delay(5);
 
 		try
 		{
 			this.isWriting = true;
+			Plugin.Log.Information($"Send: {objectType} ({data.Length} bytes)");
 			await this.stream.WriteAsync((byte[])[objectType], this.tokenSource.Token);
 			await this.stream.WriteAsync(BitConverter.GetBytes(data.Length), this.tokenSource.Token);
 			await this.stream.WriteAsync(data, this.tokenSource.Token);
+			Plugin.Log.Information($"Send done");
 			this.isWriting = false;
 		}
 		catch (SocketException ex)
@@ -108,7 +110,7 @@ public class Connection : IDisposable
 
 				try
 				{
-					Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
+					////Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
 					this.Received?.Invoke(this, typeBytes[0], data);
 				}
 				catch (Exception ex)

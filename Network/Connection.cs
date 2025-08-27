@@ -48,27 +48,41 @@ public class Connection : IDisposable
 
 	public async Task SendAsync(byte objectType, byte[] data)
 	{
-		await this.stream.WriteAsync((byte[])[objectType], this.tokenSource.Token);
-		await this.stream.WriteAsync(BitConverter.GetBytes(data.Length), this.tokenSource.Token);
-		await this.stream.WriteAsync(data, this.tokenSource.Token);
+		try
+		{
+			await this.stream.WriteAsync((byte[])[objectType], this.tokenSource.Token);
+			await this.stream.WriteAsync(BitConverter.GetBytes(data.Length), this.tokenSource.Token);
+			await this.stream.WriteAsync(data, this.tokenSource.Token);
+		}
+		catch (SocketException ex)
+		{
+			if (ex.ErrorCode == 10053)
+			{
+				this.Disconnected?.Invoke(this);
+				this.Dispose();
+			}
+			else
+			{
+				Plugin.Log.Error(ex, "Error sending data");
+			}
+		}
+		catch (Exception ex)
+		{
+			Plugin.Log.Error(ex, "Error sending data");
+		}
 	}
 
 	private async Task Receive()
 	{
-		int read = 0;
 		while (!this.tokenSource.IsCancellationRequested)
 		{
 			try
 			{
 				byte[] typeBytes = new byte[1];
-				read = await stream.ReadAsync(typeBytes, this.tokenSource.Token);
-				if (read != 1)
-					continue;
+				await stream.ReadExactlyAsync(typeBytes, 0, 1, this.tokenSource.Token);
 
 				byte[] chunkLengthBytes = new byte[sizeof(int)];
-				read = await stream.ReadAsync(chunkLengthBytes, this.tokenSource.Token);
-				if (read != sizeof(int))
-					continue;
+				await stream.ReadExactlyAsync(chunkLengthBytes, 0, sizeof(int), this.tokenSource.Token);
 
 				int packetLength = BitConverter.ToInt32(chunkLengthBytes);
 				byte[] data = new byte[packetLength];
@@ -81,7 +95,7 @@ public class Connection : IDisposable
 					if (client.Available < availableBytes)
 						availableBytes = client.Available;
 
-					read = stream.Read(data, bytesReceived, availableBytes);
+					stream.ReadExactly(data, bytesReceived, availableBytes);
 
 					bytesReceived += availableBytes;
 					bytesToReceive -= availableBytes;

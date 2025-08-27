@@ -423,7 +423,7 @@ public sealed class Plugin : IDalamudPlugin
 			LocalCharacterData.Syncs.Add(sync.Key, content);
 		}
 
-		foreach (CharacterSync sync in checkedCharacters.Values)
+		/*foreach (CharacterSync sync in checkedCharacters.Values)
 		{
 			if (!sync.IsConnected)
 				continue;
@@ -436,7 +436,7 @@ public sealed class Plugin : IDalamudPlugin
 			{
 				Plugin.Log.Error(ex, "Error sending character data");
 			}
-		}
+		}*/
 	}
 
 	private void OnIncomingConnectionConnected(Connection connection)

@@ -100,7 +100,6 @@ public class Connection : IDisposable
 
 				int chunkLength = BitConverter.ToInt32(chunkLengthBytes);
 
-				Plugin.Log.Information($">> {typeBytes[0]} - {chunkLength}");
 				if (chunkLength > 1024 * 1024 * 10)
 					throw new Exception("chunk too large!");
 

@@ -367,8 +367,6 @@ public class PenumbraSync : SyncProviderBase
 
 				this.Name = fileInfo.Name;
 
-				Plugin.Log.Information($"Upload file: {this.Name}");
-
 				FileStream? stream = null;
 				int attempts = 5;
 				Exception? lastException = null;
@@ -393,6 +391,8 @@ public class PenumbraSync : SyncProviderBase
 					return;
 				}
 
+				await Task.Delay(10);
+
 				this.BytesSent = 0;
 				this.BytesToSend = stream.Length;
 				stream.Position = 0;
@@ -405,8 +405,6 @@ public class PenumbraSync : SyncProviderBase
 					byte[] bytes = new byte[thisChunkSize + 1];
 					bytes[0] = this.clientQueueIndex;
 					stream.ReadExactly(bytes, 1, thisChunkSize);
-
-					Plugin.Log.Info($"Send file bytes: {bytes.Length}");
 
 					await this.character.SendAsync(Objects.FileData, bytes);
 					this.BytesSent += thisChunkSize;

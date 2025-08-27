@@ -100,8 +100,8 @@ public class Connection : IDisposable
 
 				int chunkLength = BitConverter.ToInt32(chunkLengthBytes);
 
-				if (chunkLength > 1024 * 1024 * 10)
-					throw new Exception($"chunk {typeBytes[0]} too large ({chunkLength} bytes)");
+				if (chunkLength < 0 || chunkLength > 1024 * 1024 * 10)
+					throw new Exception($"chunk {typeBytes[0]} invalid size. ({chunkLength} bytes)");
 
 				byte[] data = new byte[chunkLength];
 

@@ -95,6 +95,16 @@ public class CharacterSync : IDisposable
 		return input;
 	}
 
+	public async Task SendIAm()
+	{
+		string? identifier = Plugin.Instance?.LocalCharacterIdentifier;
+		if (identifier == null)
+			return;
+
+		byte[] data = Encoding.UTF8.GetBytes(identifier);
+		await this.SendAsync(Objects.IAm, data);
+	}
+
 	public async Task SendAsync(byte objectType, byte[] data)
 	{
 		if (this.connection == null || !this.connection.IsConnected)
@@ -130,12 +140,7 @@ public class CharacterSync : IDisposable
 		this.CurrentStatus = Status.Connected;
 		this.Connected?.Invoke(this);
 
-		string? identifier = Plugin.Instance?.LocalCharacterIdentifier;
-		if (identifier == null)
-			throw new Exception("No identifier");
-
-		byte[] identifierBytes = Encoding.UTF8.GetBytes(identifier);
-		await this.SendAsync(Objects.IAm, identifierBytes);
+		await this.SendIAm();
 	}
 
 	private void SetupConnection()
@@ -198,15 +203,13 @@ public class CharacterSync : IDisposable
 
 	public async Task SendData(CharacterData data)
 	{
-		if (this.connection == null || Plugin.Instance?.LocalCharacterIdentifier == null)
+		if (this.connection == null)
 			return;
 
 		if (!this.connection.IsConnected)
 			return;
 
-		string identifier = Plugin.Instance.LocalCharacterIdentifier;
-		byte[] identifierBytes = Encoding.UTF8.GetBytes(identifier);
-		await this.connection.SendAsync(Objects.IAm, identifierBytes);
+		////await this.SendIAm();
 
 		string json = JsonConvert.SerializeObject(data);
 		byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
@@ -296,12 +299,6 @@ public class CharacterSync : IDisposable
 			if (this.tokenSource.IsCancellationRequested)
 				return;
 
-			string? identifier = Plugin.Instance?.LocalCharacterIdentifier;
-			if (identifier == null)
-				throw new Exception("No identifier");
-
-			byte[] identifierBytes = Encoding.UTF8.GetBytes(identifier);
-
 			int attempts = 0;
 			while (this.CurrentStatus == Status.Handshake && attempts < 10)
 			{
@@ -309,7 +306,7 @@ public class CharacterSync : IDisposable
 					return;
 
 				attempts++;
-				await this.connection.SendAsync(Objects.IAm, identifierBytes);
+				await this.SendIAm();
 				await Task.Delay(3000);
 			}
 
@@ -345,10 +342,16 @@ public class CharacterSync : IDisposable
 
 		if (this.CurrentStatus == Status.Handshake)
 		{
-			Plugin.Log.Info($"Connected to {this.CharacterName} @ {this.World} at {connection.EndPoint}");
-			this.CurrentStatus = Status.Connected;
-			this.Connected?.Invoke(this);
+
 		}
+		else if (this.CurrentStatus == Status.Listening)
+		{
+			Task.Run(this.SendIAm);
+		}
+
+		Plugin.Log.Info($"Connected to {this.CharacterName} @ {this.World} at {connection.EndPoint}");
+		this.CurrentStatus = Status.Connected;
+		this.Connected?.Invoke(this);
 	}
 
 	private void OnCharacterData(Connection connection, CharacterData characterData)

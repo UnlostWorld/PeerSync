@@ -450,12 +450,16 @@ public sealed class Plugin : IDalamudPlugin
 		{
 			string identifier = Encoding.UTF8.GetString(data);
 
+			Plugin.Log.Information($"Received IAm: {identifier}");
+
 			CharacterSync? sync = this.GetCharacterSync(identifier);
 			if (sync == null)
 			{
 				Plugin.Log.Warning($"Invalid I am identifier: {identifier}");
 				return;
 			}
+
+
 
 			Task.Run(() => sync.SetConnection(connection));
 			connection.Received -= this.OnReceived;

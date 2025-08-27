@@ -393,6 +393,8 @@ public class PenumbraSync : SyncProviderBase
 
 				await Task.Delay(10);
 
+				Plugin.Log.Info($"Begin upload file: {this.Name}");
+
 				this.BytesSent = 0;
 				this.BytesToSend = stream.Length;
 				stream.Position = 0;
@@ -411,6 +413,8 @@ public class PenumbraSync : SyncProviderBase
 					await Task.Delay(10);
 				}
 				while (this.BytesSent < this.BytesToSend && !this.tokenSource.IsCancellationRequested);
+
+				Plugin.Log.Info($"End upload file: {this.Name}");
 
 				// File complete flag
 				await this.character.SendAsync(Objects.FileData, [this.clientQueueIndex]);

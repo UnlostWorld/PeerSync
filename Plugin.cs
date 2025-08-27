@@ -95,7 +95,7 @@ public sealed class Plugin : IDalamudPlugin
 			providerLookup.Add(provider.Key, provider);
 		}
 
-		this.network.IncomingDisconnected += this.OnIncomingConnectionDisconnected;
+		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
 	}
 
 	public string Name => "Peer Sync";
@@ -439,7 +439,7 @@ public sealed class Plugin : IDalamudPlugin
 		}
 	}
 
-	private void OnIncomingConnectionDisconnected(Connection connection)
+	private void OnIncomingConnectionConnected(Connection connection)
 	{
 		connection.Received += this.OnReceived;
 	}
@@ -458,8 +458,6 @@ public sealed class Plugin : IDalamudPlugin
 				Plugin.Log.Warning($"Invalid I am identifier: {identifier}");
 				return;
 			}
-
-
 
 			Task.Run(() => sync.SetConnection(connection));
 			connection.Received -= this.OnReceived;

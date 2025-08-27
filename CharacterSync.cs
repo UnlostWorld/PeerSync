@@ -76,7 +76,7 @@ public class CharacterSync : IDisposable
 
 	public ushort ObjectTableIndex { get; set; }
 	public Connection? Connection => this.connection;
-	public bool IsConnected => this.connection?.IsConnected == true;
+	public bool IsConnected => this.CurrentStatus == Status.Connected;
 
 	public static string GetIdentifier(string characterName, string world, string password, int iterations = 1000)
 	{

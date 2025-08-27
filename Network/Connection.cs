@@ -52,14 +52,15 @@ public class Connection : IDisposable
 		while (this.isWriting)
 			await Task.Delay(5);
 
+		if (data.Length > 1024 * 1024 * 10)
+			throw new Exception("chunk too large!");
+
 		try
 		{
 			this.isWriting = true;
-			Plugin.Log.Information($"Send: {objectType} ({data.Length} bytes)");
 			await this.stream.WriteAsync((byte[])[objectType], this.tokenSource.Token);
 			await this.stream.WriteAsync(BitConverter.GetBytes(data.Length), this.tokenSource.Token);
 			await this.stream.WriteAsync(data, this.tokenSource.Token);
-			Plugin.Log.Information($"Send done");
 			this.isWriting = false;
 		}
 		catch (SocketException ex)
@@ -93,6 +94,10 @@ public class Connection : IDisposable
 				await stream.ReadExactlyAsync(chunkLengthBytes, 0, sizeof(int), this.tokenSource.Token);
 
 				int chunkLength = BitConverter.ToInt32(chunkLengthBytes);
+
+				if (chunkLength > 1024 * 1024 * 10)
+					throw new Exception("chunk too large!");
+
 				Plugin.Log.Information($">> {chunkLength}");
 
 				byte[] data = new byte[chunkLength];

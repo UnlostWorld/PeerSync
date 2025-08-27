@@ -29,10 +29,7 @@ public class PenumbraSync : SyncProviderBase
 
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 
-	public PenumbraSync()
-	{
-		////NetworkComms.AppendGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
-	}
+	private byte lastQueueIndex = 0;
 
 	public override string Key => "Penumbra";
 	public override bool HasTab => true;
@@ -55,10 +52,34 @@ public class PenumbraSync : SyncProviderBase
 		".shpk"
 	];
 
-	public override void Dispose()
+	public override void OnCharacterConnected(CharacterSync character)
 	{
-		////NetworkComms.RemoveGlobalIncomingPacketHandler<string>("FileRequest", this.OnFileRequest);
-		base.Dispose();
+		if (character.Connection != null)
+			character.Connection.Received += this.OnReceived;
+
+		base.OnCharacterConnected(character);
+	}
+
+	public override void OnCharacterDisconnected(CharacterSync character)
+	{
+		if (character.Connection != null)
+			character.Connection.Received -= this.OnReceived;
+
+		base.OnCharacterDisconnected(character);
+	}
+
+	private void OnReceived(Connection connection, byte typeId, byte[] data)
+	{
+		if (typeId == Objects.FileRequest)
+		{
+			byte clientQueueIndex = data[0];
+
+			byte[] hashData = new byte[data.Length - 1];
+			Array.Copy(data, 1, hashData, 0, data.Length - 1);
+
+			string hash = Encoding.UTF8.GetString(hashData);
+			this.OnFileRequest(connection, clientQueueIndex, hash);
+		}
 	}
 
 	public override async Task<string?> Serialize(ushort objectIndex)
@@ -218,26 +239,6 @@ public class PenumbraSync : SyncProviderBase
 		return count;
 	}
 
-	/*private void OnFileRequest(PacketHeader packetHeader, Connection connection, string hash)
-	{
-		FileInfo? fileInfo = null;
-		if (!hashToFileLookup.TryGetValue(hash, out fileInfo) || fileInfo == null || !fileInfo.Exists)
-		{
-			Plugin.Log.Warning($"File: {hash} missing!");
-			connection.SendObject(hash, new byte[0]);
-			return;
-		}
-
-		CharacterSync? character = Plugin.Instance?.GetCharacterSync(connection);
-		if (character == null)
-		{
-			Plugin.Log.Warning($"File request from unknown connection!");
-			return;
-		}
-
-		new FileUpload(this, hash, fileInfo, character);
-	}*/
-
 	public override void DrawTab()
 	{
 		base.DrawTab();
@@ -261,6 +262,22 @@ public class PenumbraSync : SyncProviderBase
 		}
 	}
 
+	private void OnFileRequest(Connection connection, byte clientQueueIndex, string hash)
+	{
+		CharacterSync? character = Plugin.Instance?.GetCharacterSync(connection);
+		if (character == null)
+		{
+			Plugin.Log.Warning($"File request from unknown connection!");
+			return;
+		}
+
+		new FileUpload(this, clientQueueIndex, hash, character);
+	}
+
+	private void OnFileData(Connection connection, byte clientQueueIndex, byte[] data)
+	{
+	}
+
 	public class PenumbraData
 	{
 		public Dictionary<string, string> Files { get; set; } = new();
@@ -273,26 +290,25 @@ public class PenumbraSync : SyncProviderBase
 		public int BytesSent = 0;
 		public long BytesToSend = 0;
 
-		public readonly string Name;
-
 		private readonly PenumbraSync sync;
 		private readonly string hash;
-		private readonly FileInfo file;
 		private readonly CharacterSync character;
+		private readonly byte clientQueueIndex;
 
-		public FileUpload(PenumbraSync sync, string hash, FileInfo file, CharacterSync character)
+		public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterSync character)
 		{
 			this.sync = sync;
 			this.hash = hash;
-			this.file = file;
 			this.character = character;
+			this.clientQueueIndex = clientQueueIndex;
 
-			this.Name = file.Name;
+			this.Name = hash;
 			sync.uploads.Add(this);
 
 			Task.Run(this.Transfer);
 		}
 
+		public string Name { get; private set; }
 		public bool IsWaiting { get; private set; }
 		public float Progress => (float)this.BytesSent / (float)this.BytesToSend;
 
@@ -305,6 +321,16 @@ public class PenumbraSync : SyncProviderBase
 			this.IsWaiting = false;
 			try
 			{
+				FileInfo? fileInfo = null;
+				if (!sync.hashToFileLookup.TryGetValue(hash, out fileInfo) || fileInfo == null || !fileInfo.Exists)
+				{
+					Plugin.Log.Warning($"File: {hash} missing!");
+					await this.character.SendAsync(Objects.FileData, [this.clientQueueIndex]);
+					return;
+				}
+
+				this.Name = fileInfo.Name;
+
 				FileStream? stream = null;
 				int attempts = 5;
 				Exception? lastException = null;
@@ -312,7 +338,7 @@ public class PenumbraSync : SyncProviderBase
 				{
 					try
 					{
-						stream = new(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
+						stream = new(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
 					}
 					catch (IOException ex)
 					{
@@ -336,20 +362,20 @@ public class PenumbraSync : SyncProviderBase
 				do
 				{
 					int thisChunkSize = fileChunkSize;
-					if (this.BytesSent + thisChunkSize > this.BytesToSend)
+					if (this.BytesSent + (thisChunkSize - 1) > this.BytesToSend)
 						thisChunkSize = (int)this.BytesToSend - this.BytesSent;
 
 					byte[] bytes = new byte[thisChunkSize];
-					stream.ReadExactly(bytes, 0, thisChunkSize);
+					bytes[0] = this.clientQueueIndex;
+					stream.ReadExactly(bytes, 1, thisChunkSize - 1);
 
-					////this.character.Connection.SendObject(hash, bytes);
-					this.BytesSent += thisChunkSize;
+					await this.character.SendAsync(Objects.FileData, bytes);
+					this.BytesSent += thisChunkSize - 1;
 				}
 				while (this.BytesSent < this.BytesToSend);
 
 				// File complete flag
-				byte[] b = [1];
-				////this.character.Connection.SendObject(hash, b);
+				await this.character.SendAsync(Objects.FileData, [this.clientQueueIndex]);
 			}
 			catch (Exception ex)
 			{
@@ -378,6 +404,7 @@ public class PenumbraSync : SyncProviderBase
 		private readonly string hash;
 		private readonly CharacterSync character;
 		private FileStream? fileStream;
+		private byte queueIndex;
 
 		public FileDownload(
 			PenumbraSync sync,
@@ -419,14 +446,21 @@ public class PenumbraSync : SyncProviderBase
 
 				if (!file.Exists)
 				{
-					if (this.sync.IsDisposed)
+					if (this.sync.IsDisposed || this.character.Connection == null)
 						return;
+
+					this.queueIndex = this.sync.lastQueueIndex++;
+					this.character.Connection.Received += this.OnReceived;
 
 					//We create a file on disk so that we can receive large files
 					this.fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.None);
 
-					////character.Connection.AppendIncomingPacketHandler<byte[]>(hash, this.OnDataReceived);
-					////character.Connection.SendObject("FileRequest", hash);
+					byte[] hashBytes = Encoding.UTF8.GetBytes(hash);
+					byte[] objectBytes = new byte[hashBytes.Length + 1];
+					objectBytes[0] = this.queueIndex;
+					Array.Copy(hashBytes, 0, objectBytes, 1, hashBytes.Length);
+
+					await character.SendAsync(Objects.FileRequest, objectBytes);
 
 					Stopwatch sw = new();
 					sw.Start();
@@ -463,14 +497,34 @@ public class PenumbraSync : SyncProviderBase
 					}
 				}
 
-				////this.character.Connection?.RemoveIncomingPacketHandler(this.hash);
+				if (this.character.Connection != null)
+					this.character.Connection.Received -= this.OnReceived;
+
 				this.sync.downloads.TryRemove(this);
 
 				GC.Collect();
 			}
 		}
 
-		/*private void OnDataReceived(PacketHeader packetHeader, Connection connection, byte[] data)
+		private void OnReceived(Connection connection, byte typeId, byte[] data)
+		{
+			if (typeId == Objects.FileData)
+			{
+				byte clientQueueIndex = data[0];
+
+				if (clientQueueIndex != this.queueIndex)
+					return;
+
+				if (connection != this.character.Connection)
+					return;
+
+				byte[] fileData = new byte[data.Length - 1];
+				Array.Copy(data, 1, fileData, 0, data.Length - 1);
+				this.OnFileData(fileData);
+			}
+		}
+
+		private void OnFileData(byte[] data)
 		{
 			if (this.sync.IsDisposed || this.fileStream == null || !this.fileStream.CanWrite)
 				return;
@@ -495,6 +549,6 @@ public class PenumbraSync : SyncProviderBase
 			{
 				Plugin.Log.Error(ex, "Error receiving file data");
 			}
-		}*/
+		}
 	}
 }

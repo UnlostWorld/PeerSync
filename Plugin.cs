@@ -28,6 +28,8 @@ public static class Objects
 {
 	public const byte IAm = 1;
 	public const byte CharacterData = 2;
+	public const byte FileRequest = 3;
+	public const byte FileData = 4;
 }
 
 public sealed class Plugin : IDalamudPlugin
@@ -35,7 +37,7 @@ public sealed class Plugin : IDalamudPlugin
 	public readonly List<SyncProviderBase> SyncProviders = new()
 	{
 		new GlamourerSync(),
-		////new PenumbraSync(),
+		new PenumbraSync(),
 	};
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
@@ -92,27 +94,7 @@ public sealed class Plugin : IDalamudPlugin
 			providerLookup.Add(provider.Key, provider);
 		}
 
-		this.network.IncomingConnected += this.OnIncomingConnected;
-	}
-
-	private void OnIncomingConnected(Connection connection)
-	{
-		connection.Received += this.OnReceived;
-	}
-
-	private void OnReceived(Connection connection, byte typeId, byte[] data)
-	{
-		if (typeId == Objects.IAm)
-		{
-			string identifier = Encoding.UTF8.GetString(data);
-
-			CharacterSync? sync = this.GetCharacterSync(identifier);
-			if (sync != null)
-			{
-				sync.SetConnection(connection);
-				connection.Received -= this.OnReceived;
-			}
-		}
+		this.network.IncomingDisconnected += this.OnIncomingConnectionDisconnected;
 	}
 
 	public string Name => "Peer Sync";
@@ -124,6 +106,19 @@ public sealed class Plugin : IDalamudPlugin
 			return null;
 
 		return this.checkedCharacters[compoundName];
+	}
+
+	public CharacterSync? GetCharacterSync(Connection connection)
+	{
+		foreach (CharacterSync sync in this.checkedCharacters.Values)
+		{
+			if (sync.Connection == connection)
+			{
+				return sync;
+			}
+		}
+
+		return null;
 	}
 
 	public CharacterSync? GetCharacterSync(string identifier)
@@ -157,6 +152,8 @@ public sealed class Plugin : IDalamudPlugin
 
 		foreach (CharacterSync sync in checkedCharacters.Values)
 		{
+			sync.Connected -= this.OnCharacterConnected;
+			sync.Disconnected -= this.OnCharacterDisconnected;
 			sync.Dispose();
 		}
 
@@ -343,13 +340,15 @@ public sealed class Plugin : IDalamudPlugin
 
 		// Update characters, remove missing characters
 		HashSet<string> toRemove = new();
-		foreach ((string identifier, CharacterSync sync) in this.checkedCharacters)
+		foreach ((string identifier, CharacterSync character) in this.checkedCharacters)
 		{
-			bool isValid = sync.Update();
+			bool isValid = character.Update();
 			if (!isValid)
 			{
 				toRemove.Add(identifier);
-				sync.Dispose();
+				character.Connected -= this.OnCharacterConnected;
+				character.Disconnected -= this.OnCharacterDisconnected;
+				character.Dispose();
 			}
 		}
 
@@ -379,8 +378,26 @@ public sealed class Plugin : IDalamudPlugin
 
 				CharacterSync sync = new(this.network, characterName, world, password);
 				sync.ObjectTableIndex = character.ObjectIndex;
+				sync.Connected += this.OnCharacterConnected;
+				sync.Disconnected += this.OnCharacterDisconnected;
 				this.checkedCharacters.Add(compoundName, sync);
 			}
+		}
+	}
+
+	private void OnCharacterConnected(CharacterSync character)
+	{
+		foreach (SyncProviderBase sync in this.SyncProviders)
+		{
+			sync.OnCharacterConnected(character);
+		}
+	}
+
+	private void OnCharacterDisconnected(CharacterSync character)
+	{
+		foreach (SyncProviderBase sync in this.SyncProviders)
+		{
+			sync.OnCharacterDisconnected(character);
 		}
 	}
 
@@ -414,6 +431,26 @@ public sealed class Plugin : IDalamudPlugin
 			catch (Exception ex)
 			{
 				Plugin.Log.Error(ex, "Error sending character data");
+			}
+		}
+	}
+
+	private void OnIncomingConnectionDisconnected(Connection connection)
+	{
+		connection.Received += this.OnReceived;
+	}
+
+	private void OnReceived(Connection connection, byte typeId, byte[] data)
+	{
+		if (typeId == Objects.IAm)
+		{
+			string identifier = Encoding.UTF8.GetString(data);
+
+			CharacterSync? sync = this.GetCharacterSync(identifier);
+			if (sync != null)
+			{
+				sync.SetConnection(connection);
+				connection.Received -= this.OnReceived;
 			}
 		}
 	}

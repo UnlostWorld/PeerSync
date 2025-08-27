@@ -19,4 +19,12 @@ public abstract class SyncProviderBase : IDisposable
 	{
 		this.IsDisposed = true;
 	}
+
+	public virtual void OnCharacterConnected(CharacterSync character)
+	{
+	}
+
+	public virtual void OnCharacterDisconnected(CharacterSync character)
+	{
+	}
 }

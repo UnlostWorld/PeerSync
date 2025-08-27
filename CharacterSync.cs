@@ -20,12 +20,16 @@ public class CharacterSync : IDisposable
 	public readonly string Identifier;
 
 	public Status CurrentStatus { get; private set; } = Status.None;
-
 	private readonly CancellationTokenSource tokenSource = new();
 	private CharacterData? lastData;
 	private bool isApplyingData = false;
 	private Connection? connection;
 	private readonly Network network;
+
+	public delegate void CharacterSyncDelegate(CharacterSync character);
+
+	public event CharacterSyncDelegate? Connected;
+	public event CharacterSyncDelegate? Disconnected;
 
 	public CharacterSync(Network network, string characterName, string world, string password)
 	{
@@ -70,6 +74,7 @@ public class CharacterSync : IDisposable
 	}
 
 	public ushort ObjectTableIndex { get; set; }
+	public Connection? Connection => this.connection;
 
 	public static string GetIdentifier(string characterName, string world, string password, int iterations = 1000)
 	{
@@ -86,6 +91,14 @@ public class CharacterSync : IDisposable
 		}
 
 		return input;
+	}
+
+	public async Task SendAsync(byte objectType, byte[] data)
+	{
+		if (this.connection == null || !this.connection.IsConnected)
+			return;
+
+		await this.connection.SendAsync(objectType, data);
 	}
 
 	public void Reconnect()
@@ -113,6 +126,7 @@ public class CharacterSync : IDisposable
 
 		this.SetupConnection();
 		this.CurrentStatus = Status.Connected;
+		this.Connected?.Invoke(this);
 	}
 
 	private void SetupConnection()
@@ -144,8 +158,18 @@ public class CharacterSync : IDisposable
 
 	public void Dispose()
 	{
-		tokenSource.Cancel();
+		if (this.connection != null)
+		{
+			this.connection.Received -= this.OnReceived;
+			this.connection.Disconnected -= this.OnDisconnected;
+		}
+
+		if (!tokenSource.IsCancellationRequested)
+			tokenSource.Cancel();
+
 		tokenSource.Dispose();
+
+		this.Disconnected?.Invoke(this);
 	}
 
 	public bool Update()
@@ -299,6 +323,7 @@ public class CharacterSync : IDisposable
 	{
 		Plugin.Log.Information($"Connection to {this.CharacterName} @ {this.World} was closed.");
 		this.CurrentStatus = Status.Disconnected;
+		this.Disconnected?.Invoke(this);
 
 		////this.Reconnect();
 	}
@@ -313,6 +338,7 @@ public class CharacterSync : IDisposable
 		{
 			Plugin.Log.Info($"Connected to {this.CharacterName} @ {this.World} at {connection.EndPoint}");
 			this.CurrentStatus = Status.Connected;
+			this.Connected?.Invoke(this);
 		}
 	}
 

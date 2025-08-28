@@ -351,8 +351,17 @@ public class PenumbraSync : SyncProviderBase
 		private async Task Transfer()
 		{
 			this.IsWaiting = true;
-			while (sync.GetActiveUploadCount() >= maxConcurrentUploads)
+
+			do
+			{
+				lock (sync.downloads)
+				{
+					this.IsWaiting = sync.GetActiveUploadCount() >= maxConcurrentUploads;
+				}
+
 				await Task.Delay(250);
+			}
+			while (this.IsWaiting && !this.tokenSource.IsCancellationRequested);
 
 			this.IsWaiting = false;
 			try
@@ -487,8 +496,17 @@ public class PenumbraSync : SyncProviderBase
 
 				this.IsComplete = false;
 				this.IsWaiting = true;
-				while (sync.GetActiveDownloadCount() >= maxConcurrentDownloads && !this.sync.IsDisposed)
+
+				do
+				{
+					lock (sync.downloads)
+					{
+						this.IsWaiting = sync.GetActiveDownloadCount() >= maxConcurrentDownloads;
+					}
+
 					await Task.Delay(500);
+				}
+				while (this.IsWaiting && !this.tokenSource.IsCancellationRequested);
 
 				this.IsWaiting = false;
 				FileInfo? file = sync.fileCache.GetFile(hash);

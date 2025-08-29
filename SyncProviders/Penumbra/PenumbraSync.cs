@@ -612,6 +612,16 @@ public class PenumbraSync : SyncProviderBase
 
 					sw.Stop();
 
+					if (this.fileStream != null)
+					{
+						lock (this.fileStream)
+						{
+							this.fileStream.Flush();
+							this.fileStream.Dispose();
+							this.fileStream = null;
+						}
+					}
+
 					if (this.tokenSource.IsCancellationRequested)
 						return;
 
@@ -620,6 +630,8 @@ public class PenumbraSync : SyncProviderBase
 
 					if (this.BytesReceived <= 0)
 						throw new Exception("Received 0 length file");
+
+
 
 					// hash verify
 					bool found = sync.GetFileHash(file.FullName, out string gotHash, out long fileSize);
@@ -643,6 +655,7 @@ public class PenumbraSync : SyncProviderBase
 					{
 						this.fileStream.Flush();
 						this.fileStream.Dispose();
+						this.fileStream = null;
 					}
 				}
 

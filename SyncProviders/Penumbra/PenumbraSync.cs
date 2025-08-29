@@ -374,7 +374,16 @@ public class PenumbraSync : SyncProviderBase
 			this.character = character;
 			this.clientQueueIndex = clientQueueIndex;
 
-			this.Name = hash;
+			FileInfo? fileInfo = null;
+			if (sync.hashToFileLookup.TryGetValue(hash, out fileInfo) && fileInfo != null)
+			{
+				this.Name = fileInfo.Name;
+			}
+			else
+			{
+				this.Name = hash;
+			}
+
 			sync.uploads.Add(this);
 
 			Task.Run(this.Transfer);

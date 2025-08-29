@@ -384,7 +384,9 @@ public class CharacterSync : IDisposable
 				if (provider == null)
 					continue;
 
-				////Plugin.Log.Information($"{this.CharacterName}@{this.World} > {key}");
+				if (lastData?.Syncs.ContainsKey(key) == true && lastData?.Syncs[key] == content)
+					continue;
+
 				await provider.Deserialize(content, this);
 			}
 			catch (Exception ex)

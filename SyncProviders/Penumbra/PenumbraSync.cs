@@ -631,12 +631,10 @@ public class PenumbraSync : SyncProviderBase
 					if (this.BytesReceived <= 0)
 						throw new Exception("Received 0 length file");
 
-
-
 					// hash verify
 					bool found = sync.GetFileHash(file.FullName, out string gotHash, out long fileSize);
-					if (gotHash != hash || fileSize != this.BytesReceived)
-						throw new Exception("File failed to pass validation");
+					if (gotHash != hash)
+						throw new Exception($"File failed to pass validation. Expected: {hash}, got {gotHash}");
 
 					this.IsComplete = true;
 				}

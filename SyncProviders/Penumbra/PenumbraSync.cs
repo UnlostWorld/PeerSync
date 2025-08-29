@@ -264,9 +264,9 @@ public class PenumbraSync : SyncProviderBase
 			title = $"Transfers (▼{downloadCount})";
 
 		if (downloadCount > 0 && uploadCount > 0)
-			title = $"Transfers (▲{uploadCount} ▼{downloadCount}";
+			title = $"Transfers (▲{uploadCount} ▼{downloadCount})";
 
-		if (ImGui.CollapsingHeader(title, ref expandTransfers))
+		if (ImGui.CollapsingHeader($"{title}###transfersSection"))
 		{
 			int queuedDownloads = this.downloads.Count - downloadCount;
 			int queuedUploads = this.uploads.Count - uploadCount;

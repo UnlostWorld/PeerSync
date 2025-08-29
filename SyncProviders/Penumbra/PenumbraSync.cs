@@ -287,30 +287,29 @@ public class PenumbraSync : SyncProviderBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		Guid? collectionId = this.penumbra.CreateTemporaryCollection.Invoke(character.Identifier);
-		if (collectionId == null)
-		{
-			Plugin.Log.Warning("Did not get valid collection guid");
-			return;
-		}
+		Guid collectionId;
+		this.penumbra.CreateTemporaryCollection.Invoke(
+			"PeerSync",
+			character.Identifier,
+			out collectionId).ThrowOnFailure();
 
 		try
 		{
 			this.penumbra.AssignTemporaryCollection.Invoke(
-				collectionId.Value,
+				collectionId,
 				character.ObjectTableIndex,
-				true);
+				true).ThrowOnFailure();
 
 			this.penumbra.RemoveTemporaryMod.Invoke(
 				"PeerSync",
-				collectionId.Value, 0);
+				collectionId, 0).ThrowOnFailure();
 
 			this.penumbra.AddTemporaryMod.Invoke(
 				"PeerSync",
-				collectionId.Value,
+				collectionId,
 				gamePathToFilePaths,
 				data.MetaManipulations ?? string.Empty,
-				0);
+				0).ThrowOnFailure();
 
 			this.penumbra.RedrawObject.Invoke(character.ObjectTableIndex);
 
@@ -323,7 +322,7 @@ public class PenumbraSync : SyncProviderBase
 		{
 			await Task.Delay(1000);
 			await Plugin.Framework.RunOnUpdate();
-			this.penumbra.DeleteTemporaryCollection.Invoke(collectionId.Value);
+			this.penumbra.DeleteTemporaryCollection.Invoke(collectionId);
 		}
 	}
 

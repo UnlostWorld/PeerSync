@@ -56,7 +56,7 @@ public class PenumbraCommunicator : PluginCommunicatorBase
 		await Plugin.Framework.RunOnUpdate();
 
 		Dictionary<string, HashSet<string>>?[]? objectsResourcePaths
-			= this.Invoke<Dictionary<string, HashSet<string>>?[], ushort[]>(
+			= this.InvokeFunc<Dictionary<string, HashSet<string>>?[], ushort[]>(
 				"Penumbra.GetGameObjectResourcePaths.V5",
 				[objectIndex]);
 
@@ -72,7 +72,7 @@ public class PenumbraCommunicator : PluginCommunicatorBase
 			return null;
 
 		await Plugin.Framework.RunOnUpdate();
-		return this.Invoke<string, int>("Penumbra.GetMetaManipulations.V5", objectIndex);
+		return this.InvokeFunc<string, int>("Penumbra.GetMetaManipulations.V5", objectIndex);
 	}
 
 	public async Task RedrawObject(int objectIndex, RedrawType setting = RedrawType.Redraw)
@@ -82,10 +82,10 @@ public class PenumbraCommunicator : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		PenumbraApiEc returnCode = this.Invoke<PenumbraApiEc, int, RedrawType>(
+		this.InvokeAction<int, int>(
 			$"Penumbra.RedrawObject.V5",
 			objectIndex,
-			setting);
+			(int)setting);
 	}
 
 	// Temporary
@@ -96,7 +96,7 @@ public class PenumbraCommunicator : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		(PenumbraApiEc returnCode, Guid guid) = this.Invoke<(PenumbraApiEc, Guid), string, string>(
+		(PenumbraApiEc returnCode, Guid guid) = this.InvokeFunc<(PenumbraApiEc, Guid), string, string>(
 			$"Penumbra.CreateTemporaryCollection.V6",
 			identity,
 			name);
@@ -117,7 +117,7 @@ public class PenumbraCommunicator : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		PenumbraApiEc returnCode = this.Invoke<PenumbraApiEc, Guid, int, bool>(
+		PenumbraApiEc returnCode = this.InvokeFunc<PenumbraApiEc, Guid, int, bool>(
 			$"Penumbra.AssignTemporaryCollection.V5",
 			collectionId,
 			actorIndex,
@@ -136,7 +136,7 @@ public class PenumbraCommunicator : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		PenumbraApiEc returnCode = this.Invoke<PenumbraApiEc, Guid>(
+		PenumbraApiEc returnCode = this.InvokeFunc<PenumbraApiEc, Guid>(
 			$"Penumbra.DeleteTemporaryCollection.V5",
 			collectionId);
 
@@ -158,7 +158,7 @@ public class PenumbraCommunicator : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		PenumbraApiEc returnCode = this.Invoke<PenumbraApiEc, string, Guid, Dictionary<string, string>, string, int>(
+		PenumbraApiEc returnCode = this.InvokeFunc<PenumbraApiEc, string, Guid, Dictionary<string, string>, string, int>(
 			$"Penumbra.AddTemporaryMod.V5",
 			tag,
 			collectionId,
@@ -179,7 +179,7 @@ public class PenumbraCommunicator : PluginCommunicatorBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		PenumbraApiEc returnCode = this.Invoke<PenumbraApiEc, string, Guid, int>(
+		PenumbraApiEc returnCode = this.InvokeFunc<PenumbraApiEc, string, Guid, int>(
 			$"Penumbra.RemoveTemporaryMod.V5",
 			tag,
 			collectionId,

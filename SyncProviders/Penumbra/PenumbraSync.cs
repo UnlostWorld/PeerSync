@@ -285,7 +285,11 @@ public class PenumbraSync : SyncProviderBase
 					if (upload.IsWaiting)
 						continue;
 
-					ImGui.ProgressBar(upload.Progress, upload.Name);
+					ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 10);
+					ImGui.ProgressBar(upload.Progress, new(64, 5), string.Empty);
+					ImGui.SameLine();
+					ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 10);
+					ImGui.Text(upload.Name);
 				}
 			}
 
@@ -304,7 +308,11 @@ public class PenumbraSync : SyncProviderBase
 					if (download.IsWaiting)
 						continue;
 
-					ImGui.ProgressBar(download.Progress, download.Name);
+					ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 10);
+					ImGui.ProgressBar(download.Progress, new(64, 5), string.Empty);
+					ImGui.SameLine();
+					ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 10);
+					ImGui.Text(download.Name);
 				}
 			}
 		}

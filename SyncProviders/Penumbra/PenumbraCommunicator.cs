@@ -185,7 +185,8 @@ public class PenumbraCommunicator : PluginCommunicatorBase
 			collectionId,
 			priority);
 
-		if (returnCode != PenumbraApiEc.Success)
+		if (returnCode != PenumbraApiEc.Success
+			&& returnCode != PenumbraApiEc.NothingChanged)
 		{
 			throw new Exception($"Penumbra error: {returnCode}");
 		}

@@ -261,24 +261,34 @@ public class PenumbraSync : SyncProviderBase
 			return;
 		}
 
-		await this.penumbra.AssignTemporaryCollection(
-			collectionId.Value,
-			character.ObjectTableIndex,
-			false);
+		try
+		{
+			await this.penumbra.AssignTemporaryCollection(
+				collectionId.Value,
+				character.ObjectTableIndex,
+				false);
 
-		await this.penumbra.RemoveTemporaryMod(
-			"PeerSync",
-			collectionId.Value, 0);
+			await this.penumbra.RemoveTemporaryMod(
+				"PeerSync",
+				collectionId.Value, 0);
 
-		await this.penumbra.AddTemporaryMod(
-			"PeerSync",
-			collectionId.Value,
-			gamePathToFilePaths,
-			data.MetaManipulations ?? string.Empty,
-			0);
+			await this.penumbra.AddTemporaryMod(
+				"PeerSync",
+				collectionId.Value,
+				gamePathToFilePaths,
+				data.MetaManipulations ?? string.Empty,
+				0);
 
-		await this.penumbra.RedrawAndWait(character.ObjectTableIndex);
-		await this.penumbra.DeleteTemporaryCollection(collectionId.Value);
+			await this.penumbra.RedrawAndWait(character.ObjectTableIndex);
+		}
+		catch (Exception ex)
+		{
+			Plugin.Log.Error(ex, "Error applying penumbra collection");
+		}
+		finally
+		{
+			await this.penumbra.DeleteTemporaryCollection(collectionId.Value);
+		}
 	}
 
 	public int GetActiveDownloadCount()

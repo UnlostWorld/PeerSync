@@ -11,27 +11,49 @@ using System.Threading;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
-using Dalamud.Game.ClientState.Objects.SubKinds;
-using Dalamud.Game.ClientState.Objects.Types;
-using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using Newtonsoft.Json;
 using PeerSync.Network;
+using Penumbra.Api.IpcSubscribers;
 
 namespace PeerSync.SyncProviders.Penumbra;
+
+public class Penumbra
+{
+	public readonly GetEnabledState GetEnabledState = new(Plugin.PluginInterface);
+	public readonly GetGameObjectResourcePaths GetGameObjectResourcePaths = new(Plugin.PluginInterface);
+	public readonly GetMetaManipulations GetMetaManipulations = new(Plugin.PluginInterface);
+	public readonly CreateTemporaryCollection CreateTemporaryCollection = new(Plugin.PluginInterface);
+	public readonly AssignTemporaryCollection AssignTemporaryCollection = new(Plugin.PluginInterface);
+	public readonly RemoveTemporaryMod RemoveTemporaryMod = new(Plugin.PluginInterface);
+	public readonly AddTemporaryMod AddTemporaryMod = new(Plugin.PluginInterface);
+	public readonly RedrawObject RedrawObject = new(Plugin.PluginInterface);
+	public readonly DeleteTemporaryCollection DeleteTemporaryCollection = new(Plugin.PluginInterface);
+
+	public bool GetIsAvailable()
+	{
+		try
+		{
+			return GetEnabledState.Invoke();
+		}
+		catch (Exception)
+		{
+			return false;
+		}
+	}
+}
 
 public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 240_000;
 	const int fileChunkSize = 1024 * 128; // 128kb chunks
 
-	private readonly PenumbraCommunicator penumbra = new();
+
 	private readonly FileCache fileCache = new();
 
 	private readonly ConcurrentHashSet<FileDownload> downloads = new();
 	private readonly ConcurrentHashSet<FileUpload> uploads = new();
-
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
+	private readonly Penumbra penumbra = new();
 
 	private byte lastQueueIndex = 0;
 
@@ -117,11 +139,15 @@ public class PenumbraSync : SyncProviderBase
 
 	public override async Task<string?> Serialize(ushort objectIndex)
 	{
+		await Plugin.Framework.RunOnUpdate();
+
 		if (!penumbra.GetIsAvailable())
 			return null;
 
-		Dictionary<string, HashSet<string>>? resourcePaths = await this.penumbra.GetGameObjectResourcePaths(objectIndex);
-		if (resourcePaths == null)
+		Dictionary<string, HashSet<string>>?[] resourcePaths = this.penumbra.GetGameObjectResourcePaths.Invoke(objectIndex);
+
+		Dictionary<string, HashSet<string>>? resourcePath = resourcePaths[0];
+		if (resourcePath == null)
 			return null;
 
 		// Perform file hashing on a separate thread.
@@ -131,7 +157,7 @@ public class PenumbraSync : SyncProviderBase
 
 		// Get file hashes
 		data.Files = new();
-		foreach ((string path, HashSet<string> gamePaths) in resourcePaths)
+		foreach ((string path, HashSet<string> gamePaths) in resourcePath)
 		{
 			foreach (string gamePath in gamePaths)
 			{
@@ -168,8 +194,10 @@ public class PenumbraSync : SyncProviderBase
 			}
 		}
 
+		await Plugin.Framework.RunOnUpdate();
+
 		// get meta manipulations
-		data.MetaManipulations = await this.penumbra.GetMetaManipulations(objectIndex);
+		data.MetaManipulations = this.penumbra.GetMetaManipulations.Invoke(objectIndex);
 
 		// serialize to Base64 compressed json
 		string json = JsonConvert.SerializeObject(data);
@@ -257,34 +285,35 @@ public class PenumbraSync : SyncProviderBase
 			gamePathToFilePaths[gamePath] = file.FullName;
 		}
 
-		Guid? collectionId = await this.penumbra.CreateTemporaryCollection("PeerSync", character.Identifier);
+		await Plugin.Framework.RunOnUpdate();
+
+		Guid? collectionId = this.penumbra.CreateTemporaryCollection.Invoke(character.Identifier);
 		if (collectionId == null)
 		{
 			Plugin.Log.Warning("Did not get valid collection guid");
 			return;
 		}
 
-		Plugin.Log.Info($"got collection guid: {collectionId}");
-
 		try
 		{
-			await this.penumbra.AssignTemporaryCollection(
+			this.penumbra.AssignTemporaryCollection.Invoke(
 				collectionId.Value,
 				character.ObjectTableIndex,
 				true);
 
-			await this.penumbra.RemoveTemporaryMod(
+			this.penumbra.RemoveTemporaryMod.Invoke(
 				"PeerSync",
 				collectionId.Value, 0);
 
-			await this.penumbra.AddTemporaryMod(
+			this.penumbra.AddTemporaryMod.Invoke(
 				"PeerSync",
 				collectionId.Value,
 				gamePathToFilePaths,
 				data.MetaManipulations ?? string.Empty,
 				0);
 
-			await this.penumbra.RedrawAndWait(character.ObjectTableIndex);
+			this.penumbra.RedrawObject.Invoke(character.ObjectTableIndex);
+
 		}
 		catch (Exception ex)
 		{
@@ -292,7 +321,9 @@ public class PenumbraSync : SyncProviderBase
 		}
 		finally
 		{
-			await this.penumbra.DeleteTemporaryCollection(collectionId.Value);
+			await Task.Delay(1000);
+			await Plugin.Framework.RunOnUpdate();
+			this.penumbra.DeleteTemporaryCollection.Invoke(collectionId.Value);
 		}
 	}
 

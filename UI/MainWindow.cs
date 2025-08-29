@@ -11,12 +11,7 @@ using System.Numerics;
 
 public class MainWindow : Window, IDisposable
 {
-	// We give this window a hidden ID using ##.
-	// The user will see "My Amazing Window" as window title,
-	// but for ImGui the ID is "My Amazing Window##With a hidden ID"
-	public MainWindow() : base(
-		"Peer Sync##MainWindow",
-		ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
+	public MainWindow() : base("Peer Sync##PeerSyncMainWindow")
 	{
 		SizeConstraints = new WindowSizeConstraints
 		{

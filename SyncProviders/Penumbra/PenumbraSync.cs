@@ -140,7 +140,10 @@ public class PenumbraSync : SyncProviderBase
 					continue;
 
 				if (!AllowedFileExtensions.Contains(Path.GetExtension(gamePath)))
+				{
+					Plugin.Log.Warning($"Illegal file type: {Path.GetExtension(gamePath)}");
 					continue;
+				}
 
 				bool isFilePath = Path.IsPathRooted(path);
 				if (isFilePath)

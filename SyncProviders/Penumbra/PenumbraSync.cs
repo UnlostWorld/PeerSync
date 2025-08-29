@@ -251,7 +251,7 @@ public class PenumbraSync : SyncProviderBase
 				return;
 			}
 
-			gamePathToFilePaths[file.FullName] = gamePath;
+			gamePathToFilePaths[gamePath] = file.FullName;
 		}
 
 		Guid? collectionId = await this.penumbra.CreateTemporaryCollection("PeerSync", character.Identifier);
@@ -268,7 +268,7 @@ public class PenumbraSync : SyncProviderBase
 			await this.penumbra.AssignTemporaryCollection(
 				collectionId.Value,
 				character.ObjectTableIndex,
-				false);
+				true);
 
 			await this.penumbra.RemoveTemporaryMod(
 				"PeerSync",

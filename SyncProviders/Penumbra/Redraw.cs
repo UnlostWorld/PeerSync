@@ -15,6 +15,8 @@ public static class PenumbraExtensions
 	{
 		await penumbra.RedrawObject(objectTableIndex);
 
+		await Task.Delay(100);
+
 		bool isDrawing = false;
 		Stopwatch sw = new();
 		sw.Start();

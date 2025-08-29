@@ -257,9 +257,11 @@ public class PenumbraSync : SyncProviderBase
 		Guid? collectionId = await this.penumbra.CreateTemporaryCollection("PeerSync", character.Identifier);
 		if (collectionId == null)
 		{
-			Plugin.Log.Warning("");
+			Plugin.Log.Warning("Did not get valid collection guid");
 			return;
 		}
+
+		Plugin.Log.Info($"got collection guid: {collectionId}");
 
 		try
 		{

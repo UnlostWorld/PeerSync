@@ -20,7 +20,7 @@ public class MainWindow : Window, IDisposable
 	{
 		SizeConstraints = new WindowSizeConstraints
 		{
-			MinimumSize = new Vector2(375, 330),
+			MinimumSize = new Vector2(250, 350),
 			MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
 		};
 	}
@@ -33,126 +33,130 @@ public class MainWindow : Window, IDisposable
 		if (plugin == null)
 			return;
 
-		ImGui.Text(plugin.Status);
-
 		if (ImGui.BeginTabBar("##tabs"))
 		{
-			if (ImGui.BeginTabItem("Current Character"))
+			if (ImGui.BeginTabItem("Status"))
 			{
+				ImGui.Text(plugin.Status);
+
 				if (plugin.CharacterName != null && plugin.World != null)
 				{
-					StUi.TextBlock("Name", $"{plugin.CharacterName} @ {plugin.World}");
-
-					string password = Configuration.Current.GetPassword(plugin.CharacterName, plugin.World) ?? string.Empty;
-					if (StUi.TextBox("Password", ref password))
+					if (ImGui.CollapsingHeader($"{plugin.CharacterName} @ {plugin.World}", ImGuiTreeNodeFlags.Framed))
 					{
-						Configuration.Current.SetPassword(plugin.CharacterName, plugin.World, password);
+						string password = Configuration.Current.GetPassword(plugin.CharacterName, plugin.World) ?? string.Empty;
+						if (ImGui.InputText("Password", ref password))
+						{
+							Configuration.Current.SetPassword(plugin.CharacterName, plugin.World, password);
+						}
 					}
 				}
 
-				ImGui.EndTabItem();
-			}
-
-			if (ImGui.BeginTabItem("All Pairs"))
-			{
-				if (ImGui.BeginTable("Table", 2))
+				if (ImGui.CollapsingHeader($"Pairs ({Configuration.Current.Pairs.Count})"))
 				{
-					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
-					ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
-					////ImGui.TableHeadersRow();
-					ImGui.TableNextRow();
-
-					foreach (Configuration.Pair pair in Configuration.Current.Pairs)
+					if (ImGui.BeginTable("Table", 2))
 					{
-						CharacterSync? sync = null;
-						if (pair.CharacterName != null && pair.World != null)
-							sync = Plugin.Instance?.GetCharacterSync(pair.CharacterName, pair.World);
+						ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+						ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
+						////ImGui.TableHeadersRow();
+						ImGui.TableNextRow();
 
-						ImGui.TableNextColumn();
-
-						if (sync != null)
+						foreach (Configuration.Pair pair in Configuration.Current.Pairs)
 						{
-							ImGui.PushFont(UiBuilder.IconFont);
-							ImGui.SetWindowFontScale(0.75f);
-							ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
-							ImGui.Spacing();
-							ImGui.SameLine();
+							CharacterSync? sync = null;
+							if (pair.CharacterName != null && pair.World != null)
+								sync = Plugin.Instance?.GetCharacterSync(pair.CharacterName, pair.World);
 
-							switch (sync.CurrentStatus)
+							ImGui.TableNextColumn();
+
+							if (sync != null)
 							{
-								case CharacterSync.Status.None:
+								ImGui.PushFont(UiBuilder.IconFont);
+								ImGui.SetWindowFontScale(0.75f);
+								ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+								ImGui.Spacing();
+								ImGui.SameLine();
+
+								switch (sync.CurrentStatus)
 								{
-									ImGui.Text(FontAwesomeIcon.Hourglass.ToIconString());
-									break;
+									case CharacterSync.Status.None:
+									{
+										ImGui.Text(FontAwesomeIcon.Hourglass.ToIconString());
+										break;
+									}
+
+									case CharacterSync.Status.Listening:
+									{
+										ImGui.Text(FontAwesomeIcon.Hourglass.ToIconString());
+										break;
+									}
+
+									case CharacterSync.Status.Searching:
+									{
+										ImGui.Text(FontAwesomeIcon.Search.ToIconString());
+										break;
+									}
+
+									case CharacterSync.Status.Disconnected:
+									case CharacterSync.Status.Offline:
+									{
+										ImGui.Text(FontAwesomeIcon.Bed.ToIconString());
+										break;
+									}
+
+									case CharacterSync.Status.Connecting:
+									case CharacterSync.Status.Handshake:
+									{
+										ImGui.Text(FontAwesomeIcon.Handshake.ToIconString());
+										break;
+									}
+
+									case CharacterSync.Status.Connected:
+									{
+										ImGui.Text(FontAwesomeIcon.Wifi.ToIconString());
+										break;
+									}
+
+									case CharacterSync.Status.HandshakeFailed:
+									case CharacterSync.Status.ConnectionFailed:
+									{
+										ImGui.PushStyleColor(ImGuiCol.Text, 0xFF0080FF);
+										ImGui.Text(FontAwesomeIcon.ExclamationTriangle.ToIconString());
+										ImGui.PopStyleColor();
+										break;
+									}
 								}
 
-								case CharacterSync.Status.Listening:
-								{
-									ImGui.Text(FontAwesomeIcon.Hourglass.ToIconString());
-									break;
-								}
+								ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
 
-								case CharacterSync.Status.Searching:
-								{
-									ImGui.Text(FontAwesomeIcon.Search.ToIconString());
-									break;
-								}
-
-								case CharacterSync.Status.Disconnected:
-								case CharacterSync.Status.Offline:
-								{
-									ImGui.Text(FontAwesomeIcon.Bed.ToIconString());
-									break;
-								}
-
-								case CharacterSync.Status.Connecting:
-								case CharacterSync.Status.Handshake:
-								{
-									ImGui.Text(FontAwesomeIcon.Handshake.ToIconString());
-									break;
-								}
-
-								case CharacterSync.Status.Connected:
-								{
-									ImGui.Text(FontAwesomeIcon.Wifi.ToIconString());
-									break;
-								}
-
-								case CharacterSync.Status.HandshakeFailed:
-								case CharacterSync.Status.ConnectionFailed:
-								{
-									ImGui.PushStyleColor(ImGuiCol.Text, 0xFF0080FF);
-									ImGui.Text(FontAwesomeIcon.ExclamationTriangle.ToIconString());
-									ImGui.PopStyleColor();
-									break;
-								}
+								ImGui.SetWindowFontScale(1.0f);
+								ImGui.PopFont();
+							}
+							else
+							{
+								ImGui.Text("        ");
 							}
 
-							ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
 
-							ImGui.SetWindowFontScale(1.0f);
-							ImGui.PopFont();
-						}
-						else
-						{
-							ImGui.Text("        ");
-						}
+							if (ImGui.IsItemHovered())
+							{
+								ImGui.BeginTooltip();
+								ImGui.Text($"{sync?.CurrentStatus}");
+								ImGui.EndTooltip();
+							}
 
+							ImGui.TableNextColumn();
+							ImGui.Text($"{pair.CharacterName} @ {pair.World}");
 
-						if (ImGui.IsItemHovered())
-						{
-							ImGui.BeginTooltip();
-							ImGui.Text($"{sync?.CurrentStatus}");
-							ImGui.EndTooltip();
+							ImGui.TableNextRow();
 						}
 
-						ImGui.TableNextColumn();
-						ImGui.Text($"{pair.CharacterName} @ {pair.World}");
-
-						ImGui.TableNextRow();
+						ImGui.EndTable();
 					}
+				}
 
-					ImGui.EndTable();
+				foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
+				{
+					syncProvider.DrawStatus();
 				}
 
 				ImGui.EndTabItem();
@@ -174,19 +178,23 @@ public class MainWindow : Window, IDisposable
 					Configuration.Current.Save();
 				}
 
+				int maxUploads = Configuration.Current.MaxConcurrentUploads;
+				if (ImGui.InputInt("Simultaneous Uploads", ref maxUploads, 1))
+				{
+					Configuration.Current.MaxConcurrentUploads = maxUploads;
+					Configuration.Current.Save();
+				}
+
+				int maxDownloads = Configuration.Current.MaxConcurrentDownloads;
+				if (ImGui.InputInt("Simultaneous Downloads", ref maxDownloads, 1))
+				{
+					Configuration.Current.MaxConcurrentDownloads = maxDownloads;
+					Configuration.Current.Save();
+				}
+
 				ImGui.EndTabItem();
 			}
 
-			foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
-			{
-				if (!syncProvider.HasTab)
-					continue;
-
-				if (ImGui.BeginTabItem(syncProvider.Key))
-				{
-					syncProvider.DrawTab();
-				}
-			}
 
 			ImGui.EndTabBar();
 		}

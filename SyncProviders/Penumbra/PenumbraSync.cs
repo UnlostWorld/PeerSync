@@ -20,8 +20,6 @@ public class PenumbraSync : SyncProviderBase
 {
 	const int fileTimeout = 240_000;
 	const int fileChunkSize = 1024 * 128; // 128kb chunks
-	const int maxConcurrentUploads = 1;
-	const int maxConcurrentDownloads = 10;
 
 	private readonly PenumbraCommunicator penumbra = new();
 	private readonly FileCache fileCache = new();
@@ -34,7 +32,6 @@ public class PenumbraSync : SyncProviderBase
 	private byte lastQueueIndex = 0;
 
 	public override string Key => "Penumbra";
-	public override bool HasTab => true;
 
 	public static readonly HashSet<string> AllowedFileExtensions =
 	[
@@ -251,26 +248,65 @@ public class PenumbraSync : SyncProviderBase
 		return count;
 	}
 
-	public override void DrawTab()
+	public override void DrawStatus()
 	{
-		base.DrawTab();
+		base.DrawStatus();
 
-		ImGui.Text($"Uploading {this.GetActiveUploadCount()} / {this.uploads.Count}");
-		foreach (FileUpload upload in this.uploads)
+		int uploadCount = this.GetActiveUploadCount();
+		int downloadCount = this.GetActiveDownloadCount();
+
+		string title = "Transfers";
+		if (uploadCount > 0 && downloadCount == 0)
+			title = $"Transfers (▲{uploadCount})";
+
+		if (downloadCount > 0 && uploadCount == 0)
+			title = $"Transfers (▼{downloadCount})";
+
+		if (downloadCount > 0 && uploadCount > 0)
+			title = $"Transfers (▲{uploadCount} ▼{downloadCount}";
+
+		if (ImGui.CollapsingHeader(title))
 		{
-			if (upload.IsWaiting)
-				continue;
+			int queuedDownloads = this.downloads.Count - downloadCount;
+			int queuedUploads = this.uploads.Count - uploadCount;
 
-			ImGui.Text($" > {upload.Name} - {(int)(upload.Progress * 100)}%");
-		}
+			if (uploadCount > 0 || queuedUploads > 0)
+			{
+				ImGui.Text($"▲ Uploading");
 
-		ImGui.Text($"Downloading {this.GetActiveDownloadCount()} / {this.downloads.Count}");
-		foreach (FileDownload download in this.downloads)
-		{
-			if (download.IsWaiting)
-				continue;
+				if (queuedUploads > 0)
+				{
+					ImGui.SameLine();
+					ImGui.Text($" ({queuedUploads} in queue)");
+				}
 
-			ImGui.Text($" > {download.Name} - {(int)(download.Progress * 100)}%");
+				foreach (FileUpload upload in this.uploads)
+				{
+					if (upload.IsWaiting)
+						continue;
+
+					ImGui.ProgressBar(upload.Progress, upload.Name);
+				}
+			}
+
+			if (downloadCount > 0 || queuedDownloads > 0)
+			{
+				ImGui.Text($"▼ Downloading");
+
+				if (queuedUploads > 0)
+				{
+					ImGui.SameLine();
+					ImGui.Text($" ({queuedDownloads} in queue)");
+				}
+
+				foreach (FileDownload download in this.downloads)
+				{
+					if (download.IsWaiting)
+						continue;
+
+					ImGui.ProgressBar(download.Progress, download.Name);
+				}
+			}
 		}
 	}
 
@@ -356,7 +392,7 @@ public class PenumbraSync : SyncProviderBase
 			{
 				lock (sync.downloads)
 				{
-					this.IsWaiting = sync.GetActiveUploadCount() >= maxConcurrentUploads;
+					this.IsWaiting = sync.GetActiveUploadCount() >= Configuration.Current.MaxConcurrentUploads;
 				}
 
 				await Task.Delay(250);
@@ -501,7 +537,7 @@ public class PenumbraSync : SyncProviderBase
 				{
 					lock (sync.downloads)
 					{
-						this.IsWaiting = sync.GetActiveDownloadCount() >= maxConcurrentDownloads;
+						this.IsWaiting = sync.GetActiveDownloadCount() >= Configuration.Current.MaxConcurrentDownloads;
 					}
 
 					await Task.Delay(500);

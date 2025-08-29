@@ -8,12 +8,11 @@ public abstract class SyncProviderBase : IDisposable
 {
 	public bool IsDisposed { get; private set; }
 
-	public virtual bool HasTab => false;
 	public abstract string Key { get; }
 
 	public abstract Task<string?> Serialize(ushort objectIndex);
 	public abstract Task Deserialize(string? content, CharacterSync character);
-	public virtual void DrawTab() { }
+	public virtual void DrawStatus() { }
 
 	public virtual void Dispose()
 	{

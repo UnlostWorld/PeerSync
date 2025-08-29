@@ -236,8 +236,20 @@ public class PenumbraSync : SyncProviderBase
 			await Task.Delay(100);
 		}
 
+		// Verify that we did get all the files we need.
+		// This may fail if some downloads were corrupted or dropped.
+		// just silently fail out and let the next deserialize try again.
+		foreach ((string gamePath, string hash) in data.Files)
+		{
+			FileInfo? file = this.fileCache.GetFile(hash);
+			if (file == null || !file.Exists)
+			{
+				return;
+			}
+		}
+
 		// TODO: Make mod collection!
-		Plugin.Log.Warning($"Files synced!");
+		Plugin.Log.Info($"Files synced!");
 	}
 
 	public int GetActiveDownloadCount()
@@ -634,7 +646,10 @@ public class PenumbraSync : SyncProviderBase
 					// hash verify
 					bool found = sync.GetFileHash(file.FullName, out string gotHash, out long fileSize);
 					if (gotHash != hash)
-						throw new Exception($"File failed to pass validation. Expected: {hash}, got {gotHash}");
+					{
+						Plugin.Log.Warning($"File failed to pass validation. Expected: {hash}, got {gotHash}");
+						file.Delete();
+					}
 
 					this.IsComplete = true;
 				}

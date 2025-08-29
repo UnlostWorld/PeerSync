@@ -30,7 +30,6 @@ public class PenumbraSync : SyncProviderBase
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 
 	private byte lastQueueIndex = 0;
-	private bool expandTransfers = true;
 
 	public override string Key => "Penumbra";
 

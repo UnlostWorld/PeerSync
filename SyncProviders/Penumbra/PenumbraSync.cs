@@ -11,6 +11,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.ClientState.Objects.SubKinds;
+using Dalamud.Game.ClientState.Objects.Types;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using Newtonsoft.Json;
 using PeerSync.Network;
 
@@ -236,20 +240,48 @@ public class PenumbraSync : SyncProviderBase
 			await Task.Delay(100);
 		}
 
-		// Verify that we did get all the files we need.
-		// This may fail if some downloads were corrupted or dropped.
-		// just silently fail out and let the next deserialize try again.
+
+		Dictionary<string, string> gamePathToFilePaths = new();
 		foreach ((string gamePath, string hash) in data.Files)
 		{
 			FileInfo? file = this.fileCache.GetFile(hash);
+
+			// Verify that we did get all the files we need.
+			// This may fail if some downloads were corrupted or dropped.
+			// just silently fail out and let the next deserialize try again.
 			if (file == null || !file.Exists)
 			{
 				return;
 			}
+
+			gamePathToFilePaths[gamePath] = file.FullName;
 		}
 
-		// TODO: Make mod collection!
-		Plugin.Log.Info($"Files synced!");
+		Guid? collectionId = await this.penumbra.CreateTemporaryCollection("PeerSync", character.Identifier);
+		if (collectionId == null)
+		{
+			Plugin.Log.Warning("");
+			return;
+		}
+
+		await this.penumbra.AssignTemporaryCollection(
+			collectionId.Value,
+			character.ObjectTableIndex,
+			false);
+
+		await this.penumbra.RemoveTemporaryMod(
+			"PeerSync",
+			collectionId.Value, 0);
+
+		await this.penumbra.AddTemporaryMod(
+			"PeerSync",
+			collectionId.Value,
+			gamePathToFilePaths,
+			data.MetaManipulations ?? string.Empty,
+			0);
+
+		await this.penumbra.RedrawAndWait(character.ObjectTableIndex);
+		await this.penumbra.DeleteTemporaryCollection(collectionId.Value);
 	}
 
 	public int GetActiveDownloadCount()

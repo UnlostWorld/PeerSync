@@ -25,6 +25,9 @@ public abstract class PluginCommunicatorBase
 		return false;
 	}
 
+	protected TReturn? Invoke<TReturn, T1, T2, T3, T4, T5>(string name, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
+		=> Plugin.PluginInterface.GetIpcSubscriber<T1, T2, T3, T4, T5, TReturn>(name).InvokeFunc(arg1, arg2, arg3, arg4, arg5);
+
 	protected TReturn? Invoke<TReturn, T1, T2, T3, T4>(string name, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
 		=> Plugin.PluginInterface.GetIpcSubscriber<T1, T2, T3, T4, TReturn>(name).InvokeFunc(arg1, arg2, arg3, arg4);
 

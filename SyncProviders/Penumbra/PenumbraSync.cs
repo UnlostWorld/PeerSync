@@ -67,6 +67,29 @@ public class PenumbraSync : SyncProviderBase
 		base.OnCharacterDisconnected(character);
 	}
 
+	private bool GetFileHash(string path, out string hash, out long fileSize)
+	{
+		FileInfo file = new(path);
+
+		hash = string.Empty;
+		fileSize = 0;
+
+		if (!file.Exists)
+			return false;
+
+		using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read, fileChunkSize, false);
+		fileSize = stream.Length;
+
+		SHA1 sha = SHA1.Create();
+		byte[] bytes = sha.ComputeHash(stream);
+		string str = BitConverter.ToString(bytes);
+		str = str.Replace("-", string.Empty, StringComparison.Ordinal);
+		str += Path.GetExtension(path);
+		hash = str;
+
+		return true;
+	}
+
 	private void OnReceived(Connection connection, byte typeId, byte[] data)
 	{
 		if (typeId == Objects.FileRequest)
@@ -104,8 +127,6 @@ public class PenumbraSync : SyncProviderBase
 		await Task.Delay(1).ConfigureAwait(false);
 
 		PenumbraData data = new();
-		SHA1 sha = SHA1.Create();
-		byte[] bytes;
 
 		// Get file hashes
 		data.Files = new();
@@ -123,17 +144,16 @@ public class PenumbraSync : SyncProviderBase
 				bool isFilePath = Path.IsPathRooted(path);
 				if (isFilePath)
 				{
-					FileInfo file = new(path);
-					using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, fileChunkSize, false);
+					bool found = GetFileHash(path, out string hash, out long fileSize);
+					if (!found)
+					{
+						Plugin.Log.Warning($"File not found for sync: {path}");
+						continue;
+					}
 
-					bytes = sha.ComputeHash(stream);
-					string str = BitConverter.ToString(bytes);
-					str = str.Replace("-", string.Empty, StringComparison.Ordinal);
-					str += Path.GetExtension(path);
-
-					hashToFileLookup[str] = file;
-					data.Files[gamePath] = str;
-					data.FileSizes[str] = stream.Length;
+					hashToFileLookup[hash] = new(path);
+					data.Files[gamePath] = hash;
+					data.FileSizes[hash] = fileSize;
 				}
 				else
 				{
@@ -149,7 +169,7 @@ public class PenumbraSync : SyncProviderBase
 
 		// serialize to Base64 compressed json
 		string json = JsonConvert.SerializeObject(data);
-		bytes = Encoding.UTF8.GetBytes(json);
+		byte[] bytes = Encoding.UTF8.GetBytes(json);
 		using MemoryStream compressedStream = new();
 		using (GZipStream zipStream = new(compressedStream, CompressionMode.Compress))
 		{
@@ -596,14 +616,17 @@ public class PenumbraSync : SyncProviderBase
 						return;
 
 					if (sw.ElapsedMilliseconds >= PenumbraSync.fileTimeout)
-					{
 						throw new TimeoutException();
-					}
 
 					if (this.BytesReceived <= 0)
-					{
 						throw new Exception("Received 0 length file");
-					}
+
+					// hash verify
+					bool found = sync.GetFileHash(file.FullName, out string gotHash, out long fileSize);
+					if (gotHash != hash || fileSize != this.BytesReceived)
+						throw new Exception("File failed to pass validation");
+
+					this.IsComplete = true;
 				}
 			}
 			catch (Exception ex)

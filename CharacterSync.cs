@@ -384,7 +384,7 @@ public class CharacterSync : IDisposable
 				if (provider == null)
 					continue;
 
-				if (lastData?.Syncs.ContainsKey(key) == true && lastData?.Syncs[key] == content)
+				if (this.lastData?.Syncs.ContainsKey(key) == true && lastData?.Syncs[key] == content)
 					continue;
 
 				await provider.Deserialize(content, this);
@@ -396,6 +396,11 @@ public class CharacterSync : IDisposable
 		}
 
 		this.isApplyingData = false;
-		lastData = characterData;
+		this.lastData = characterData;
+	}
+
+	internal void Flush()
+	{
+		this.lastData = null;
 	}
 }

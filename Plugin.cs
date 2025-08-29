@@ -191,18 +191,27 @@ public sealed class Plugin : IDalamudPlugin
 		string world = character.HomeWorld.Value.Name.ToString();
 		string? password = Configuration.Current.GetPassword(characterName, world);
 
-		SeStringBuilder seStringBuilder = new();
-		SeString pairString = seStringBuilder.AddText(password == null ? "Add Peer" : "Remove Peer").Build();
-
 		args.AddMenuItem(new MenuItem()
 		{
-			Name = pairString,
+			Name = SeStringUtils.ToSeString(password == null ? "Add Peer" : "Remove Peer"),
 			OnClicked = (a) => this.TogglePair(character),
 			UseDefaultPrefix = false,
 			PrefixChar = 'S',
 			PrefixColor = 526
 		});
 
+		CharacterSync? sync = this.GetCharacterSync(characterName, world);
+		if (sync != null)
+		{
+			args.AddMenuItem(new MenuItem()
+			{
+				Name = SeStringUtils.ToSeString("Re-apply"),
+				OnClicked = (a) => sync.Flush(),
+				UseDefaultPrefix = false,
+				PrefixChar = 'S',
+				PrefixColor = 526
+			});
+		}
 	}
 
 	private void TogglePair(IPlayerCharacter character)

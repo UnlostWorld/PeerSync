@@ -30,6 +30,7 @@ public class PenumbraSync : SyncProviderBase
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 
 	private byte lastQueueIndex = 0;
+	private bool expandTransfers = true;
 
 	public override string Key => "Penumbra";
 
@@ -265,7 +266,7 @@ public class PenumbraSync : SyncProviderBase
 		if (downloadCount > 0 && uploadCount > 0)
 			title = $"Transfers (▲{uploadCount} ▼{downloadCount}";
 
-		if (ImGui.CollapsingHeader(title))
+		if (ImGui.CollapsingHeader(title, ref expandTransfers))
 		{
 			int queuedDownloads = this.downloads.Count - downloadCount;
 			int queuedUploads = this.uploads.Count - uploadCount;

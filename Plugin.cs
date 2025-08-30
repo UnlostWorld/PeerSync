@@ -25,6 +25,7 @@ using SharpOpenNat;
 using PeerSync.Online;
 using PeerSync.Network;
 using PeerSync.SyncProviders.CustomizePlus;
+using PeerSync.SyncProviders.Moodles;
 
 public static class Objects
 {
@@ -41,6 +42,7 @@ public sealed class Plugin : IDalamudPlugin
 		new GlamourerSync(),
 		new PenumbraSync(),
 		new CustomizePlusSync(),
+		new MoodlesSync(),
 	};
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;

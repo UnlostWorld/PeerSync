@@ -56,6 +56,7 @@ public class PenumbraSync : SyncProviderBase
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 	private readonly Penumbra penumbra = new();
 	private readonly TransientResourceMonitor transientResourceMonitor = new();
+	private readonly Dictionary<string, Guid> appliedCollections = new();
 
 #if DEBUG
 	private readonly HashSet<int> hasSeenBefore = new();
@@ -258,7 +259,11 @@ public class PenumbraSync : SyncProviderBase
 
 		if (content == null)
 		{
-			// TODO: Disable mod collection
+			if (this.appliedCollections.TryGetValue(character.Identifier, out Guid existingCollectionId))
+			{
+				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
+			}
+
 			return;
 		}
 
@@ -343,10 +348,19 @@ public class PenumbraSync : SyncProviderBase
 		await Plugin.Framework.RunOnUpdate();
 
 		Guid collectionId;
-		this.penumbra.CreateTemporaryCollection.Invoke(
-			"PeerSync",
-			character.Identifier,
-			out collectionId).ThrowOnFailure();
+		if (!this.appliedCollections.ContainsKey(character.Identifier))
+		{
+			this.penumbra.CreateTemporaryCollection.Invoke(
+				"PeerSync",
+				character.Identifier,
+				out collectionId).ThrowOnFailure();
+
+			this.appliedCollections.Add(character.Identifier, collectionId);
+		}
+		else
+		{
+			collectionId = this.appliedCollections[character.Identifier];
+		}
 
 		try
 		{
@@ -372,12 +386,6 @@ public class PenumbraSync : SyncProviderBase
 		catch (Exception ex)
 		{
 			Plugin.Log.Error(ex, "Error applying penumbra collection");
-		}
-		finally
-		{
-			await Task.Delay(1000);
-			await Plugin.Framework.RunOnUpdate();
-			this.penumbra.DeleteTemporaryCollection.Invoke(collectionId);
 		}
 	}
 

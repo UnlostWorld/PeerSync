@@ -14,6 +14,9 @@ public class MoodlesSync : SyncProviderBase
 
 	public override async Task Deserialize(string? content, CharacterSync character)
 	{
+		if (!this.moodles.GetIsAvailable())
+			return;
+
 		await Plugin.Framework.RunOnUpdate();
 
 		IGameObject? gameObject = Plugin.ObjectTable[character.ObjectTableIndex];
@@ -32,6 +35,9 @@ public class MoodlesSync : SyncProviderBase
 
 	public override async Task<string?> Serialize(ushort objectIndex)
 	{
+		if (!this.moodles.GetIsAvailable())
+			return null;
+
 		await Plugin.Framework.RunOnUpdate();
 
 		IGameObject? gameObject = Plugin.ObjectTable[objectIndex];

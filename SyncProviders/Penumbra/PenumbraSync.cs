@@ -22,7 +22,6 @@ namespace PeerSync.SyncProviders.Penumbra;
 public class Penumbra
 {
 	public readonly GetEnabledState GetEnabledState = new(Plugin.PluginInterface);
-	public readonly GetGameObjectResourcePaths GetGameObjectResourcePaths = new(Plugin.PluginInterface);
 	public readonly GetMetaManipulations GetMetaManipulations = new(Plugin.PluginInterface);
 	public readonly CreateTemporaryCollection CreateTemporaryCollection = new(Plugin.PluginInterface);
 	public readonly AssignTemporaryCollection AssignTemporaryCollection = new(Plugin.PluginInterface);
@@ -55,7 +54,7 @@ public class PenumbraSync : SyncProviderBase
 	private readonly ConcurrentHashSet<FileUpload> uploads = new();
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 	private readonly Penumbra penumbra = new();
-	private readonly TransientResourceMonitor transientResourceMonitor = new();
+	private readonly ResourceMonitor resourceMonitor = new();
 	private readonly Dictionary<string, Guid> appliedCollections = new();
 
 #if DEBUG
@@ -170,7 +169,7 @@ public class PenumbraSync : SyncProviderBase
 
 		// Get file hashes
 		data.Files = new();
-		Dictionary<string, string>? transientRedirects = this.transientResourceMonitor.GetTransientResources(objectIndex);
+		Dictionary<string, string>? transientRedirects = this.resourceMonitor.GetTransientResources(objectIndex);
 		if (transientRedirects != null)
 		{
 			foreach ((string gamePath, string redirectPath) in transientRedirects)
@@ -447,7 +446,7 @@ public class PenumbraSync : SyncProviderBase
 	{
 		base.Dispose();
 
-		this.transientResourceMonitor.Dispose();
+		this.resourceMonitor.Dispose();
 
 		foreach (FileDownload download in this.downloads)
 		{
@@ -474,25 +473,7 @@ public class PenumbraSync : SyncProviderBase
 		public bool IsSame(PenumbraData other)
 		{
 			if (this.Files.Count != other.Files.Count)
-			{
-				Plugin.Log.Info($"Files changed!");
-
-				HashSet<string> files = new(this.Files.Keys);
-				foreach (string f in other.Files.Keys)
-					files.Remove(f);
-
-				foreach (string f in files)
-					Plugin.Log.Info($"Added: {f} -- {this.Files[f]}");
-
-				files = new(other.Files.Keys);
-				foreach (string f in this.Files.Keys)
-					files.Remove(f);
-
-				foreach (string f in files)
-					Plugin.Log.Info($"Removed: {f} -- {other.Files[f]}");
-
 				return false;
-			}
 
 			if (this.FileSizes.Count != other.FileSizes.Count)
 				return false;

@@ -2,24 +2,19 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using Penumbra.Api.Helpers;
 using Penumbra.Api.IpcSubscribers;
 
 namespace PeerSync.SyncProviders.Penumbra;
 
-/// <summary>
-/// Responsible for tracking resource loads for gme objects that are not captured in
-/// Penumbra's GetGameObjectResourcePaths, such as Animations and Effects.
-/// </summary>
-public class TransientResourceMonitor : IDisposable
+// TODO: Flush the resource monitor if any mod settings are changed in penumbra.
+public class ResourceMonitor : IDisposable
 {
 	private readonly EventSubscriber<nint, string, string> gameObjectResourcePathResolved;
 	private readonly Dictionary<int, Dictionary<string, string>> indexToRedirects = new();
 
-	public TransientResourceMonitor()
+	public ResourceMonitor()
 	{
 		this.gameObjectResourcePathResolved = GameObjectResourcePathResolved.Subscriber(
 			Plugin.PluginInterface,

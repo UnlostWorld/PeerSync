@@ -26,6 +26,7 @@ using PeerSync.Online;
 using PeerSync.Network;
 using PeerSync.SyncProviders.CustomizePlus;
 using PeerSync.SyncProviders.Moodles;
+using PeerSync.SyncProviders.Honorific;
 
 public static class Objects
 {
@@ -43,6 +44,7 @@ public sealed class Plugin : IDalamudPlugin
 		new PenumbraSync(),
 		new CustomizePlusSync(),
 		new MoodlesSync(),
+		new HonorificSync(),
 	};
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;

@@ -11,7 +11,7 @@ public abstract class SyncProviderBase : IDisposable
 	public abstract string Key { get; }
 
 	public abstract Task<string?> Serialize(ushort objectIndex);
-	public abstract Task Deserialize(string? content, CharacterSync character);
+	public abstract Task Deserialize(string? lastContent, string? content, CharacterSync character);
 	public virtual void DrawStatus() { }
 
 	public virtual void Dispose()

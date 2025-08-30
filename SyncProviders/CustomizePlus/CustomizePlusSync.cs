@@ -13,9 +13,12 @@ public class CustomizePlusSync : SyncProviderBase
 
 	public override string Key => "Customize+";
 
-	public override async Task Deserialize(string? content, CharacterSync character)
+	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!this.customizePlus.GetIsAvailable())
+			return;
+
+		if (lastContent == content)
 			return;
 
 		await Plugin.Framework.RunOnUpdate();

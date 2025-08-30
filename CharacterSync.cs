@@ -384,10 +384,9 @@ public class CharacterSync : IDisposable
 				if (provider == null)
 					continue;
 
-				if (this.lastData?.Syncs.ContainsKey(key) == true && lastData?.Syncs[key] == content)
-					continue;
-
-				await provider.Deserialize(content, this);
+				string? lastContent = null;
+				this.lastData?.Syncs.TryGetValue(key, out lastContent);
+				await provider.Deserialize(lastContent, content, this);
 			}
 			catch (Exception ex)
 			{

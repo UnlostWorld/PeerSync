@@ -12,9 +12,12 @@ public class MoodlesSync : SyncProviderBase
 
 	private readonly MoodlesCommunicator moodles = new();
 
-	public override async Task Deserialize(string? content, CharacterSync character)
+	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!this.moodles.GetIsAvailable())
+			return;
+
+		if (lastContent == content)
 			return;
 
 		await Plugin.Framework.RunOnUpdate();
@@ -25,7 +28,8 @@ public class MoodlesSync : SyncProviderBase
 
 		if (content == null)
 		{
-			this.moodles.ClearStatusManager(playerCharacter);
+			// This API is disabled in moodles?
+			////this.moodles.ClearStatusManager(playerCharacter);
 		}
 		else
 		{

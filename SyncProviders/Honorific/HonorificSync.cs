@@ -10,9 +10,12 @@ public class HonorificSync : SyncProviderBase
 
 	private readonly HonorificCommunicator honorific = new();
 
-	public override async Task Deserialize(string? content, CharacterSync character)
+	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!this.honorific.GetIsAvailable())
+			return;
+
+		if (lastContent == content)
 			return;
 
 		await Plugin.Framework.RunOnUpdate();

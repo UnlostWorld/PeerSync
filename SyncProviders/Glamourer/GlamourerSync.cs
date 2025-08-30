@@ -18,9 +18,12 @@ public class GlamourerSync : SyncProviderBase
 		return await this.glamourer.GetState(objectIndex);
 	}
 
-	public override async Task Deserialize(string? content, CharacterSync character)
+	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!glamourer.GetIsAvailable())
+			return;
+
+		if (lastContent == content)
 			return;
 
 		if (content == null)

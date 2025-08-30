@@ -242,24 +242,18 @@ public class PenumbraSync : SyncProviderBase
 		// get meta manipulations
 		data.MetaManipulations = this.penumbra.GetMetaManipulations.Invoke(objectIndex);
 
-		// serialize to Base64 compressed json
-		string json = JsonConvert.SerializeObject(data);
-		byte[] bytes = Encoding.UTF8.GetBytes(json);
-		using MemoryStream compressedStream = new();
-		using (GZipStream zipStream = new(compressedStream, CompressionMode.Compress))
-		{
-			zipStream.Write(bytes, 0, bytes.Length);
-		}
-
-		return Convert.ToBase64String(compressedStream.ToArray());
+		return JsonConvert.SerializeObject(data);
 	}
 
-	public override async Task Deserialize(string? content, CharacterSync character)
+	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!penumbra.GetIsAvailable())
 			return;
 
 		if (!this.fileCache.IsValid())
+			return;
+
+		if (lastContent == content)
 			return;
 
 		if (content == null)
@@ -268,21 +262,24 @@ public class PenumbraSync : SyncProviderBase
 			return;
 		}
 
-		byte[] bytes = Convert.FromBase64String(content);
-		using MemoryStream compressedStream = new(bytes);
-		using GZipStream zipStream = new(compressedStream, CompressionMode.Decompress);
-		using MemoryStream resultStream = new();
-		zipStream.CopyTo(resultStream);
-		bytes = resultStream.ToArray();
+		PenumbraData? lastData = null;
+		if (lastContent != null)
+			JsonConvert.DeserializeObject<PenumbraData>(lastContent);
 
-		string json = Encoding.UTF8.GetString(bytes, 0, bytes.Length);
-
-		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(json);
+		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(content);
 		if (data == null)
 			return;
 
+		bool changed = false;
 		foreach ((string gamePath, string hash) in data.Files)
 		{
+			if (!changed
+				&& (lastData?.Files.ContainsKey(gamePath) == false
+				|| lastData?.Files[gamePath] != hash))
+			{
+				changed = true;
+			}
+
 			FileInfo? file = this.fileCache.GetFile(hash);
 			if (file == null || !file.Exists)
 			{
@@ -330,8 +327,18 @@ public class PenumbraSync : SyncProviderBase
 
 		foreach ((string gamePath, string redirectPath) in data.Redirects)
 		{
+			if (!changed
+				&& (lastData?.Redirects.ContainsKey(gamePath) == false
+				|| lastData?.Redirects[gamePath] != redirectPath))
+			{
+				changed = true;
+			}
+
 			paths[gamePath] = redirectPath;
 		}
+
+		if (!changed)
+			return;
 
 		await Plugin.Framework.RunOnUpdate();
 

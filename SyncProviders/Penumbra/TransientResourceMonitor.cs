@@ -1,0 +1,93 @@
+// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using Penumbra.Api.Helpers;
+using Penumbra.Api.IpcSubscribers;
+
+namespace PeerSync.SyncProviders.Penumbra;
+
+/// <summary>
+/// Responsible for tracking resource loads for gme objects that are not captured in
+/// Penumbra's GetGameObjectResourcePaths, such as Animations and Effects.
+/// </summary>
+public class TransientResourceMonitor : IDisposable
+{
+	private readonly EventSubscriber<nint, string, string> gameObjectResourcePathResolved;
+	private readonly Dictionary<int, Dictionary<string, string>> indexToRedirects = new();
+
+	public static readonly HashSet<string> transientExtensions =
+	[
+		".tmb",
+		".pap",
+		".avfx",
+		".atex",
+		".sklb",
+		".eid",
+		".phyb",
+		".scd",
+		".skp",
+		".shpk"
+	];
+
+	public TransientResourceMonitor()
+	{
+		this.gameObjectResourcePathResolved = GameObjectResourcePathResolved.Subscriber(
+			Plugin.PluginInterface,
+			this.OnGameObjectResourcePathResolved);
+	}
+
+	public void Dispose()
+	{
+		this.gameObjectResourcePathResolved.Dispose();
+	}
+
+	public Dictionary<string, string>? GetTransientResources(int objectIndex)
+	{
+		Dictionary<string, string>? redirects = null;
+		this.indexToRedirects.TryGetValue(objectIndex, out redirects);
+		return redirects;
+	}
+
+	private void OnGameObjectResourcePathResolved(IntPtr ptr, string gamePath, string redirectPath)
+	{
+		if (ptr == IntPtr.Zero)
+			return;
+
+
+
+		if (!transientExtensions.Contains(Path.GetExtension(gamePath)))
+			return;
+
+		// Unsure why, but some redirect paths have some sort of Id at the stat of them...
+		string[] parts = redirectPath.Split("|");
+		if (parts.Length == 3)
+			redirectPath = parts[2];
+
+		redirectPath = redirectPath.Replace('\\', '/');
+		if (gamePath == redirectPath)
+			return;
+
+		int objectIndex = 0;
+		unsafe
+		{
+			GameObject* pGameObject = (GameObject*)ptr;
+			if (pGameObject == null)
+				return;
+
+			objectIndex = pGameObject->ObjectIndex;
+		}
+
+		Dictionary<string, string>? redirects;
+		if (!this.indexToRedirects.TryGetValue(objectIndex, out redirects))
+		{
+			redirects = new();
+			this.indexToRedirects[objectIndex] = redirects;
+		}
+
+		redirects[gamePath] = redirectPath;
+	}
+}

@@ -11,8 +11,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
+using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
 using Newtonsoft.Json;
 using PeerSync.Network;
+using Penumbra.Api.Helpers;
 using Penumbra.Api.IpcSubscribers;
 
 namespace PeerSync.SyncProviders.Penumbra;
@@ -47,13 +49,17 @@ public class PenumbraSync : SyncProviderBase
 	const int fileTimeout = 240_000;
 	const int fileChunkSize = 1024 * 128; // 128kb chunks
 
-
 	private readonly FileCache fileCache = new();
 
 	private readonly ConcurrentHashSet<FileDownload> downloads = new();
 	private readonly ConcurrentHashSet<FileUpload> uploads = new();
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 	private readonly Penumbra penumbra = new();
+	private readonly TransientResourceMonitor transientResourceMonitor = new();
+
+#if DEBUG
+	private readonly HashSet<int> hasSeenBefore = new();
+#endif
 
 	private byte lastQueueIndex = 0;
 
@@ -144,6 +150,18 @@ public class PenumbraSync : SyncProviderBase
 		if (!penumbra.GetIsAvailable())
 			return null;
 
+		// In debug, trigger a redraw so that the transient resources for the active player
+		// get recorded.
+#if DEBUG
+		if (!this.hasSeenBefore.Contains(objectIndex))
+		{
+			this.penumbra.RedrawObject.Invoke(objectIndex);
+			await Task.Delay(1000);
+			await Plugin.Framework.RunOnUpdate();
+			this.hasSeenBefore.Add(objectIndex);
+		}
+#endif
+
 		Dictionary<string, HashSet<string>>?[] resourcePaths = this.penumbra.GetGameObjectResourcePaths.Invoke(objectIndex);
 
 		Dictionary<string, HashSet<string>>? resourcePath = resourcePaths[0];
@@ -157,12 +175,12 @@ public class PenumbraSync : SyncProviderBase
 
 		// Get file hashes
 		data.Files = new();
-		foreach ((string path, HashSet<string> gamePaths) in resourcePath)
+		foreach ((string redirectPath, HashSet<string> gamePaths) in resourcePath)
 		{
 			foreach (string gamePath in gamePaths)
 			{
 				// Is this a redirect?
-				if (gamePath == path)
+				if (gamePath == redirectPath)
 					continue;
 
 				if (!AllowedFileExtensions.Contains(Path.GetExtension(gamePath)))
@@ -171,30 +189,55 @@ public class PenumbraSync : SyncProviderBase
 					continue;
 				}
 
-				bool isFilePath = Path.IsPathRooted(path);
+				bool isFilePath = Path.IsPathRooted(redirectPath);
 				if (isFilePath)
 				{
-					bool found = GetFileHash(path, out string hash, out long fileSize);
+					bool found = GetFileHash(redirectPath, out string hash, out long fileSize);
 					if (!found)
 					{
-						Plugin.Log.Warning($"File not found for sync: {path}");
+						Plugin.Log.Warning($"File not found for sync: {redirectPath}");
 						continue;
 					}
 
-					hashToFileLookup[hash] = new(path);
+					hashToFileLookup[hash] = new(redirectPath);
 					data.Files[gamePath] = hash;
 					data.FileSizes[hash] = fileSize;
 				}
 				else
 				{
-					// Unsure about this one.
-					Plugin.Log.Warning("I haven't written this part yet.");
-					////data.Files[gamePath] = path;
+					data.Redirects[gamePath] = redirectPath;
+				}
+			}
+		}
+
+		Dictionary<string, string>? transientRedirects = this.transientResourceMonitor.GetTransientResources(objectIndex);
+		if (transientRedirects != null)
+		{
+			foreach ((string gamePath, string redirectPath) in transientRedirects)
+			{
+				bool isFilePath = Path.IsPathRooted(redirectPath);
+				if (isFilePath)
+				{
+					bool found = GetFileHash(redirectPath, out string hash, out long fileSize);
+					if (!found)
+					{
+						Plugin.Log.Warning($"File not found for sync: {redirectPath}");
+						continue;
+					}
+
+					hashToFileLookup[hash] = new(redirectPath);
+					data.Files[gamePath] = hash;
+					data.FileSizes[hash] = fileSize;
+				}
+				else
+				{
+					data.Redirects[gamePath] = redirectPath;
 				}
 			}
 		}
 
 		await Plugin.Framework.RunOnUpdate();
+
 
 		// get meta manipulations
 		data.MetaManipulations = this.penumbra.GetMetaManipulations.Invoke(objectIndex);
@@ -269,7 +312,7 @@ public class PenumbraSync : SyncProviderBase
 		}
 
 
-		Dictionary<string, string> gamePathToFilePaths = new();
+		Dictionary<string, string> paths = new();
 		foreach ((string gamePath, string hash) in data.Files)
 		{
 			FileInfo? file = this.fileCache.GetFile(hash);
@@ -282,7 +325,12 @@ public class PenumbraSync : SyncProviderBase
 				return;
 			}
 
-			gamePathToFilePaths[gamePath] = file.FullName;
+			paths[gamePath] = file.FullName;
+		}
+
+		foreach ((string gamePath, string redirectPath) in data.Redirects)
+		{
+			paths[gamePath] = redirectPath;
 		}
 
 		await Plugin.Framework.RunOnUpdate();
@@ -307,7 +355,7 @@ public class PenumbraSync : SyncProviderBase
 			this.penumbra.AddTemporaryMod.Invoke(
 				"PeerSync",
 				collectionId,
-				gamePathToFilePaths,
+				paths,
 				data.MetaManipulations ?? string.Empty,
 				0).ThrowOnFailure();
 
@@ -440,6 +488,8 @@ public class PenumbraSync : SyncProviderBase
 	{
 		base.Dispose();
 
+		this.transientResourceMonitor.Dispose();
+
 		foreach (FileDownload download in this.downloads)
 		{
 			download.Dispose();
@@ -459,6 +509,7 @@ public class PenumbraSync : SyncProviderBase
 	{
 		public Dictionary<string, string> Files { get; set; } = new();
 		public Dictionary<string, long> FileSizes { get; set; } = new();
+		public Dictionary<string, string> Redirects { get; set; } = new();
 		public string? MetaManipulations { get; set; }
 	}
 

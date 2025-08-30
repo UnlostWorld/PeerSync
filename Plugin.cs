@@ -24,6 +24,7 @@ using System.Threading;
 using SharpOpenNat;
 using PeerSync.Online;
 using PeerSync.Network;
+using PeerSync.SyncProviders.CustomizePlus;
 
 public static class Objects
 {
@@ -39,6 +40,7 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		new GlamourerSync(),
 		new PenumbraSync(),
+		new CustomizePlusSync(),
 	};
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;

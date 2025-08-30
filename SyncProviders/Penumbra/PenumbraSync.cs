@@ -163,12 +163,6 @@ public class PenumbraSync : SyncProviderBase
 		}
 #endif
 
-		Dictionary<string, HashSet<string>>?[] resourcePaths = this.penumbra.GetGameObjectResourcePaths.Invoke(objectIndex);
-
-		Dictionary<string, HashSet<string>>? resourcePath = resourcePaths[0];
-		if (resourcePath == null)
-			return null;
-
 		// Perform file hashing on a separate thread.
 		await Task.Delay(1).ConfigureAwait(false);
 
@@ -176,41 +170,6 @@ public class PenumbraSync : SyncProviderBase
 
 		// Get file hashes
 		data.Files = new();
-		foreach ((string redirectPath, HashSet<string> gamePaths) in resourcePath)
-		{
-			foreach (string gamePath in gamePaths)
-			{
-				// Is this a redirect?
-				if (gamePath == redirectPath)
-					continue;
-
-				if (!AllowedFileExtensions.Contains(Path.GetExtension(gamePath)))
-				{
-					Plugin.Log.Warning($"Illegal file type: {Path.GetExtension(gamePath)}");
-					continue;
-				}
-
-				bool isFilePath = Path.IsPathRooted(redirectPath);
-				if (isFilePath)
-				{
-					bool found = GetFileHash(redirectPath, out string hash, out long fileSize);
-					if (!found)
-					{
-						Plugin.Log.Warning($"File not found for sync: {redirectPath}");
-						continue;
-					}
-
-					hashToFileLookup[hash] = new(redirectPath);
-					data.Files[gamePath] = hash;
-					data.FileSizes[hash] = fileSize;
-				}
-				else
-				{
-					data.Redirects[gamePath] = redirectPath;
-				}
-			}
-		}
-
 		Dictionary<string, string>? transientRedirects = this.transientResourceMonitor.GetTransientResources(objectIndex);
 		if (transientRedirects != null)
 		{
@@ -269,19 +228,14 @@ public class PenumbraSync : SyncProviderBase
 
 		PenumbraData? lastData = null;
 		if (lastContent != null)
-			JsonConvert.DeserializeObject<PenumbraData>(lastContent);
+			lastData = JsonConvert.DeserializeObject<PenumbraData>(lastContent);
 
 		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(content);
 		if (data == null)
 			return;
 
-		if (lastData != null)
-		{
-			if (lastData.IsSame(data))
-			{
-				return;
-			}
-		}
+		if (lastData != null && data.IsSame(lastData))
+			return;
 
 		foreach ((string gamePath, string hash) in data.Files)
 		{
@@ -520,13 +474,32 @@ public class PenumbraSync : SyncProviderBase
 		public bool IsSame(PenumbraData other)
 		{
 			if (this.Files.Count != other.Files.Count)
+			{
+				Plugin.Log.Info($"Files changed!");
+
+				HashSet<string> files = new(this.Files.Keys);
+				foreach (string f in other.Files.Keys)
+					files.Remove(f);
+
+				foreach (string f in files)
+					Plugin.Log.Info($"Added: {f} -- {this.Files[f]}");
+
+				files = new(other.Files.Keys);
+				foreach (string f in this.Files.Keys)
+					files.Remove(f);
+
+				foreach (string f in files)
+					Plugin.Log.Info($"Removed: {f} -- {other.Files[f]}");
+
 				return false;
+			}
 
 			if (this.FileSizes.Count != other.FileSizes.Count)
 				return false;
 
 			if (this.Redirects.Count != other.Redirects.Count)
 				return false;
+
 
 			if (this.MetaManipulations != other.MetaManipulations)
 				return false;

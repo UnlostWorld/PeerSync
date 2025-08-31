@@ -16,7 +16,9 @@ public abstract class PluginCommunicatorBase
 	{
 		foreach (IExposedPlugin plugin in Plugin.PluginInterface.InstalledPlugins)
 		{
-			if (plugin.InternalName == this.InternalName && plugin.Version >= this.Version)
+			if (plugin.InternalName == this.InternalName
+				&& plugin.Version >= this.Version
+				&& plugin.IsLoaded)
 			{
 				return true;
 			}

@@ -35,6 +35,12 @@ public class MainWindow : Window, IDisposable
 			plugin.Restart();
 		}
 
+		string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
+		ImGui.SameLine();
+		ImGui.Spacing();
+		ImGui.SameLine();
+		ImGui.Text(pluginVersion);
+
 		if (ImGui.BeginTabBar("##tabs"))
 		{
 			if (ImGui.BeginTabItem("Status"))
@@ -50,16 +56,31 @@ public class MainWindow : Window, IDisposable
 						{
 							Configuration.Current.SetPassword(plugin.CharacterName, plugin.World, password);
 						}
+
+						ImGui.PushFont(UiBuilder.IconFont);
+						ImGui.SetWindowFontScale(0.75f);
+						ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+						ImGui.Text(FontAwesomeIcon.Fingerprint.ToIconString());
+						ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
+						ImGui.SetWindowFontScale(1.0f);
+						ImGui.PopFont();
+
+						if (ImGui.IsItemHovered())
+						{
+							ImGui.BeginTooltip();
+							ImGui.Text($"{Plugin.Instance?.LocalCharacterIdentifier}");
+							ImGui.EndTooltip();
+						}
 					}
 				}
 
 				if (ImGui.CollapsingHeader($"Pairs ({Configuration.Current.Pairs.Count})"))
 				{
-					if (ImGui.BeginTable("Table", 2))
+					if (ImGui.BeginTable("Table", 3))
 					{
 						ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+						ImGui.TableSetupColumn("Finger", ImGuiTableColumnFlags.WidthFixed);
 						ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
-						////ImGui.TableHeadersRow();
 						ImGui.TableNextRow();
 
 						foreach (Configuration.Pair pair in Configuration.Current.Pairs)
@@ -132,23 +153,37 @@ public class MainWindow : Window, IDisposable
 
 								ImGui.SetWindowFontScale(1.0f);
 								ImGui.PopFont();
+
+								if (ImGui.IsItemHovered())
+								{
+									ImGui.BeginTooltip();
+									ImGui.Text($"{sync?.CurrentStatus}");
+									ImGui.EndTooltip();
+								}
 							}
 							else
 							{
 								ImGui.Text("        ");
 							}
 
+							ImGui.TableNextColumn();
+							ImGui.PushFont(UiBuilder.IconFont);
+							ImGui.SetWindowFontScale(0.75f);
+							ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+							ImGui.Text(FontAwesomeIcon.Fingerprint.ToIconString());
+							ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
+							ImGui.SetWindowFontScale(1.0f);
+							ImGui.PopFont();
 
 							if (ImGui.IsItemHovered())
 							{
 								ImGui.BeginTooltip();
-								ImGui.Text($"{sync?.CurrentStatus}");
+								ImGui.Text($"{sync?.Identifier}");
 								ImGui.EndTooltip();
 							}
 
 							ImGui.TableNextColumn();
 							ImGui.Text($"{pair.CharacterName} @ {pair.World}");
-
 							ImGui.TableNextRow();
 						}
 

@@ -365,6 +365,8 @@ public sealed class Plugin : IDalamudPlugin
 
 					LocalCharacterIdentifier = CharacterSync.GetIdentifier(CharacterName, World, password);
 					LocalCharacterData = new(LocalCharacterIdentifier);
+
+					Plugin.Log.Information($"Got local character with Id: {LocalCharacterIdentifier}");
 				}
 			}
 			catch (Exception ex)

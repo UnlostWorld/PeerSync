@@ -124,7 +124,7 @@ public class CharacterSync : IDisposable
 
 		this.CurrentStatus = Status.None;
 
-		////Task.Run(this.Connect);
+		Task.Run(this.Connect);
 	}
 
 	public void SetConnection(Connection connection)
@@ -208,8 +208,6 @@ public class CharacterSync : IDisposable
 
 		if (!this.connection.IsConnected)
 			return;
-
-		////await this.SendIAm();
 
 		string json = JsonConvert.SerializeObject(data);
 		byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
@@ -331,7 +329,7 @@ public class CharacterSync : IDisposable
 		this.CurrentStatus = Status.Disconnected;
 		this.Disconnected?.Invoke(this);
 
-		////this.Reconnect();
+		this.Reconnect();
 	}
 
 	private void OnIAm(Connection connection, string identifier)

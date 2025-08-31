@@ -233,7 +233,22 @@ public class CharacterSync : IDisposable
 			this.CurrentStatus = Status.Searching;
 			SyncStatus request = new();
 			request.Identifier = this.Identifier;
-			SyncStatus? response = await request.Send();
+
+			SyncStatus? response = null;
+			foreach (string indexServer in Configuration.Current.IndexServers)
+			{
+				try
+				{
+					response = await request.Send(indexServer);
+				}
+				catch (Exception ex)
+				{
+					Plugin.Log.Warning(ex, $"Error requesting peer from index server: {indexServer}");
+				}
+
+				if (this.tokenSource.IsCancellationRequested)
+					return;
+			}
 
 			if (this.tokenSource.IsCancellationRequested)
 				return;

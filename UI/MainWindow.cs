@@ -11,6 +11,8 @@ using System.Numerics;
 
 public class MainWindow : Window, IDisposable
 {
+	private string addingIndexServer = string.Empty;
+
 	public MainWindow() : base("Peer Sync##PeerSyncMainWindow")
 	{
 		SizeConstraints = new WindowSizeConstraints
@@ -28,11 +30,16 @@ public class MainWindow : Window, IDisposable
 		if (plugin == null)
 			return;
 
+		if (ImGui.Button("Restart"))
+		{
+			plugin.Restart();
+		}
+
 		if (ImGui.BeginTabBar("##tabs"))
 		{
 			if (ImGui.BeginTabItem("Status"))
 			{
-				ImGui.Text(plugin.Status);
+				ImGui.Text(plugin.CurrentStatus.ToString());
 
 				if (plugin.CharacterName != null && plugin.World != null)
 				{
@@ -187,9 +194,49 @@ public class MainWindow : Window, IDisposable
 					Configuration.Current.Save();
 				}
 
+				if (ImGui.CollapsingHeader("Index Servers"))
+				{
+					string? toRemove = null;
+					foreach (string indexServer in Configuration.Current.IndexServers)
+					{
+						ImGui.PushFont(UiBuilder.IconFont);
+						if (ImGui.Button(FontAwesomeIcon.Minus.ToIconString()))
+							toRemove = indexServer;
+
+						ImGui.PopFont();
+
+						ImGui.SameLine();
+						ImGui.Text(indexServer);
+					}
+
+					if (toRemove != null)
+					{
+						Configuration.Current.IndexServers.Remove(toRemove);
+						Configuration.Current.Save();
+					}
+
+					ImGui.InputText("Add", ref addingIndexServer);
+					ImGui.SameLine();
+
+					ImGui.PushFont(UiBuilder.IconFont);
+					if (this.addingIndexServer.Length <= 0)
+						ImGui.BeginDisabled();
+
+					if (ImGui.Button(FontAwesomeIcon.Plus.ToIconString()))
+					{
+						Configuration.Current.IndexServers.Add(this.addingIndexServer);
+						this.addingIndexServer = string.Empty;
+						Configuration.Current.Save();
+					}
+
+					if (this.addingIndexServer.Length <= 0)
+						ImGui.EndDisabled();
+
+					ImGui.PopFont();
+				}
+
 				ImGui.EndTabItem();
 			}
-
 
 			ImGui.EndTabBar();
 		}

@@ -10,8 +10,6 @@ using System.Threading.Tasks;
 
 public static class ServerApi
 {
-	public static string Url = "https://fourteen.studio/api/";
-
 	private static readonly HttpClient Client;
 
 	static ServerApi()
@@ -24,8 +22,7 @@ public static class ServerApi
 
 	public static async Task<string> GetAsync(string uri)
 	{
-		using HttpResponseMessage response = await Client.GetAsync(Url + uri);
-
+		using HttpResponseMessage response = await Client.GetAsync(uri);
 		return await response.Content.ReadAsStringAsync();
 	}
 
@@ -37,7 +34,7 @@ public static class ServerApi
 		{
 			Content = content,
 			Method = HttpMethod.Post,
-			RequestUri = new Uri(Url + uri),
+			RequestUri = new Uri(uri),
 		};
 
 		using HttpResponseMessage response = await Client.SendAsync(requestMessage);

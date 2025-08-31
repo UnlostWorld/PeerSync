@@ -63,7 +63,7 @@ public sealed class Plugin : IDalamudPlugin
 	public string? LocalCharacterIdentifier;
 	public string? CharacterName;
 	public string? World;
-	public string Status = "";
+	public Status CurrentStatus;
 
 	public readonly WindowSystem WindowSystem = new("StudioSync");
 	private MainWindow MainWindow { get; init; }
@@ -77,7 +77,6 @@ public sealed class Plugin : IDalamudPlugin
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
-		Instance = this;
 		MainWindow = new MainWindow();
 		PairWindow = new PairWindow();
 
@@ -86,25 +85,31 @@ public sealed class Plugin : IDalamudPlugin
 
 		MainWindow.IsOpen = true;
 
-		PluginInterface.UiBuilder.Draw += this.OnDalamudDrawUI;
-		PluginInterface.UiBuilder.OpenMainUi += this.OnDalamudOpenMainUi;
-
-		shuttingDown = false;
-		Task.Run(this.InitializeAsync);
-
-		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
-
-		Framework.Update += this.OnFrameworkUpdate;
-
-		foreach (SyncProviderBase provider in this.SyncProviders)
-		{
-			providerLookup.Add(provider.Key, provider);
-		}
-
-		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
+		this.Start();
 	}
 
 	public string Name => "Peer Sync";
+
+	public enum Status
+	{
+		None,
+
+		Init_OpenPort,
+		Init_Listen,
+		Init_Character,
+		Init_Index,
+
+		Error_NoIndexServer,
+		Error_CantListen,
+		Error_NoPassword,
+		Error_NoCharacter,
+		Error_Index,
+
+		Online,
+
+		ShutdownRequested,
+		Shutdown,
+	}
 
 	public CharacterSync? GetCharacterSync(string characterName, string world)
 	{
@@ -149,13 +154,51 @@ public sealed class Plugin : IDalamudPlugin
 		return null;
 	}
 
+	public void Start()
+	{
+		Instance = this;
+
+		Framework.Update += this.OnFrameworkUpdate;
+		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
+		PluginInterface.UiBuilder.Draw += this.OnDalamudDrawUI;
+		PluginInterface.UiBuilder.OpenMainUi += this.OnDalamudOpenMainUi;
+
+		this.shuttingDown = false;
+		Task.Run(this.InitializeAsync);
+
+		foreach (SyncProviderBase provider in this.SyncProviders)
+		{
+			providerLookup.Add(provider.Key, provider);
+		}
+
+		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
+	}
+
+	public void Restart()
+	{
+		Task.Run(this.RestartAsync);
+	}
+
+	public async Task RestartAsync()
+	{
+		this.Dispose();
+
+		while (this.CurrentStatus != Status.Shutdown)
+			await Task.Delay(500);
+
+		this.Start();
+	}
+
 	public void Dispose()
 	{
 		Plugin.Log.Information("Stopping...");
-		this.Status = "Stopped";
+		this.CurrentStatus = Status.ShutdownRequested;
 		this.shuttingDown = true;
 
 		Framework.Update -= this.OnFrameworkUpdate;
+		ContextMenu.OnMenuOpened -= this.OnContextMenuOpened;
+		PluginInterface.UiBuilder.Draw -= this.OnDalamudDrawUI;
+		PluginInterface.UiBuilder.OpenMainUi -= this.OnDalamudOpenMainUi;
 
 		foreach (CharacterSync sync in checkedCharacters.Values)
 		{
@@ -164,13 +207,16 @@ public sealed class Plugin : IDalamudPlugin
 			sync.Dispose();
 		}
 
+		this.checkedCharacters.Clear();
+
 		foreach (SyncProviderBase sync in this.SyncProviders)
 		{
 			sync.Dispose();
 		}
 
-		this.checkedCharacters.Clear();
+		this.providerLookup.Clear();
 
+		this.network.IncomingConnected -= this.OnIncomingConnectionConnected;
 		this.network.Dispose();
 		Instance = null;
 	}
@@ -231,121 +277,134 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		this.connected = false;
 
-		if (shuttingDown)
-			return;
-
-		// Open port
-		ushort port = Configuration.Current.Port;
-
-		if (port <= 0)
-			port = (ushort)(15400 + Random.Shared.Next(99));
-
-		Plugin.Log.Information($"Opening port {port}");
-		Status = $"Opening port {port}";
-		using CancellationTokenSource cts = new(10000);
-		INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts.Token);
-		await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
-		Plugin.Log.Information($"Opened port {port}");
-		Status = $"Opened port {port}";
-
-		// Setup TCP listen
-		Status = $"listen for connections...";
 		try
 		{
-			this.network.BeginListen(port);
+			if (shuttingDown)
+				return;
 
-			Status = $"Started listening for connections on port {port}";
-			Plugin.Log.Information($"Started listening for connections on port {port}");
-		}
-		catch (Exception ex)
-		{
-			Plugin.Log.Error(ex, "Error listening for connections");
-			Status = "Error";
-			return;
-		}
-
-		IPAddress? localIp = null;
-		IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
-		foreach (IPAddress ipAddress in host.AddressList)
-		{
-			if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
-				continue;
-
-			if (IPAddress.IsLoopback(ipAddress))
-				continue;
-
-			localIp = ipAddress;
-			Plugin.Log.Information($"Got Local Address: {ipAddress}");
-		}
-
-		// Get local character id
-		try
-		{
-			await Framework.RunOnUpdate();
-
-			LocalCharacterIdentifier = null;
-			Status = "Starting...";
-			while (string.IsNullOrEmpty(LocalCharacterIdentifier))
+			if (Configuration.Current.IndexServers.Count <= 0)
 			{
-				await Framework.Delay(500);
-				if (shuttingDown)
-					return;
-
-				if (!ClientState.IsLoggedIn)
-					continue;
-
-				IPlayerCharacter? player = ClientState.LocalPlayer;
-				if (player == null)
-					continue;
-
-				CharacterName = player.Name.ToString();
-				World = player.HomeWorld.Value.Name.ToString();
-				string? password = Configuration.Current.GetPassword(CharacterName, World);
-				if (password == null)
-				{
-					Status = "No password set for this character.";
-					Plugin.Log.Information("No password set for this character.");
-					return;
-				}
-
-				LocalCharacterIdentifier = CharacterSync.GetIdentifier(CharacterName, World, password);
-				LocalCharacterData = new(LocalCharacterIdentifier);
+				this.CurrentStatus = Status.Error_NoIndexServer;
+				return;
 			}
-		}
-		catch (Exception ex)
-		{
-			Status = "Failed to connect to Peer sync";
-			Plugin.Log.Error(ex, $"Failed to connect to Peer sync");
-			return;
-		}
 
-		if (shuttingDown)
-			return;
+			// Open port
+			ushort port = Configuration.Current.Port;
 
-		Status = "Connecting to server...";
+			if (port <= 0)
+				port = (ushort)(15400 + Random.Shared.Next(99));
 
-		while (!shuttingDown)
-		{
+			Plugin.Log.Information($"Opening port {port}");
+			this.CurrentStatus = Status.Init_OpenPort;
+			using CancellationTokenSource cts = new(10000);
+			INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts.Token);
+			await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
+			Plugin.Log.Information($"Opened port {port}");
+
+			// Setup TCP listen
+			this.CurrentStatus = Status.Init_Listen;
 			try
 			{
-				SyncHeartbeat heartbeat = new();
-				heartbeat.Identifier = LocalCharacterIdentifier;
-				heartbeat.Port = port;
-				heartbeat.LocalAddress = localIp?.ToString();
-				await heartbeat.Send();
-
-				await this.UpdateData();
-
-				Status = $"Connected";
-				this.connected = true;
-				await Task.Delay(5000);
+				this.network.BeginListen(port);
+				Plugin.Log.Information($"Started listening for connections on port {port}");
 			}
 			catch (Exception ex)
 			{
-				Status = "Failed to connect to server";
-				Plugin.Log.Error(ex, $"Failed to connect to server");
+				Plugin.Log.Error(ex, "Error listening for connections");
+				this.CurrentStatus = Status.Error_CantListen;
 				return;
 			}
+
+			IPAddress? localIp = null;
+			IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+			foreach (IPAddress ipAddress in host.AddressList)
+			{
+				if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
+					continue;
+
+				if (IPAddress.IsLoopback(ipAddress))
+					continue;
+
+				localIp = ipAddress;
+				Plugin.Log.Information($"Got Local Address: {ipAddress}");
+			}
+
+			// Get local character id
+			try
+			{
+				await Framework.RunOnUpdate();
+
+				LocalCharacterIdentifier = null;
+				this.CurrentStatus = Status.Init_Character; ;
+				while (string.IsNullOrEmpty(LocalCharacterIdentifier))
+				{
+					await Framework.Delay(500);
+					if (shuttingDown)
+						return;
+
+					if (!ClientState.IsLoggedIn)
+						continue;
+
+					IPlayerCharacter? player = ClientState.LocalPlayer;
+					if (player == null)
+						continue;
+
+					CharacterName = player.Name.ToString();
+					World = player.HomeWorld.Value.Name.ToString();
+					string? password = Configuration.Current.GetPassword(CharacterName, World);
+					if (password == null)
+					{
+						this.CurrentStatus = Status.Error_NoPassword;
+						Plugin.Log.Information("No password set for this character.");
+						return;
+					}
+
+					LocalCharacterIdentifier = CharacterSync.GetIdentifier(CharacterName, World, password);
+					LocalCharacterData = new(LocalCharacterIdentifier);
+				}
+			}
+			catch (Exception ex)
+			{
+				this.CurrentStatus = Status.Error_NoCharacter;
+				Plugin.Log.Error(ex, $"Failed to get current character");
+				return;
+			}
+
+			if (shuttingDown)
+				return;
+
+			this.CurrentStatus = Status.Init_Index;
+			while (!shuttingDown)
+			{
+				try
+				{
+					SyncHeartbeat heartbeat = new();
+					heartbeat.Identifier = LocalCharacterIdentifier;
+					heartbeat.Port = port;
+					heartbeat.LocalAddress = localIp?.ToString();
+
+					foreach (string indexServer in Configuration.Current.IndexServers)
+					{
+						await heartbeat.Send(indexServer);
+					}
+
+					await this.UpdateData();
+
+					this.CurrentStatus = Status.Online;
+					this.connected = true;
+					await Task.Delay(5000);
+				}
+				catch (Exception ex)
+				{
+					this.CurrentStatus = Status.Error_Index;
+					Plugin.Log.Error(ex, $"Failed to connect to index server");
+					return;
+				}
+			}
+		}
+		finally
+		{
+			this.CurrentStatus = Status.Shutdown;
 		}
 	}
 

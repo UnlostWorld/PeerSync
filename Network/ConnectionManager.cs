@@ -17,7 +17,7 @@ public class ConnectionManager : IDisposable
 	private int listenPort;
 
 	private TcpListener? listener;
-	private readonly CancellationTokenSource tokenSource = new();
+	private CancellationTokenSource tokenSource = new();
 	private readonly List<Connection> incomingConnections = new();
 	private readonly List<Connection> outgoingConnections = new();
 
@@ -28,13 +28,17 @@ public class ConnectionManager : IDisposable
 
 	public void BeginListen(int port)
 	{
+		this.tokenSource = new();
+
 		this.listenPort = port;
 		Task.Run(this.Listen, tokenSource.Token);
 	}
 
 	public void Dispose()
 	{
-		this.tokenSource.Cancel();
+		if (!this.tokenSource.IsCancellationRequested)
+			this.tokenSource.Cancel();
+
 		this.tokenSource.Dispose();
 		this.listener?.Stop();
 

@@ -30,6 +30,10 @@ public partial class Configuration : IPluginConfiguration
 	public int MaxConcurrentUploads { get; set; } = 10;
 	public int MaxConcurrentDownloads { get; set; } = 10;
 
+	// TODO: In production we'll want to have at least one pre-configured
+	// index server here.
+	public List<string> IndexServers { get; init; } = new();
+
 	public void Save()
 	{
 		Plugin.PluginInterface.SavePluginConfig(this);

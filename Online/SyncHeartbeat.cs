@@ -11,9 +11,9 @@ public class SyncHeartbeat
 	public ushort Port { get; set; }
 	public string? LocalAddress { get; set; }
 
-	public Task Send()
+	public Task Send(string indexServer)
 	{
 		string json = JsonSerializer.Serialize(this);
-		return ServerApi.PostAsync("Sync/Heartbeat", json, "application/json");
+		return ServerApi.PostAsync($"{indexServer}/Heartbeat", json, "application/json");
 	}
 }

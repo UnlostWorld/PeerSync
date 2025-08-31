@@ -12,10 +12,10 @@ public class SyncStatus
 	public string? LocalAddress { get; set; }
 	public ushort Port { get; set; }
 
-	public async Task<SyncStatus?> Send()
+	public async Task<SyncStatus?> Send(string indexServer)
 	{
 		string json = JsonSerializer.Serialize(this);
-		string str = await ServerApi.PostAsync("Sync/Status", json, "application/json");
+		string str = await ServerApi.PostAsync($"{indexServer}/Status", json, "application/json");
 		return JsonSerializer.Deserialize<SyncStatus>(str);
 	}
 }

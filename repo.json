@@ -1,0 +1,20 @@
+[
+	{
+		"Author": "Unload World",
+		"Name": "Peer Sync",
+		"Description": "Where mods",
+		"InternalName": "PeerSync",
+		"AssemblyVersion": "1.0.0.0",
+		"RepoUrl": "https://github.com/UnlostWorld/PeerSync",
+		"ApplicableVersion": "any",
+		"Tags": [],
+		"DalamudApiLevel": 13,
+		"IsHide": "False",
+		"IsTestingExclusive": "False",
+		"LastUpdated": 0,
+		"DownloadCount": 0,
+		"DownloadLinkInstall": "https://github.com/UnlostWorld/PeerSync/releases/download/v1/PeerSync.zip",
+		"DownloadLinkTesting": "https://github.com/UnlostWorld/PeerSync/releases/download/v1/PeerSync.zip",
+		"DownloadLinkUpdate": "https://github.com/UnlostWorld/PeerSync/releases/download/v1/PeerSync.zip"
+	}
+]

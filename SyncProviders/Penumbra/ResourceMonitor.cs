@@ -29,12 +29,17 @@ public class ResourceMonitor : IDisposable
 
 	private void OnModSettingsChanged(ModSettingChange change, Guid guid, string a, bool b)
 	{
+		if (change == ModSettingChange.TemporaryMod)
+			return;
+
+		Plugin.Log.Information("Settings changed");
 		indexToRedirects.Clear();
 	}
 
 	public void Dispose()
 	{
 		this.gameObjectResourcePathResolved.Dispose();
+		this.modSettingChanged.Dispose();
 	}
 
 	public Dictionary<string, string>? GetTransientResources(int objectIndex)

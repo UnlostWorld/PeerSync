@@ -3,15 +3,17 @@
 using System;
 using System.Collections.Generic;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using Penumbra.Api.Enums;
 using Penumbra.Api.Helpers;
 using Penumbra.Api.IpcSubscribers;
 
 namespace PeerSync.SyncProviders.Penumbra;
 
-// TODO: Flush the resource monitor if any mod settings are changed in penumbra.
 public class ResourceMonitor : IDisposable
 {
 	private readonly EventSubscriber<nint, string, string> gameObjectResourcePathResolved;
+	private readonly EventSubscriber<ModSettingChange, Guid, string, bool> modSettingChanged;
+
 	private readonly Dictionary<int, Dictionary<string, string>> indexToRedirects = new();
 
 	public ResourceMonitor()
@@ -19,6 +21,15 @@ public class ResourceMonitor : IDisposable
 		this.gameObjectResourcePathResolved = GameObjectResourcePathResolved.Subscriber(
 			Plugin.PluginInterface,
 			this.OnGameObjectResourcePathResolved);
+
+		this.modSettingChanged = ModSettingChanged.Subscriber(
+			Plugin.PluginInterface,
+			this.OnModSettingsChanged);
+	}
+
+	private void OnModSettingsChanged(ModSettingChange change, Guid guid, string a, bool b)
+	{
+		indexToRedirects.Clear();
 	}
 
 	public void Dispose()

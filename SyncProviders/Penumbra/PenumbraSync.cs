@@ -4,17 +4,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
-using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
 using Newtonsoft.Json;
 using PeerSync.Network;
-using Penumbra.Api.Helpers;
 using Penumbra.Api.IpcSubscribers;
 
 namespace PeerSync.SyncProviders.Penumbra;

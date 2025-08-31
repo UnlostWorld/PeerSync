@@ -28,8 +28,7 @@ public class MoodlesSync : SyncProviderBase
 
 		if (content == null)
 		{
-			// This API is disabled in moodles?
-			////this.moodles.ClearStatusManager(playerCharacter);
+			this.moodles.ClearStatusManager(playerCharacter);
 		}
 		else
 		{

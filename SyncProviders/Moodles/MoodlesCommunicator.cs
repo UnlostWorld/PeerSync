@@ -13,14 +13,14 @@ public class MoodlesCommunicator : PluginCommunicatorBase
 	public string? GetStatusManagerByPC(IPlayerCharacter pc)
 	{
 		return this.InvokeFunc<string, IPlayerCharacter>(
-			"Moodles.GetStatusManagerByPC",
+			"Moodles.GetStatusManagerByPlayerV2",
 			pc);
 	}
 
 	public void SetStatusManagerByPC(IPlayerCharacter pc, string data)
 	{
 		this.InvokeAction(
-			"Moodles.SetStatusManagerByPC",
+			"Moodles.SetStatusManagerByPlayerV2",
 			pc,
 			data);
 	}
@@ -28,7 +28,7 @@ public class MoodlesCommunicator : PluginCommunicatorBase
 	public void ClearStatusManager(IPlayerCharacter pc)
 	{
 		this.InvokeAction(
-			"Moodles.ClearStatusManager",
+			"Moodles.ClearStatusManagerByPlayerV2",
 			pc);
 	}
 }

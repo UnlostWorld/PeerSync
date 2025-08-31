@@ -192,7 +192,9 @@ public sealed class Plugin : IDalamudPlugin
 	public void Dispose()
 	{
 		Plugin.Log.Information("Stopping...");
-		this.CurrentStatus = Status.ShutdownRequested;
+		if (this.CurrentStatus != Status.Shutdown)
+			this.CurrentStatus = Status.ShutdownRequested;
+
 		this.shuttingDown = true;
 
 		Framework.Update -= this.OnFrameworkUpdate;
@@ -219,6 +221,8 @@ public sealed class Plugin : IDalamudPlugin
 		this.network.IncomingConnected -= this.OnIncomingConnectionConnected;
 		this.network.Dispose();
 		Instance = null;
+
+		Plugin.Log.Information("Stopped");
 	}
 
 	private void OnDalamudOpenMainUi()
@@ -383,7 +387,7 @@ public sealed class Plugin : IDalamudPlugin
 					heartbeat.Port = port;
 					heartbeat.LocalAddress = localIp?.ToString();
 
-					foreach (string indexServer in Configuration.Current.IndexServers)
+					foreach (string indexServer in Configuration.Current.IndexServers.ToArray())
 					{
 						await heartbeat.Send(indexServer);
 					}

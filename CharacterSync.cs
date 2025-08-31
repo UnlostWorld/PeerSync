@@ -331,6 +331,9 @@ public class CharacterSync : IDisposable
 				throw new Exception("Handshake failed");
 			}
 		}
+		catch (TaskCanceledException)
+		{
+		}
 		catch (Exception ex)
 		{
 			Plugin.Log.Error(ex, "Error connecting to character sync");

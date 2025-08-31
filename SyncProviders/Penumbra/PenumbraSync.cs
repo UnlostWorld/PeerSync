@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
@@ -166,10 +167,10 @@ public class PenumbraSync : SyncProviderBase
 
 		// Get file hashes
 		data.Files = new();
-		Dictionary<string, string>? transientRedirects = this.resourceMonitor.GetTransientResources(objectIndex);
-		if (transientRedirects != null)
+		ReadOnlyDictionary<string, string>? resources = this.resourceMonitor.GetResources(objectIndex);
+		if (resources != null)
 		{
-			foreach ((string gamePath, string redirectPath) in transientRedirects)
+			foreach ((string gamePath, string redirectPath) in resources)
 			{
 				bool isFilePath = Path.IsPathRooted(redirectPath);
 				if (isFilePath)

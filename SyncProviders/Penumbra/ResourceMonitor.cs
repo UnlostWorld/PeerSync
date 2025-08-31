@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using Penumbra.Api.Enums;
 using Penumbra.Api.Helpers;
@@ -42,11 +43,15 @@ public class ResourceMonitor : IDisposable
 		this.modSettingChanged.Dispose();
 	}
 
-	public Dictionary<string, string>? GetTransientResources(int objectIndex)
+	public ReadOnlyDictionary<string, string>? GetResources(int objectIndex)
 	{
 		Dictionary<string, string>? redirects = null;
 		this.indexToRedirects.TryGetValue(objectIndex, out redirects);
-		return redirects;
+
+		if (redirects == null)
+			return null;
+
+		return redirects.AsReadOnly();
 	}
 
 	private void OnGameObjectResourcePathResolved(IntPtr ptr, string gamePath, string redirectPath)

@@ -279,13 +279,13 @@ public class CharacterSync : IDisposable
 			catch (Exception)
 			{
 				this.connection = null;
-				this.CurrentStatus = Status.ConnectionFailed;
-				return;
 			}
 
 			if (this.connection == null)
 			{
 				this.CurrentStatus = Status.ConnectionFailed;
+				await Task.Delay(10000);
+				this.Reconnect();
 				return;
 			}
 

@@ -256,7 +256,7 @@ public class CharacterSync : IDisposable
 			IPAddress? address = null;
 			if (response == null
 				|| response.Address == null
-				|| IPAddress.TryParse(response.Address, out address)
+				|| !IPAddress.TryParse(response.Address, out address)
 				|| address == null)
 			{
 				this.CurrentStatus = Status.Offline;

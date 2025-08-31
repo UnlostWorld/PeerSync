@@ -120,10 +120,10 @@ public class CharacterSync : IDisposable
 			|| this.CurrentStatus == Status.Handshake)
 			return;
 
-		Plugin.Log?.Info($"Reconnecting...");
+		if (this.tokenSource.IsCancellationRequested)
+			return;
 
 		this.CurrentStatus = Status.None;
-
 		Task.Run(this.Connect);
 	}
 
@@ -253,16 +253,15 @@ public class CharacterSync : IDisposable
 			if (this.tokenSource.IsCancellationRequested)
 				return;
 
-			if (response == null || response.Address == null)
+			IPAddress? address = null;
+			if (response == null
+				|| response.Address == null
+				|| IPAddress.TryParse(response.Address, out address)
+				|| address == null)
 			{
 				this.CurrentStatus = Status.Offline;
-				return;
-			}
-
-			IPAddress.TryParse(response.Address, out var address);
-			if (address == null)
-			{
-				this.CurrentStatus = Status.Offline;
+				await Task.Delay(30000, this.tokenSource.Token);
+				this.Reconnect();
 				return;
 			}
 

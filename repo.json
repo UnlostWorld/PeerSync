@@ -1,20 +1,19 @@
 [
-	{
-		"Author": "Unlost World",
-		"Name": "Peer Sync",
-		"Description": "Where mods",
-		"InternalName": "PeerSync",
-		"AssemblyVersion": "1.0.0.5",
-		"RepoUrl": "https://github.com/UnlostWorld/PeerSync",
-		"ApplicableVersion": "any",
-		"Tags": [],
-		"DalamudApiLevel": 13,
-		"IsHide": "False",
-		"IsTestingExclusive": "False",
-		"LastUpdated": 0,
-		"DownloadCount": 0,
-		"DownloadLinkInstall": "https://github.com/UnlostWorld/PeerSync/releases/download/v5/PeerSync.zip",
-		"DownloadLinkTesting": "https://github.com/UnlostWorld/PeerSync/releases/download/v5/PeerSync.zip",
-		"DownloadLinkUpdate": "https://github.com/UnlostWorld/PeerSync/releases/download/v5/PeerSync.zip"
-	}
+    {
+        "Author": "Unlost World",
+        "Name": "Peer Sync",
+        "Punchline": "Where mods",
+        "Description": "Where mods",
+        "InternalName": "PeerSync",
+        "AssemblyVersion": "5",
+        "TestingAssemblyVersion": "5",
+        "RepoUrl": "https://github.com/UnlostWorld/PeerSync",
+        "ApplicableVersion": "any",
+        "DalamudApiLevel": 13,
+        "TestingDalamudApiLevel": 13,
+        "DownloadLinkInstall": "https://github.com/UnlostWorld/PeerSync/releases/download/v5/PeerSync.zip",
+        "DownloadLinkTesting": "https://github.com/UnlostWorld/PeerSync/releases/download/v5/PeerSync.zip",
+        "DownloadLinkUpdate": "https://github.com/UnlostWorld/PeerSync/releases/download/v5/PeerSync.zip",
+        "Tags": []
+    }
 ]

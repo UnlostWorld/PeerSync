@@ -31,7 +31,7 @@ jobs:
       run: dotnet restore PeerSync.sln
 
     - name: Build PeerSync
-      run: dotnet build Brio.sln --no-restore /p:Configuration=Release /p:Version=${{ github.run_number }}
+      run: dotnet build PeerSync.sln --no-restore /p:Configuration=Release /p:Version=${{ github.run_number }}
 
     - name: Zip Release
       uses: TheDoctor0/zip-release@0.6.0

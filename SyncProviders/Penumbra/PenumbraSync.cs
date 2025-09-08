@@ -407,22 +407,20 @@ public class PenumbraSync : SyncProviderBase
 
 					if (ImGui.IsItemHovered())
 					{
-						if (ImGui.BeginPopup($"upload####{uploadIndex}"))
-						{
-							ImGui.Text($"Uploading: {upload.Progress * 100}% ({upload.BytesSent / 1024} kb / {upload.BytesToSend / 1024} kb)");
+						ImGui.BeginTooltip();
+						ImGui.Text($"Uploading: {upload.Progress * 100}% ({upload.BytesSent / 1024} kb / {upload.BytesToSend / 1024} kb)");
 
-							ImGui.Text(upload.Name);
+						ImGui.Text(upload.Name);
 
-							ImGui.Text("To: ");
-							ImGui.SameLine();
-							ImGui.Text(upload.Character.Pair.CharacterName);
-							ImGui.SameLine();
-							ImGui.Text(" @ ");
-							ImGui.SameLine();
-							ImGui.Text(upload.Character.Pair.World);
+						ImGui.Text("To: ");
+						ImGui.SameLine();
+						ImGui.Text(upload.Character.Pair.CharacterName);
+						ImGui.SameLine();
+						ImGui.Text(" @ ");
+						ImGui.SameLine();
+						ImGui.Text(upload.Character.Pair.World);
 
-							ImGui.EndPopup();
-						}
+						ImGui.EndTooltip();
 					}
 				}
 			}
@@ -454,22 +452,21 @@ public class PenumbraSync : SyncProviderBase
 
 					if (ImGui.IsItemHovered())
 					{
-						if (ImGui.BeginPopup($"upload####{downloadIndex}"))
-						{
-							ImGui.Text($"Downloading: {download.Progress * 100}% ({download.BytesReceived / 1024} kb / {download.BytesReceived / 1024} kb)");
+						ImGui.BeginTooltip();
 
-							ImGui.Text(download.Name);
+						ImGui.Text($"Downloading: {download.Progress * 100}% ({download.BytesReceived / 1024} kb / {download.BytesReceived / 1024} kb)");
 
-							ImGui.Text("From: ");
-							ImGui.SameLine();
-							ImGui.Text(download.Character.Pair.CharacterName);
-							ImGui.SameLine();
-							ImGui.Text(" @ ");
-							ImGui.SameLine();
-							ImGui.Text(download.Character.Pair.World);
+						ImGui.Text(download.Name);
 
-							ImGui.EndPopup();
-						}
+						ImGui.Text("From: ");
+						ImGui.SameLine();
+						ImGui.Text(download.Character.Pair.CharacterName);
+						ImGui.SameLine();
+						ImGui.Text(" @ ");
+						ImGui.SameLine();
+						ImGui.Text(download.Character.Pair.World);
+
+						ImGui.EndTooltip();
 					}
 				}
 			}

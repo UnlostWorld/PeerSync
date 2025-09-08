@@ -390,7 +390,7 @@ public class PenumbraSync : SyncProviderBase
 
 			if (uploadCount > 0 || queuedUploads > 0)
 			{
-				ImGui.Text($"▲ Uploading");
+				ImGui.Text($"↑ Uploading");
 
 				if (queuedUploads > 0)
 				{
@@ -413,7 +413,7 @@ public class PenumbraSync : SyncProviderBase
 
 			if (downloadCount > 0 || queuedDownloads > 0)
 			{
-				ImGui.Text($"▼ Downloading");
+				ImGui.Text($"↓ Downloading");
 
 				if (queuedUploads > 0)
 				{
@@ -451,6 +451,19 @@ public class PenumbraSync : SyncProviderBase
 	public override void Dispose()
 	{
 		base.Dispose();
+
+		foreach ((string identifier, Guid guid) in this.appliedCollections)
+		{
+			try
+			{
+				this.penumbra.DeleteTemporaryCollection.Invoke(guid);
+			}
+			catch (Exception)
+			{
+			}
+		}
+
+		this.appliedCollections.Clear();
 
 		this.resourceMonitor.Dispose();
 

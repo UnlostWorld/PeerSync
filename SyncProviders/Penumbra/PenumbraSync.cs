@@ -148,9 +148,6 @@ public class PenumbraSync : SyncProviderBase
 		if (!penumbra.GetIsAvailable())
 			return null;
 
-		// In debug, trigger a redraw so that the transient resources for the active player
-		// get recorded.
-#if DEBUG
 		if (!this.hasSeenBefore.Contains(objectIndex))
 		{
 			this.penumbra.RedrawObject.Invoke(objectIndex);
@@ -158,7 +155,6 @@ public class PenumbraSync : SyncProviderBase
 			await Plugin.Framework.RunOnUpdate();
 			this.hasSeenBefore.Add(objectIndex);
 		}
-#endif
 
 		// Perform file hashing on a separate thread.
 		await Task.Delay(1).ConfigureAwait(false);
@@ -403,10 +399,18 @@ public class PenumbraSync : SyncProviderBase
 						continue;
 
 					ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 10);
-					ImGui.ProgressBar(upload.Progress, new(64, 5), string.Empty);
+					ImGui.ProgressBar(upload.Progress, new(42, 5), string.Empty);
 					ImGui.SameLine();
 					ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 10);
 					ImGui.Text(upload.Name);
+
+					ImGui.Text(" > ");
+					ImGui.SameLine();
+					ImGui.Text(upload.Character.Pair.CharacterName);
+					ImGui.SameLine();
+					ImGui.Text(" @ ");
+					ImGui.SameLine();
+					ImGui.Text(upload.Character.Pair.World);
 				}
 			}
 
@@ -426,10 +430,18 @@ public class PenumbraSync : SyncProviderBase
 						continue;
 
 					ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 10);
-					ImGui.ProgressBar(download.Progress, new(64, 5), string.Empty);
+					ImGui.ProgressBar(download.Progress, new(42, 5), string.Empty);
 					ImGui.SameLine();
 					ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 10);
 					ImGui.Text(download.Name);
+					ImGui.SameLine();
+					ImGui.Text(" < ");
+					ImGui.SameLine();
+					ImGui.Text(download.Character.Pair.CharacterName);
+					ImGui.SameLine();
+					ImGui.Text(" @ ");
+					ImGui.SameLine();
+					ImGui.Text(download.Character.Pair.World);
 				}
 			}
 		}
@@ -543,9 +555,10 @@ public class PenumbraSync : SyncProviderBase
 		public int BytesSent = 0;
 		public long BytesToSend = 0;
 
+		public readonly CharacterSync Character;
+
 		private readonly PenumbraSync sync;
 		private readonly string hash;
-		private readonly CharacterSync character;
 		private readonly byte clientQueueIndex;
 		private readonly CancellationTokenSource tokenSource = new();
 
@@ -553,7 +566,7 @@ public class PenumbraSync : SyncProviderBase
 		{
 			this.sync = sync;
 			this.hash = hash;
-			this.character = character;
+			this.Character = character;
 			this.clientQueueIndex = clientQueueIndex;
 
 			FileInfo? fileInfo = null;
@@ -605,7 +618,7 @@ public class PenumbraSync : SyncProviderBase
 				if (!sync.hashToFileLookup.TryGetValue(hash, out fileInfo) || fileInfo == null || !fileInfo.Exists)
 				{
 					Plugin.Log.Warning($"File: {hash} missing!");
-					this.character.Send(Objects.FileData, [this.clientQueueIndex]);
+					this.Character.Send(Objects.FileData, [this.clientQueueIndex]);
 					return;
 				}
 
@@ -650,14 +663,14 @@ public class PenumbraSync : SyncProviderBase
 					bytes[0] = this.clientQueueIndex;
 					stream.ReadExactly(bytes, 1, thisChunkSize);
 
-					this.character.Send(Objects.FileData, bytes);
+					this.Character.Send(Objects.FileData, bytes);
 					this.BytesSent += thisChunkSize;
 					await Task.Delay(10);
 				}
 				while (this.BytesSent < this.BytesToSend && !this.tokenSource.IsCancellationRequested);
 
 				// File complete flag
-				this.character.Send(Objects.FileData, [this.clientQueueIndex]);
+				this.Character.Send(Objects.FileData, [this.clientQueueIndex]);
 			}
 			catch (Exception ex)
 			{

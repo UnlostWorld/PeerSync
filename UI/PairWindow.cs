@@ -9,9 +9,8 @@ using System.Numerics;
 
 public class PairWindow : Window, IDisposable
 {
-	private string? characterName;
-	private string? world;
-	private string password = string.Empty;
+	private Configuration.Pair? pair = null;
+	private string newPassword = string.Empty;
 
 	public PairWindow() : base(
 		"Peer Sync Pair##PairWindow",
@@ -26,29 +25,42 @@ public class PairWindow : Window, IDisposable
 
 	public void Show(string characterName, string world)
 	{
-		this.characterName = characterName;
-		this.world = world;
-		this.password = Configuration.Current.GetPassword(this.characterName, this.world) ?? string.Empty;
+		this.pair = Configuration.Current.GetPair(characterName, world);
 		this.IsOpen = true;
+
+		if (this.pair == null)
+		{
+			this.pair = new();
+			this.pair.CharacterName = characterName;
+			this.pair.World = world;
+		}
 	}
 
 	public void Dispose() { }
 
 	public override void Draw()
 	{
-		if (this.characterName == null || this.world == null)
+		if (this.pair == null
+			|| this.pair.CharacterName == null
+			|| this.pair.World == null)
 			return;
 
-		StUi.TextBlock("Character", $"{this.characterName} @ {this.world}");
-		StUi.TextBox("Password", ref this.password);
+		ImGui.LabelText("Character", $"{this.pair.CharacterName} @ {this.pair.World}");
+
+		ImGui.InputText("Password", ref this.newPassword);
 
 		ImGui.Separator();
-		if (password.Length < 6)
+		if (this.newPassword.Length < 6)
 			ImGui.BeginDisabled();
 
 		if (ImGui.Button("Pair"))
 		{
-			Configuration.Current.SetPassword(this.characterName, this.world, this.password);
+			this.pair.Password = this.newPassword;
+
+			if (Configuration.Current.GetPair(this.pair.CharacterName, this.pair.World) == null)
+				Configuration.Current.Pairs.Add(this.pair);
+
+			Configuration.Current.Save();
 			this.IsOpen = false;
 		}
 

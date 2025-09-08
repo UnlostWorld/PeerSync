@@ -13,7 +13,7 @@ public class CustomizePlusSync : SyncProviderBase
 
 	public override string Key => "Customize+";
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(string? lastContent, string? content, CharacterSync sync)
 	{
 		if (!this.customizePlus.GetIsAvailable())
 			return;
@@ -25,19 +25,19 @@ public class CustomizePlusSync : SyncProviderBase
 
 		if (content == null)
 		{
-			if (this.appliedProfiles.TryGetValue(character.Identifier, out Guid guid))
+			if (this.appliedProfiles.TryGetValue(sync.Pair.GetIdentifier(), out Guid guid))
 			{
 				this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
-				this.appliedProfiles.Remove(character.Identifier);
+				this.appliedProfiles.Remove(sync.Pair.GetIdentifier());
 			}
 		}
 		else
 		{
-			Guid? guid = this.customizePlus.SetTemporaryProfileOnCharacter(character.ObjectTableIndex, content);
+			Guid? guid = this.customizePlus.SetTemporaryProfileOnCharacter(sync.ObjectTableIndex, content);
 			if (guid == null)
 				return;
 
-			this.appliedProfiles[character.Identifier] = guid.Value;
+			this.appliedProfiles[sync.Pair.GetIdentifier()] = guid.Value;
 		}
 	}
 

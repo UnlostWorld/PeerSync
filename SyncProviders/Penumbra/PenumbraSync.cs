@@ -202,7 +202,7 @@ public class PenumbraSync : SyncProviderBase
 		return JsonConvert.SerializeObject(data);
 	}
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(string? lastContent, string? content, CharacterSync sync)
 	{
 		if (!penumbra.GetIsAvailable())
 			return;
@@ -215,7 +215,7 @@ public class PenumbraSync : SyncProviderBase
 
 		if (content == null)
 		{
-			if (this.appliedCollections.TryGetValue(character.Identifier, out Guid existingCollectionId))
+			if (this.appliedCollections.TryGetValue(sync.Pair.GetIdentifier(), out Guid existingCollectionId))
 			{
 				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
 			}
@@ -243,7 +243,7 @@ public class PenumbraSync : SyncProviderBase
 				data.FileSizes.TryGetValue(hash, out expectedSize);
 
 				string name = Path.GetFileName(gamePath);
-				new FileDownload(this, name, hash, expectedSize, character);
+				new FileDownload(this, name, hash, expectedSize, sync);
 			}
 		}
 
@@ -254,7 +254,7 @@ public class PenumbraSync : SyncProviderBase
 			done = true;
 			foreach (FileDownload t in this.downloads)
 			{
-				if (t.Character == character && !t.IsComplete)
+				if (t.Character == sync && !t.IsComplete)
 				{
 					done = false;
 					break;
@@ -289,25 +289,25 @@ public class PenumbraSync : SyncProviderBase
 		await Plugin.Framework.RunOnUpdate();
 
 		Guid collectionId;
-		if (!this.appliedCollections.ContainsKey(character.Identifier))
+		if (!this.appliedCollections.ContainsKey(sync.Pair.GetIdentifier()))
 		{
 			this.penumbra.CreateTemporaryCollection.Invoke(
 				"PeerSync",
-				character.Identifier,
+				sync.Pair.GetIdentifier(),
 				out collectionId).ThrowOnFailure();
 
-			this.appliedCollections.Add(character.Identifier, collectionId);
+			this.appliedCollections.Add(sync.Pair.GetIdentifier(), collectionId);
 		}
 		else
 		{
-			collectionId = this.appliedCollections[character.Identifier];
+			collectionId = this.appliedCollections[sync.Pair.GetIdentifier()];
 		}
 
 		try
 		{
 			this.penumbra.AssignTemporaryCollection.Invoke(
 				collectionId,
-				character.ObjectTableIndex,
+				sync.ObjectTableIndex,
 				true).ThrowOnFailure();
 
 			this.penumbra.RemoveTemporaryMod.Invoke(
@@ -321,7 +321,7 @@ public class PenumbraSync : SyncProviderBase
 				data.MetaManipulations ?? string.Empty,
 				0).ThrowOnFailure();
 
-			this.penumbra.RedrawObject.Invoke(character.ObjectTableIndex);
+			this.penumbra.RedrawObject.Invoke(sync.ObjectTableIndex);
 
 		}
 		catch (Exception ex)
@@ -363,20 +363,28 @@ public class PenumbraSync : SyncProviderBase
 		base.DrawStatus();
 
 		int uploadCount = this.GetActiveUploadCount();
+		int maxUploads = Configuration.Current.MaxConcurrentUploads;
+
 		int downloadCount = this.GetActiveDownloadCount();
+		int maxDownloads = Configuration.Current.MaxConcurrentDownloads;
 
-		string title = "Transfers";
-		if (uploadCount > 0 && downloadCount == 0)
-			title = $"Transfers (▲{uploadCount})";
-
-		if (downloadCount > 0 && uploadCount == 0)
-			title = $"Transfers (▼{downloadCount})";
-
-		if (downloadCount > 0 && uploadCount > 0)
-			title = $"Transfers (▲{uploadCount} ▼{downloadCount})";
-
-		if (ImGui.CollapsingHeader($"{title}###transfersSection"))
+		if (ImGui.CollapsingHeader($"Transfers (↑ {uploadCount} / {maxUploads}    ↓ {downloadCount} / {maxDownloads})###transfersSection"))
 		{
+			ImGui.SetNextItemWidth(50);
+			if (ImGui.InputInt("Simultaneous Uploads", ref maxUploads))
+			{
+				Configuration.Current.MaxConcurrentUploads = maxUploads;
+				Configuration.Current.Save();
+			}
+
+
+			ImGui.SetNextItemWidth(50);
+			if (ImGui.InputInt("Simultaneous Downloads", ref maxDownloads))
+			{
+				Configuration.Current.MaxConcurrentDownloads = maxDownloads;
+				Configuration.Current.Save();
+			}
+
 			int queuedDownloads = this.downloads.Count - downloadCount;
 			int queuedUploads = this.uploads.Count - uploadCount;
 

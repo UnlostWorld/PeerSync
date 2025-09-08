@@ -27,6 +27,7 @@ using PeerSync.Network;
 using PeerSync.SyncProviders.CustomizePlus;
 using PeerSync.SyncProviders.Moodles;
 using PeerSync.SyncProviders.Honorific;
+using Dalamud.Game.Command;
 
 public static class Objects
 {
@@ -38,6 +39,7 @@ public static class Objects
 
 public sealed class Plugin : IDalamudPlugin
 {
+	private const string commandName = "/psync";
 	public readonly List<SyncProviderBase> SyncProviders = new()
 	{
 		new GlamourerSync(),
@@ -86,6 +88,11 @@ public sealed class Plugin : IDalamudPlugin
 		MainWindow.IsOpen = true;
 
 		this.Start();
+
+		CommandManager.AddHandler(commandName, new CommandInfo(OnCommand)
+		{
+			HelpMessage = "Show the Peer Sync window with /psync"
+		});
 	}
 
 	public string Name => "Peer Sync";
@@ -222,9 +229,16 @@ public sealed class Plugin : IDalamudPlugin
 		this.network.Dispose();
 		Instance = null;
 
+		CommandManager.RemoveHandler(commandName);
+
 		Plugin.Log.Information("Stopped");
 	}
 
+	private void OnCommand(string command, string args)
+	{
+		MainWindow.Toggle();
+	}
+	
 	private void OnDalamudOpenMainUi()
 	{
 		MainWindow.Toggle();

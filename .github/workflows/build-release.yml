@@ -33,16 +33,15 @@ jobs:
     - name: Zip Release
       uses: TheDoctor0/zip-release@0.6.0
       with:
-        filename: '${{ github.workspace }}/latest.zip'
+        filename: '${{ github.workspace }}/PeerSync.zip'
         directory: '${{ github.workspace }}/bin/'
         exclusions: '*.pdb* *.xml*'
-		custom: -ao
 
     - name: Upload Release
       uses: ncipollo/release-action@v1
       with:
         allowUpdates: true
-        artifacts: '${{ github.workspace }}/latest.zip'
+        artifacts: '${{ github.workspace }}/PeerSync.zip'
         name: PeerSync v${{ github.run_number }}
         tag: v${{ github.run_number }}
         draft: false

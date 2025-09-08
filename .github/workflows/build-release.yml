@@ -27,11 +27,8 @@ jobs:
         Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/stg/latest.zip -OutFile latest.zip
         Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev"
 
-    - name: Restore Dependencies
-      run: dotnet restore PeerSync.sln
-
     - name: Build PeerSync
-      run: dotnet build PeerSync.sln --no-restore /p:Configuration=Release /p:Version=${{ github.run_number }}
+      run: dotnet build PeerSync.sln /p:Configuration=Release /p:Version=${{ github.run_number }}
 
     - name: Zip Release
       uses: TheDoctor0/zip-release@0.6.0

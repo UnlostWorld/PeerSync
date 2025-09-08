@@ -67,8 +67,8 @@ public sealed class Plugin : IDalamudPlugin
 	public readonly Dictionary<string, IndexServerStatus> IndexServersStatus = new();
 
 	public readonly WindowSystem WindowSystem = new("StudioSync");
-	private MainWindow MainWindow { get; init; }
-	private PairWindow PairWindow { get; init; }
+	public MainWindow MainWindow { get; init; }
+	public PairWindow PairWindow { get; init; }
 
 	private bool connected = false;
 	private bool shuttingDown = false;

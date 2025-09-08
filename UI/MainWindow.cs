@@ -34,7 +34,7 @@ public class MainWindow : Window, IDisposable
 		{
 			case Plugin.Status.Init_OpenPort:
 			{
-				MainWindow.Icon(FontAwesomeIcon.Hourglass);
+				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
 				ImGui.SameLine();
 				ImGui.Text("Opening Port...");
 				break;
@@ -42,7 +42,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Init_Listen:
 			{
-				MainWindow.Icon(FontAwesomeIcon.Hourglass);
+				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
 				ImGui.SameLine();
 				ImGui.Text("Creating a listen server...");
 				break;
@@ -50,7 +50,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Init_Character:
 			{
-				MainWindow.Icon(FontAwesomeIcon.Hourglass);
+				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
 				ImGui.SameLine();
 				ImGui.Text("Waiting for character...");
 				break;
@@ -58,7 +58,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Init_Index:
 			{
-				MainWindow.Icon(FontAwesomeIcon.Hourglass);
+				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
 				ImGui.SameLine();
 				ImGui.Text("Connecting to Index servers...");
 				break;
@@ -66,7 +66,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Error_NoIndexServer:
 			{
-				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 				ImGui.SameLine();
 				ImGui.TextColored(0xFF0080FF, "No Index server configured");
 				break;
@@ -74,7 +74,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Error_CantListen:
 			{
-				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 				ImGui.SameLine();
 				ImGui.TextColored(0xFF0080FF, "Failed to create a listen server");
 				break;
@@ -82,7 +82,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Error_NoPassword:
 			{
-				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 				ImGui.SameLine();
 				ImGui.TextColored(0xFF0080FF, "No password is set for the current character");
 				break;
@@ -90,7 +90,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Error_NoCharacter:
 			{
-				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 				ImGui.SameLine();
 				ImGui.TextColored(0xFF0080FF, "Failed to get the current character");
 				break;
@@ -98,7 +98,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Error_Index:
 			{
-				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 				ImGui.SameLine();
 				ImGui.TextColored(0xFF0080FF, "Failed to communicate with Index servers");
 				break;
@@ -106,7 +106,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Online:
 			{
-				MainWindow.Icon(FontAwesomeIcon.Wifi);
+				ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 				ImGui.SameLine();
 				ImGui.Text("Online");
 				break;
@@ -114,7 +114,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.ShutdownRequested:
 			{
-				MainWindow.Icon(FontAwesomeIcon.Bed);
+				ImGuiEx.Icon(FontAwesomeIcon.Bed);
 				ImGui.SameLine();
 				ImGui.Text("Shutting down...");
 				break;
@@ -122,7 +122,7 @@ public class MainWindow : Window, IDisposable
 
 			case Plugin.Status.Shutdown:
 			{
-				MainWindow.Icon(FontAwesomeIcon.Bed);
+				ImGuiEx.Icon(FontAwesomeIcon.Bed);
 				ImGui.SameLine();
 				ImGui.Text("Shut down");
 				break;
@@ -147,6 +147,31 @@ public class MainWindow : Window, IDisposable
 				Configuration.Current.Save();
 			}
 		}
+
+		if (ImGui.BeginPopup("AddIndexPopup"))
+		{
+			string newIndex = string.Empty;
+			if (ImGui.InputText("Address", ref newIndex, 512, ImGuiInputTextFlags.EnterReturnsTrue))
+			{
+				Configuration.Current.IndexServers.Add(newIndex);
+				Configuration.Current.Save();
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.EndPopup();
+		}
+
+		Vector2 startPos = ImGui.GetCursorPos();
+		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
+		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
+		if (ImGui.Button("+###AddIndexButton", new Vector2(25, 0)))
+		{
+			ImGui.OpenPopup("AddIndexPopup");
+		}
+
+		ImGui.PopStyleColor();
+
+		ImGui.SetCursorPos(startPos);
 
 		if (ImGui.CollapsingHeader($"Index Servers ({Configuration.Current.IndexServers.Count})###IndexServersSection"))
 		{
@@ -197,7 +222,7 @@ public class MainWindow : Window, IDisposable
 
 					if (status == Plugin.IndexServerStatus.Online)
 					{
-						MainWindow.Icon(FontAwesomeIcon.Wifi);
+						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 
 						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 						{
@@ -208,7 +233,7 @@ public class MainWindow : Window, IDisposable
 					}
 					else if (status == Plugin.IndexServerStatus.Offline)
 					{
-						MainWindow.Icon(FontAwesomeIcon.ExclamationCircle, 0xFF0080FF);
+						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
 
 						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 						{
@@ -224,28 +249,10 @@ public class MainWindow : Window, IDisposable
 				ImGui.EndTable();
 			}
 
-			if (ImGui.Button("Add a new Index Server"))
-			{
-				ImGui.OpenPopup("AddIndexPopup");
-			}
-
-			if (ImGui.BeginPopup("AddIndexPopup"))
-			{
-				string newIndex = string.Empty;
-				if (ImGui.InputText("Address", ref newIndex, 512, ImGuiInputTextFlags.EnterReturnsTrue))
-				{
-					Configuration.Current.IndexServers.Add(newIndex);
-					Configuration.Current.Save();
-					ImGui.CloseCurrentPopup();
-				}
-
-				ImGui.EndPopup();
-			}
-
 			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 			{
 				ImGui.BeginTooltip();
-				ImGui.Text("Index servers are used to track the online status of peers.\nYour character name, world, and password are never sent to any index server,\nhowever your character Identifier (which is encrypted by all three), is.\nIt is safe to use any index server you wish, you may also use multiple at the same time.");
+				ImGui.TextWrapped("Index servers are used to track the online status of peers. Your character name, world, and password are never sent to any index server, however your character Identifier (which is encrypted by all three), is. It is safe to use any index server you wish, you may also use multiple at the same time.");
 				ImGui.EndTooltip();
 			}
 		}
@@ -264,7 +271,7 @@ public class MainWindow : Window, IDisposable
 					ImGui.TableNextColumn();
 
 					// Fingerprint
-					MainWindow.Icon(FontAwesomeIcon.Fingerprint);
+					ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
 
 					if (ImGui.IsItemHovered())
 					{
@@ -304,16 +311,17 @@ public class MainWindow : Window, IDisposable
 
 					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
+						ImGui.SetNextWindowSizeConstraints(new Vector2(400, 0), new Vector2(400, 400));
 						ImGui.BeginTooltip();
 
-						ImGui.Text("The password is used to encrypt your character details. \nOther users can only pair with you if they have your password. \nIt is safe to give your password to people you trust and want to pair with.");
+						ImGui.TextWrapped("The password is used to encrypt your character details. Other users can only pair with you if they have your password. It is safe to give your password to people you trust and want to pair with.");
 
 						ImGui.Spacing();
 
-						MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 						ImGui.SameLine();
-						ImGui.TextColored(0xFF0080FF, "Changing your password will break all existing pairs!");
-						ImGui.TextDisabled("You can change your password in the right-click context menu");
+						ImGui.TextColoredWrapped(0xFF0080FF, "Changing your password will break all existing pairs!");
+						ImGui.TextColoredWrapped(0x80FFFFFF, "You can change your password in the right-click context menu");
 
 						ImGui.EndTooltip();
 					}
@@ -356,6 +364,18 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndTable();
 		}
 
+		startPos = ImGui.GetCursorPos();
+		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
+		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
+		if (ImGui.Button("+###AddPairButton", new Vector2(25, 0)))
+		{
+			Plugin.Instance?.PairWindow.Show();
+		}
+
+		ImGui.PopStyleColor();
+
+		ImGui.SetCursorPos(startPos);
+
 		if (ImGui.CollapsingHeader($"Pairs ({Configuration.Current.Pairs.Count})###PairsSection"))
 		{
 			if (ImGui.BeginTable("PairsTable", 3))
@@ -369,7 +389,7 @@ public class MainWindow : Window, IDisposable
 				{
 					// Fingerprint
 					ImGui.TableNextColumn();
-					MainWindow.Icon(FontAwesomeIcon.Fingerprint);
+					ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
 
 					if (ImGui.IsItemHovered())
 					{
@@ -423,7 +443,7 @@ public class MainWindow : Window, IDisposable
 						{
 							case CharacterSync.Status.None:
 							{
-								MainWindow.Icon(FontAwesomeIcon.Hourglass);
+								ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
 
 								if (ImGui.IsItemHovered())
 								{
@@ -437,7 +457,7 @@ public class MainWindow : Window, IDisposable
 
 							case CharacterSync.Status.Listening:
 							{
-								MainWindow.Icon(FontAwesomeIcon.Hourglass);
+								ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
 
 								if (ImGui.IsItemHovered())
 								{
@@ -450,7 +470,7 @@ public class MainWindow : Window, IDisposable
 
 							case CharacterSync.Status.Searching:
 							{
-								MainWindow.Icon(FontAwesomeIcon.Search);
+								ImGuiEx.Icon(FontAwesomeIcon.Search);
 								if (ImGui.IsItemHovered())
 								{
 									ImGui.BeginTooltip();
@@ -463,7 +483,7 @@ public class MainWindow : Window, IDisposable
 							case CharacterSync.Status.Disconnected:
 							case CharacterSync.Status.Offline:
 							{
-								MainWindow.Icon(FontAwesomeIcon.Bed);
+								ImGuiEx.Icon(FontAwesomeIcon.Bed);
 								if (ImGui.IsItemHovered())
 								{
 									ImGui.BeginTooltip();
@@ -476,7 +496,7 @@ public class MainWindow : Window, IDisposable
 							case CharacterSync.Status.Connecting:
 							case CharacterSync.Status.Handshake:
 							{
-								MainWindow.Icon(FontAwesomeIcon.Handshake);
+								ImGuiEx.Icon(FontAwesomeIcon.Handshake);
 								if (ImGui.IsItemHovered())
 								{
 									ImGui.BeginTooltip();
@@ -488,7 +508,7 @@ public class MainWindow : Window, IDisposable
 
 							case CharacterSync.Status.Connected:
 							{
-								MainWindow.Icon(FontAwesomeIcon.Wifi);
+								ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 								if (ImGui.IsItemHovered())
 								{
 									ImGui.BeginTooltip();
@@ -501,7 +521,7 @@ public class MainWindow : Window, IDisposable
 							case CharacterSync.Status.HandshakeFailed:
 							case CharacterSync.Status.ConnectionFailed:
 							{
-								MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+								ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 
 								if (ImGui.IsItemHovered())
 								{
@@ -526,19 +546,5 @@ public class MainWindow : Window, IDisposable
 		{
 			syncProvider.DrawStatus();
 		}
-	}
-
-	private static void Icon(FontAwesomeIcon icon, uint color = 0xFFFFFFFF)
-	{
-		ImGui.PushFont(UiBuilder.IconFont);
-		ImGui.SetWindowFontScale(0.75f);
-		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
-
-		ImGui.SetNextItemWidth(ImGui.GetTextLineHeight());
-		ImGui.TextColored(color, icon.ToIconString());
-
-		ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
-		ImGui.SetWindowFontScale(1.0f);
-		ImGui.PopFont();
 	}
 }

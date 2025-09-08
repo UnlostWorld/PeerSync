@@ -28,7 +28,7 @@ jobs:
         Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev"
 
     - name: Build PeerSync
-      run: dotnet build PeerSync.sln /p:Configuration=Release /p:Version=1.0.0.${{ github.run_number }}
+      run: dotnet build PeerSync.sln /p:Configuration=Release /p:Version=${{ github.run_number }}
 
     - name: Zip Release
       uses: TheDoctor0/zip-release@0.6.0
@@ -42,7 +42,7 @@ jobs:
         allowUpdates: true
         artifacts: "./PeerSync.zip"
         name: PeerSync v${{ github.run_number }}
-        tag: v1.0.0.${{ github.run_number }}
+        tag: v${{ github.run_number }}
         draft: false
         token: ${{ secrets.GITHUB_TOKEN }}
         commit: ${{ vars.GITHUB_SHA }}
@@ -52,12 +52,12 @@ jobs:
         git config --global user.name "Actions User"
         git config --global user.email "actions@github.com"
         git fetch origin main && git checkout main
-        $ver = '1.0.0.${{ github.run_number }}'
+        $ver = '${{ github.run_number }}'
         $path = './Resources/Templates/repo.tmpl'
         $new_path = './repo.json'
         $content = get-content -path $path
         $content = $content -replace '{version}',$ver
         set-content -Path $new_path -Value $content
         git add repo.json
-        git commit -m "[CI] Updating versions for v1.0.0.${{ github.run_number }}" || true
+        git commit -m "[CI] Updating versions for v${{ github.run_number }}" || true
         git push origin main || true

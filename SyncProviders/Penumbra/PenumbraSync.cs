@@ -408,7 +408,7 @@ public class PenumbraSync : SyncProviderBase
 					if (ImGui.IsItemHovered())
 					{
 						ImGui.BeginTooltip();
-						ImGui.Text($"Uploading: {upload.Progress * 100}% ({upload.BytesSent / 1024} kb / {upload.BytesToSend / 1024} kb)");
+						ImGui.Text($"Uploading: {(upload.Progress * 100).ToString("F0")}% ({upload.BytesSent / 1024} kb / {upload.BytesToSend / 1024} kb)");
 
 						ImGui.Text(upload.Name);
 
@@ -416,7 +416,7 @@ public class PenumbraSync : SyncProviderBase
 						ImGui.SameLine();
 						ImGui.Text(upload.Character.Pair.CharacterName);
 						ImGui.SameLine();
-						ImGui.Text(" @ ");
+						ImGui.Text("@");
 						ImGui.SameLine();
 						ImGui.Text(upload.Character.Pair.World);
 
@@ -454,7 +454,7 @@ public class PenumbraSync : SyncProviderBase
 					{
 						ImGui.BeginTooltip();
 
-						ImGui.Text($"Downloading: {download.Progress * 100}% ({download.BytesReceived / 1024} kb / {download.BytesReceived / 1024} kb)");
+						ImGui.Text($"Downloading: {(download.Progress * 100).ToString("F0")}% ({download.BytesReceived / 1024} kb / {download.BytesToReceive / 1024} kb)");
 
 						ImGui.Text(download.Name);
 
@@ -462,7 +462,7 @@ public class PenumbraSync : SyncProviderBase
 						ImGui.SameLine();
 						ImGui.Text(download.Character.Pair.CharacterName);
 						ImGui.SameLine();
-						ImGui.Text(" @ ");
+						ImGui.Text("@");
 						ImGui.SameLine();
 						ImGui.Text(download.Character.Pair.World);
 

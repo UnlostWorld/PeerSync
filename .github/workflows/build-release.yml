@@ -34,7 +34,7 @@ jobs:
       uses: TheDoctor0/zip-release@0.6.0
       with:
         filename: '${{ github.workspace }}/latest.zip'
-        directory: './bin/'
+        directory: '${{ github.workspace }}/bin/'
         exclusions: '*.pdb* *.xml*'
 
     - name: Upload Release

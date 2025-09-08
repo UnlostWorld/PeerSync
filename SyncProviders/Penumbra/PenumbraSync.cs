@@ -54,10 +54,7 @@ public class PenumbraSync : SyncProviderBase
 	private readonly Penumbra penumbra = new();
 	private readonly ResourceMonitor resourceMonitor = new();
 	private readonly Dictionary<string, Guid> appliedCollections = new();
-
-#if DEBUG
 	private readonly HashSet<int> hasSeenBefore = new();
-#endif
 
 	private byte lastQueueIndex = 0;
 

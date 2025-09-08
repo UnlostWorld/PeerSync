@@ -4,8 +4,8 @@ using System.Collections.Generic;
 
 namespace PeerSync;
 
-public class CharacterData(string identifier)
+public class CharacterData()
 {
-	public string Identifier => identifier;
+	public string? Identifier { get; set; }
 	public Dictionary<string, string?> Syncs { get; init; } = new();
 }

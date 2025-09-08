@@ -4,7 +4,6 @@ namespace PeerSync;
 
 using System;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,9 +15,7 @@ using PeerSync.Online;
 
 public class CharacterSync : IDisposable
 {
-	public readonly string CharacterName;
-	public readonly string World;
-	public readonly string Identifier;
+	public readonly Configuration.Pair Pair;
 
 	public Status CurrentStatus { get; private set; } = Status.None;
 	private readonly CancellationTokenSource tokenSource = new();
@@ -32,12 +29,10 @@ public class CharacterSync : IDisposable
 	public event CharacterSyncDelegate? Connected;
 	public event CharacterSyncDelegate? Disconnected;
 
-	public CharacterSync(ConnectionManager network, string characterName, string world, string password)
+	public CharacterSync(ConnectionManager network, Configuration.Pair pair)
 	{
 		this.network = network;
-		this.CharacterName = characterName;
-		this.World = world;
-		this.Identifier = GetIdentifier(characterName, world, password);
+		this.Pair = pair;
 
 		Task.Run(this.Connect, tokenSource.Token);
 	}
@@ -78,26 +73,9 @@ public class CharacterSync : IDisposable
 	public Connection? Connection => this.connection;
 	public bool IsConnected => this.CurrentStatus == Status.Connected;
 
-	public static string GetIdentifier(string characterName, string world, string password, int iterations = 1000)
-	{
-		string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
-		// The Identifier is sent to the server, and it contains the character name and world, so
-		// ensure its cryptographically secure in case of bad actors controlling servers.
-		string input = $"{characterName}{world}";
-		for (int i = 0; i < iterations; i++)
-		{
-			HashAlgorithm algorithm = SHA256.Create();
-			byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes($"{input}{password}{pluginVersion}"));
-			input = BitConverter.ToString(bytes);
-			input = input.Replace("-", string.Empty, StringComparison.Ordinal);
-		}
-
-		return input;
-	}
-
 	public void SendIAm()
 	{
-		string? identifier = Plugin.Instance?.LocalCharacterIdentifier;
+		string? identifier = Plugin.Instance?.LocalCharacter?.GetIdentifier();
 		if (identifier == null)
 			return;
 
@@ -193,7 +171,8 @@ public class CharacterSync : IDisposable
 		if (obj is not IPlayerCharacter character)
 			return false;
 
-		if (character.Name.ToString() != this.CharacterName || character.HomeWorld.Value.Name != this.World)
+		if (character.Name.ToString() != this.Pair.CharacterName
+			|| character.HomeWorld.Value.Name != this.Pair.World)
 			return false;
 
 		return true;
@@ -216,10 +195,10 @@ public class CharacterSync : IDisposable
 	{
 		try
 		{
-			if (Plugin.Instance == null || Plugin.Instance.LocalCharacterIdentifier == null)
+			if (Plugin.Instance == null || Plugin.Instance.LocalCharacter == null)
 				return;
 
-			int sort = Plugin.Instance.LocalCharacterIdentifier.CompareTo(this.Identifier);
+			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Pair);
 			if (sort >= 0)
 			{
 				// We're the host.
@@ -230,7 +209,7 @@ public class CharacterSync : IDisposable
 			// We're the client.
 			this.CurrentStatus = Status.Searching;
 			SyncStatus request = new();
-			request.Identifier = this.Identifier;
+			request.Identifier = this.Pair.GetIdentifier();
 
 			SyncStatus? response = null;
 			foreach (string indexServer in Configuration.Current.IndexServers)
@@ -340,7 +319,7 @@ public class CharacterSync : IDisposable
 
 	private void OnDisconnected(Connection connection)
 	{
-		Plugin.Log.Information($"Connection to {this.CharacterName} @ {this.World} was closed.");
+		Plugin.Log.Information($"Connection to {this.Pair} was closed.");
 		this.CurrentStatus = Status.Disconnected;
 		this.Disconnected?.Invoke(this);
 
@@ -350,7 +329,7 @@ public class CharacterSync : IDisposable
 	private void OnIAm(Connection connection, string identifier)
 	{
 		// Sanity check
-		if (connection != this.connection || identifier != this.Identifier)
+		if (connection != this.connection || identifier != this.Pair.GetIdentifier())
 			return;
 
 		if (this.CurrentStatus == Status.Handshake)
@@ -362,7 +341,7 @@ public class CharacterSync : IDisposable
 			Task.Run(this.SendIAm);
 		}
 
-		Plugin.Log.Info($"Connected to {this.CharacterName} @ {this.World} at {connection.EndPoint}");
+		Plugin.Log.Info($"Connected to {this.Pair} at {connection.EndPoint}");
 		this.CurrentStatus = Status.Connected;
 		this.Connected?.Invoke(this);
 	}

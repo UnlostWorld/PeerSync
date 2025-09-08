@@ -62,10 +62,9 @@ public sealed class Plugin : IDalamudPlugin
 	public static Plugin? Instance { get; private set; } = null;
 
 	public CharacterData? LocalCharacterData;
-	public string? LocalCharacterIdentifier;
-	public string? CharacterName;
-	public string? World;
+	public Configuration.Character? LocalCharacter;
 	public Status CurrentStatus;
+	public readonly Dictionary<string, IndexServerStatus> IndexServersStatus = new();
 
 	public readonly WindowSystem WindowSystem = new("StudioSync");
 	private MainWindow MainWindow { get; init; }
@@ -118,6 +117,14 @@ public sealed class Plugin : IDalamudPlugin
 		Shutdown,
 	}
 
+	public enum IndexServerStatus
+	{
+		None,
+
+		Online,
+		Offline,
+	}
+
 	public CharacterSync? GetCharacterSync(string characterName, string world)
 	{
 		string compoundName = $"{characterName}@{world}";
@@ -144,7 +151,7 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		foreach (CharacterSync sync in this.checkedCharacters.Values)
 		{
-			if (sync.Identifier == identifier)
+			if (sync.Pair.GetIdentifier() == identifier)
 			{
 				return sync;
 			}
@@ -181,21 +188,6 @@ public sealed class Plugin : IDalamudPlugin
 		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
 	}
 
-	public void Restart()
-	{
-		Task.Run(this.RestartAsync);
-	}
-
-	public async Task RestartAsync()
-	{
-		this.Dispose();
-
-		while (this.CurrentStatus != Status.Shutdown)
-			await Task.Delay(500);
-
-		this.Start();
-	}
-
 	public void Dispose()
 	{
 		Plugin.Log.Information("Stopping...");
@@ -227,10 +219,12 @@ public sealed class Plugin : IDalamudPlugin
 
 		this.network.IncomingConnected -= this.OnIncomingConnectionConnected;
 		this.network.Dispose();
-		Instance = null;
+
+		this.IndexServersStatus.Clear();
 
 		CommandManager.RemoveHandler(commandName);
 
+		Instance = null;
 		Plugin.Log.Information("Stopped");
 	}
 
@@ -238,7 +232,7 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		MainWindow.Toggle();
 	}
-	
+
 	private void OnDalamudOpenMainUi()
 	{
 		MainWindow.Toggle();
@@ -259,11 +253,11 @@ public sealed class Plugin : IDalamudPlugin
 
 		string characterName = character.Name.ToString();
 		string world = character.HomeWorld.Value.Name.ToString();
-		string? password = Configuration.Current.GetPassword(characterName, world);
+		Configuration.Pair? pair = Configuration.Current.GetPair(characterName, world);
 
 		args.AddMenuItem(new MenuItem()
 		{
-			Name = SeStringUtils.ToSeString(password == null ? "Add Peer" : "Remove Peer"),
+			Name = SeStringUtils.ToSeString(pair == null ? "Pair" : "Unpair"),
 			OnClicked = (a) => this.TogglePair(character),
 			UseDefaultPrefix = false,
 			PrefixChar = 'S',
@@ -352,9 +346,8 @@ public sealed class Plugin : IDalamudPlugin
 			{
 				await Framework.RunOnUpdate();
 
-				LocalCharacterIdentifier = null;
-				this.CurrentStatus = Status.Init_Character; ;
-				while (string.IsNullOrEmpty(LocalCharacterIdentifier))
+				this.CurrentStatus = Status.Init_Character;
+				while (this.LocalCharacter == null || string.IsNullOrEmpty(this.LocalCharacter?.Password))
 				{
 					await Framework.Delay(500);
 					if (shuttingDown)
@@ -367,20 +360,37 @@ public sealed class Plugin : IDalamudPlugin
 					if (player == null)
 						continue;
 
-					CharacterName = player.Name.ToString();
-					World = player.HomeWorld.Value.Name.ToString();
-					string? password = Configuration.Current.GetPassword(CharacterName, World);
-					if (password == null)
+					string characterName = player.Name.ToString();
+					string world = player.HomeWorld.Value.Name.ToString();
+
+					foreach (Configuration.Character character in Configuration.Current.Characters)
 					{
-						this.CurrentStatus = Status.Error_NoPassword;
-						Plugin.Log.Information("No password set for this character.");
-						return;
+						if (character.CharacterName == characterName && character.World == world)
+						{
+							LocalCharacter = character;
+							break;
+						}
 					}
 
-					LocalCharacterIdentifier = CharacterSync.GetIdentifier(CharacterName, World, password);
-					LocalCharacterData = new(LocalCharacterIdentifier);
+					if (LocalCharacter == null)
+					{
+						LocalCharacter = new();
+						LocalCharacter.CharacterName = characterName;
+						LocalCharacter.World = world;
+						LocalCharacter.GeneratePassword();
+						Configuration.Current.Characters.Add(LocalCharacter);
+						Configuration.Current.Save();
+					}
 
-					Plugin.Log.Information($"Got local character with Id: {LocalCharacterIdentifier}");
+					if (string.IsNullOrEmpty(LocalCharacter.Password))
+					{
+						this.CurrentStatus = Status.Error_NoPassword;
+						continue;
+					}
+
+					LocalCharacterData = new();
+
+					Plugin.Log.Information($"Got local character: {this.LocalCharacter}");
 				}
 			}
 			catch (Exception ex)
@@ -399,13 +409,22 @@ public sealed class Plugin : IDalamudPlugin
 				try
 				{
 					SyncHeartbeat heartbeat = new();
-					heartbeat.Identifier = LocalCharacterIdentifier;
+					heartbeat.Identifier = this.LocalCharacter.GetIdentifier();
 					heartbeat.Port = port;
 					heartbeat.LocalAddress = localIp?.ToString();
 
 					foreach (string indexServer in Configuration.Current.IndexServers.ToArray())
 					{
-						await heartbeat.Send(indexServer);
+						try
+						{
+							await heartbeat.Send(indexServer);
+							this.IndexServersStatus[indexServer] = IndexServerStatus.Online;
+						}
+						catch (Exception ex)
+						{
+							this.IndexServersStatus[indexServer] = IndexServerStatus.Offline;
+							Plugin.Log.Warning(ex, $"Failed to connect to index server: {indexServer}");
+						}
 					}
 
 					await this.UpdateData();
@@ -467,11 +486,11 @@ public sealed class Plugin : IDalamudPlugin
 				if (this.checkedCharacters.ContainsKey(compoundName))
 					continue;
 
-				string? password = Configuration.Current.GetPassword(characterName, world);
-				if (password == null)
+				Configuration.Pair? pair = Configuration.Current.GetPair(characterName, world);
+				if (pair == null)
 					continue;
 
-				CharacterSync sync = new(this.network, characterName, world, password);
+				CharacterSync sync = new(this.network, pair);
 				sync.ObjectTableIndex = character.ObjectIndex;
 				sync.Connected += this.OnCharacterConnected;
 				sync.Disconnected += this.OnCharacterDisconnected;
@@ -508,8 +527,10 @@ public sealed class Plugin : IDalamudPlugin
 			return;
 
 		IPlayerCharacter? player = ClientState.LocalPlayer;
-		if (player == null)
+		if (this.LocalCharacter == null || player == null)
 			return;
+
+		LocalCharacterData.Identifier = this.LocalCharacter.GetIdentifier();
 
 		foreach (SyncProviderBase sync in this.SyncProviders)
 		{

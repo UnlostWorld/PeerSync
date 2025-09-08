@@ -4,21 +4,21 @@ namespace PeerSync.UI;
 
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using System;
 using System.Numerics;
 
 public class MainWindow : Window, IDisposable
 {
-	private string addingIndexServer = string.Empty;
+	private Configuration.Character? editingCharacterPassword = null;
 
-	public MainWindow() : base("Peer Sync##PeerSyncMainWindow")
+	public MainWindow()
+		: base($"Peer Sync - v{Plugin.PluginInterface.Manifest.AssemblyVersion}##PeerSyncMainWindow")
 	{
 		SizeConstraints = new WindowSizeConstraints
 		{
-			MinimumSize = new Vector2(250, 350),
-			MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
+			MinimumSize = new Vector2(350, 450),
+			MaximumSize = new Vector2(350, float.MaxValue)
 		};
 	}
 
@@ -30,250 +30,479 @@ public class MainWindow : Window, IDisposable
 		if (plugin == null)
 			return;
 
-		if (ImGui.Button("Restart"))
+		switch (plugin.CurrentStatus)
 		{
-			plugin.Restart();
+			case Plugin.Status.Init_OpenPort:
+			{
+				MainWindow.Icon(FontAwesomeIcon.Hourglass);
+				ImGui.SameLine();
+				ImGui.Text("Opening Port...");
+				break;
+			}
+
+			case Plugin.Status.Init_Listen:
+			{
+				MainWindow.Icon(FontAwesomeIcon.Hourglass);
+				ImGui.SameLine();
+				ImGui.Text("Creating a listen server...");
+				break;
+			}
+
+			case Plugin.Status.Init_Character:
+			{
+				MainWindow.Icon(FontAwesomeIcon.Hourglass);
+				ImGui.SameLine();
+				ImGui.Text("Waiting for character...");
+				break;
+			}
+
+			case Plugin.Status.Init_Index:
+			{
+				MainWindow.Icon(FontAwesomeIcon.Hourglass);
+				ImGui.SameLine();
+				ImGui.Text("Connecting to Index servers...");
+				break;
+			}
+
+			case Plugin.Status.Error_NoIndexServer:
+			{
+				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGui.SameLine();
+				ImGui.TextColored(0xFF0080FF, "No Index server configured");
+				break;
+			}
+
+			case Plugin.Status.Error_CantListen:
+			{
+				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGui.SameLine();
+				ImGui.TextColored(0xFF0080FF, "Failed to create a listen server");
+				break;
+			}
+
+			case Plugin.Status.Error_NoPassword:
+			{
+				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGui.SameLine();
+				ImGui.TextColored(0xFF0080FF, "No password is set for the current character");
+				break;
+			}
+
+			case Plugin.Status.Error_NoCharacter:
+			{
+				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGui.SameLine();
+				ImGui.TextColored(0xFF0080FF, "Failed to get the current character");
+				break;
+			}
+
+			case Plugin.Status.Error_Index:
+			{
+				MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+				ImGui.SameLine();
+				ImGui.TextColored(0xFF0080FF, "Failed to communicate with Index servers");
+				break;
+			}
+
+			case Plugin.Status.Online:
+			{
+				MainWindow.Icon(FontAwesomeIcon.Wifi);
+				ImGui.SameLine();
+				ImGui.Text("Online");
+				break;
+			}
+
+			case Plugin.Status.ShutdownRequested:
+			{
+				MainWindow.Icon(FontAwesomeIcon.Bed);
+				ImGui.SameLine();
+				ImGui.Text("Shutting down...");
+				break;
+			}
+
+			case Plugin.Status.Shutdown:
+			{
+				MainWindow.Icon(FontAwesomeIcon.Bed);
+				ImGui.SameLine();
+				ImGui.Text("Shut down");
+				break;
+			}
 		}
 
-		string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
-		ImGui.SameLine();
 		ImGui.Spacing();
-		ImGui.SameLine();
-		ImGui.Text(pluginVersion);
 
-		if (ImGui.BeginTabBar("##tabs"))
+		if (ImGui.CollapsingHeader($"Settings"))
 		{
-			if (ImGui.BeginTabItem("Status"))
+			int port = Configuration.Current.Port;
+			if (ImGui.InputInt("Custom Port", ref port))
 			{
-				ImGui.Text(plugin.CurrentStatus.ToString());
+				Configuration.Current.Port = (ushort)port;
+				Configuration.Current.Save();
+			}
 
-				if (plugin.CharacterName != null && plugin.World != null)
+			string cache = Configuration.Current.CacheDirectory ?? string.Empty;
+			if (ImGui.InputText("Cache", ref cache))
+			{
+				Configuration.Current.CacheDirectory = cache;
+				Configuration.Current.Save();
+			}
+		}
+
+		if (ImGui.CollapsingHeader($"Index Servers ({Configuration.Current.IndexServers.Count})###IndexServersSection"))
+		{
+			if (ImGui.BeginTable("IndexServersTable", 2))
+			{
+				ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableNextRow();
+
+				foreach (string indexServer in Configuration.Current.IndexServers.AsReadOnly())
 				{
-					if (ImGui.CollapsingHeader($"{plugin.CharacterName} @ {plugin.World}", ImGuiTreeNodeFlags.Framed))
+					// Url
+					ImGui.TableNextColumn();
+					ImGui.Text(indexServer);
+
+					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
-						string password = Configuration.Current.GetPassword(plugin.CharacterName, plugin.World) ?? string.Empty;
-						if (ImGui.InputText("Password", ref password))
+						ImGui.BeginTooltip();
+						ImGui.TextDisabled("You can remove index servers in the right-click context menu");
+						ImGui.EndTooltip();
+					}
+
+					if (ImGui.BeginPopupContextWindow($"index_{indexServer}"))
+					{
+						ImGui.PushID($"index_{indexServer}");
+						if (ImGui.MenuItem("Remove"))
 						{
-							Configuration.Current.SetPassword(plugin.CharacterName, plugin.World, password);
+							Configuration.Current.IndexServers.Remove(indexServer);
+							Configuration.Current.Save();
 						}
 
-						ImGui.PushFont(UiBuilder.IconFont);
-						ImGui.SetWindowFontScale(0.75f);
-						ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
-						ImGui.Text(FontAwesomeIcon.Fingerprint.ToIconString());
-						ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
-						ImGui.SetWindowFontScale(1.0f);
-						ImGui.PopFont();
+						ImGui.PopID();
+						ImGui.EndPopup();
+					}
 
-						if (ImGui.IsItemHovered())
+					// Status
+					ImGui.TableNextColumn();
+					Plugin.IndexServerStatus status = Plugin.IndexServerStatus.None;
+					Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out status);
+
+					if (status == Plugin.IndexServerStatus.Online)
+					{
+						MainWindow.Icon(FontAwesomeIcon.Wifi);
+
+						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 						{
 							ImGui.BeginTooltip();
-							ImGui.Text($"{Plugin.Instance?.LocalCharacterIdentifier}");
+							ImGui.TextDisabled("Connected to index server");
 							ImGui.EndTooltip();
 						}
 					}
+					else if (status == Plugin.IndexServerStatus.Offline)
+					{
+						MainWindow.Icon(FontAwesomeIcon.ExclamationCircle, 0xFF0080FF);
+
+						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+						{
+							ImGui.BeginTooltip();
+							ImGui.TextDisabled("Failed to connect to index server");
+							ImGui.EndTooltip();
+						}
+					}
+
+					ImGui.TableNextRow();
 				}
 
-				if (ImGui.CollapsingHeader($"Pairs ({Configuration.Current.Pairs.Count})"))
+				ImGui.EndTable();
+			}
+
+			if (ImGui.Button("Add a new Index Server"))
+			{
+				ImGui.OpenPopup("AddIndexPopup");
+			}
+
+			if (ImGui.BeginPopup("AddIndexPopup"))
+			{
+				string newIndex = string.Empty;
+				if (ImGui.InputText("Address", ref newIndex, 512, ImGuiInputTextFlags.EnterReturnsTrue))
 				{
-					if (ImGui.BeginTable("Table", 3))
+					Configuration.Current.IndexServers.Add(newIndex);
+					Configuration.Current.Save();
+					ImGui.CloseCurrentPopup();
+				}
+
+				ImGui.EndPopup();
+			}
+
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+			{
+				ImGui.BeginTooltip();
+				ImGui.Text("Index servers are used to track the online status of peers.\nYour character name, world, and password are never sent to any index server,\nhowever your character Identifier (which is encrypted by all three), is.\nIt is safe to use any index server you wish, you may also use multiple at the same time.");
+				ImGui.EndTooltip();
+			}
+		}
+
+		if (ImGui.CollapsingHeader($"Characters ({Configuration.Current.Characters.Count})###CharactersSection", ImGuiTreeNodeFlags.Framed))
+		{
+			if (ImGui.BeginTable("CharactersTable", 3))
+			{
+				ImGui.TableSetupColumn("Finger", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Password", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableNextRow();
+
+				foreach (Configuration.Character pair in Configuration.Current.Characters)
+				{
+					ImGui.TableNextColumn();
+
+					// Fingerprint
+					MainWindow.Icon(FontAwesomeIcon.Fingerprint);
+
+					if (ImGui.IsItemHovered())
 					{
-						ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
-						ImGui.TableSetupColumn("Finger", ImGuiTableColumnFlags.WidthFixed);
-						ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
-						ImGui.TableNextRow();
+						ImGui.BeginTooltip();
+						ImGui.Text($"{pair.GetIdentifier()}");
+						ImGui.EndTooltip();
+					}
 
-						foreach (Configuration.Pair pair in Configuration.Current.Pairs)
+					ImGui.TableNextColumn();
+					ImGui.Text($"{pair.CharacterName} @ {pair.World}");
+
+					ImGui.TableNextColumn();
+					string password = pair.Password ?? string.Empty;
+
+					if (this.editingCharacterPassword == pair)
+					{
+						ImGui.PushItemWidth(-1);
+						ImGui.SetKeyboardFocusHere();
+						if (ImGui.InputText("###Password", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
 						{
-							CharacterSync? sync = null;
-							if (pair.CharacterName != null && pair.World != null)
-								sync = Plugin.Instance?.GetCharacterSync(pair.CharacterName, pair.World);
+							pair.Password = password;
+							pair.ClearIdentifier();
+							Configuration.Current.Save();
+							this.editingCharacterPassword = null;
+						}
 
-							ImGui.TableNextColumn();
+						ImGui.PopItemWidth();
+					}
+					else
+					{
+						ImGui.BeginDisabled();
+						ImGui.PushItemWidth(-1);
+						ImGui.InputText("###Password", ref password);
+						ImGui.PopItemWidth();
+						ImGui.EndDisabled();
+					}
 
-							if (sync != null)
+					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					{
+						ImGui.BeginTooltip();
+
+						ImGui.Text("The password is used to encrypt your character details. \nOther users can only pair with you if they have your password. \nIt is safe to give your password to people you trust and want to pair with.");
+
+						ImGui.Spacing();
+
+						MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+						ImGui.SameLine();
+						ImGui.TextColored(0xFF0080FF, "Changing your password will break all existing pairs!");
+						ImGui.TextDisabled("You can change your password in the right-click context menu");
+
+						ImGui.EndTooltip();
+					}
+
+					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					{
+						ImGui.OpenPopup($"{pair}_contextMenu");
+					}
+
+					if (ImGui.BeginPopup(
+						$"{pair}_contextMenu",
+						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+					{
+						ImGui.PushID($"{pair}_contextMenu");
+						if (ImGui.MenuItem("Copy"))
+						{
+							ImGui.SetClipboardText(password);
+						}
+
+						if (ImGui.MenuItem("Edit"))
+						{
+							this.editingCharacterPassword = pair;
+						}
+
+						if (ImGui.MenuItem("Randomize"))
+						{
+							pair.GeneratePassword();
+							Configuration.Current.Save();
+						}
+
+						ImGui.PopID();
+						ImGui.EndPopup();
+					}
+
+					ImGui.TableNextRow();
+				}
+			}
+
+			ImGui.EndTable();
+		}
+
+		if (ImGui.CollapsingHeader($"Pairs ({Configuration.Current.Pairs.Count})###PairsSection"))
+		{
+			if (ImGui.BeginTable("PairsTable", 3))
+			{
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Finger", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableNextRow();
+
+				foreach (Configuration.Pair pair in Configuration.Current.Pairs)
+				{
+					// Fingerprint
+					ImGui.TableNextColumn();
+					MainWindow.Icon(FontAwesomeIcon.Fingerprint);
+
+					if (ImGui.IsItemHovered())
+					{
+						ImGui.BeginTooltip();
+						ImGui.Text($"{pair.GetIdentifier()}");
+						ImGui.EndTooltip();
+					}
+
+					// Name
+					ImGui.TableNextColumn();
+					ImGui.Text($"{pair.CharacterName} @ {pair.World}");
+
+					// Status
+					ImGui.TableNextColumn();
+
+					CharacterSync? sync = null;
+					if (pair.CharacterName != null && pair.World != null)
+						sync = Plugin.Instance?.GetCharacterSync(pair.CharacterName, pair.World);
+
+					if (sync != null)
+					{
+						switch (sync.CurrentStatus)
+						{
+							case CharacterSync.Status.None:
 							{
-								ImGui.PushFont(UiBuilder.IconFont);
-								ImGui.SetWindowFontScale(0.75f);
-								ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
-								ImGui.Spacing();
-								ImGui.SameLine();
-
-								switch (sync.CurrentStatus)
-								{
-									case CharacterSync.Status.None:
-									{
-										ImGui.Text(FontAwesomeIcon.Hourglass.ToIconString());
-										break;
-									}
-
-									case CharacterSync.Status.Listening:
-									{
-										ImGui.Text(FontAwesomeIcon.Hourglass.ToIconString());
-										break;
-									}
-
-									case CharacterSync.Status.Searching:
-									{
-										ImGui.Text(FontAwesomeIcon.Search.ToIconString());
-										break;
-									}
-
-									case CharacterSync.Status.Disconnected:
-									case CharacterSync.Status.Offline:
-									{
-										ImGui.Text(FontAwesomeIcon.Bed.ToIconString());
-										break;
-									}
-
-									case CharacterSync.Status.Connecting:
-									case CharacterSync.Status.Handshake:
-									{
-										ImGui.Text(FontAwesomeIcon.Handshake.ToIconString());
-										break;
-									}
-
-									case CharacterSync.Status.Connected:
-									{
-										ImGui.Text(FontAwesomeIcon.Wifi.ToIconString());
-										break;
-									}
-
-									case CharacterSync.Status.HandshakeFailed:
-									case CharacterSync.Status.ConnectionFailed:
-									{
-										ImGui.PushStyleColor(ImGuiCol.Text, 0xFF0080FF);
-										ImGui.Text(FontAwesomeIcon.ExclamationTriangle.ToIconString());
-										ImGui.PopStyleColor();
-										break;
-									}
-								}
-
-								ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
-
-								ImGui.SetWindowFontScale(1.0f);
-								ImGui.PopFont();
+								MainWindow.Icon(FontAwesomeIcon.Hourglass);
 
 								if (ImGui.IsItemHovered())
 								{
 									ImGui.BeginTooltip();
-									ImGui.Text($"{sync?.CurrentStatus}");
+									ImGui.Text("Initializing...");
 									ImGui.EndTooltip();
 								}
+
+								break;
 							}
-							else
+
+							case CharacterSync.Status.Listening:
 							{
-								ImGui.Text("        ");
+								MainWindow.Icon(FontAwesomeIcon.Hourglass);
+
+								if (ImGui.IsItemHovered())
+								{
+									ImGui.BeginTooltip();
+									ImGui.Text("Listening for connections...");
+									ImGui.EndTooltip();
+								}
+								break;
 							}
 
-							ImGui.TableNextColumn();
-							ImGui.PushFont(UiBuilder.IconFont);
-							ImGui.SetWindowFontScale(0.75f);
-							ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
-							ImGui.Text(FontAwesomeIcon.Fingerprint.ToIconString());
-							ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
-							ImGui.SetWindowFontScale(1.0f);
-							ImGui.PopFont();
-
-							if (ImGui.IsItemHovered())
+							case CharacterSync.Status.Searching:
 							{
-								ImGui.BeginTooltip();
-								ImGui.Text($"{sync?.Identifier}");
-								ImGui.EndTooltip();
+								MainWindow.Icon(FontAwesomeIcon.Search);
+								if (ImGui.IsItemHovered())
+								{
+									ImGui.BeginTooltip();
+									ImGui.Text("Searching for peer");
+									ImGui.EndTooltip();
+								}
+								break;
 							}
 
-							ImGui.TableNextColumn();
-							ImGui.Text($"{pair.CharacterName} @ {pair.World}");
-							ImGui.TableNextRow();
+							case CharacterSync.Status.Disconnected:
+							case CharacterSync.Status.Offline:
+							{
+								MainWindow.Icon(FontAwesomeIcon.Bed);
+								if (ImGui.IsItemHovered())
+								{
+									ImGui.BeginTooltip();
+									ImGui.Text("Peer is offline");
+									ImGui.EndTooltip();
+								}
+								break;
+							}
+
+							case CharacterSync.Status.Connecting:
+							case CharacterSync.Status.Handshake:
+							{
+								MainWindow.Icon(FontAwesomeIcon.Handshake);
+								if (ImGui.IsItemHovered())
+								{
+									ImGui.BeginTooltip();
+									ImGui.Text("Connecting...");
+									ImGui.EndTooltip();
+								}
+								break;
+							}
+
+							case CharacterSync.Status.Connected:
+							{
+								MainWindow.Icon(FontAwesomeIcon.Wifi);
+								if (ImGui.IsItemHovered())
+								{
+									ImGui.BeginTooltip();
+									ImGui.Text("Connected to peer");
+									ImGui.EndTooltip();
+								}
+								break;
+							}
+
+							case CharacterSync.Status.HandshakeFailed:
+							case CharacterSync.Status.ConnectionFailed:
+							{
+								MainWindow.Icon(FontAwesomeIcon.ExclamationTriangle, 0xFF0080FF);
+
+								if (ImGui.IsItemHovered())
+								{
+									ImGui.BeginTooltip();
+									ImGui.Text("Failed to connect to peer");
+									ImGui.EndTooltip();
+								}
+
+								break;
+							}
 						}
-
-						ImGui.EndTable();
 					}
+
+					ImGui.TableNextRow();
 				}
 
-				foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
-				{
-					syncProvider.DrawStatus();
-				}
-
-				ImGui.EndTabItem();
+				ImGui.EndTable();
 			}
-
-			if (ImGui.BeginTabItem("Settings"))
-			{
-				int port = Configuration.Current.Port;
-				if (ImGui.InputInt("Custom Port", ref port))
-				{
-					Configuration.Current.Port = (ushort)port;
-					Configuration.Current.Save();
-				}
-
-				string cache = Configuration.Current.CacheDirectory ?? string.Empty;
-				if (ImGui.InputText("Cache", ref cache))
-				{
-					Configuration.Current.CacheDirectory = cache;
-					Configuration.Current.Save();
-				}
-
-				int maxUploads = Configuration.Current.MaxConcurrentUploads;
-				if (ImGui.InputInt("Simultaneous Uploads", ref maxUploads, 1))
-				{
-					Configuration.Current.MaxConcurrentUploads = maxUploads;
-					Configuration.Current.Save();
-				}
-
-				int maxDownloads = Configuration.Current.MaxConcurrentDownloads;
-				if (ImGui.InputInt("Simultaneous Downloads", ref maxDownloads, 1))
-				{
-					Configuration.Current.MaxConcurrentDownloads = maxDownloads;
-					Configuration.Current.Save();
-				}
-
-				if (ImGui.CollapsingHeader("Index Servers"))
-				{
-					string? toRemove = null;
-					foreach (string indexServer in Configuration.Current.IndexServers)
-					{
-						ImGui.PushFont(UiBuilder.IconFont);
-						if (ImGui.Button(FontAwesomeIcon.Minus.ToIconString()))
-							toRemove = indexServer;
-
-						ImGui.PopFont();
-
-						ImGui.SameLine();
-						ImGui.Text(indexServer);
-					}
-
-					if (toRemove != null)
-					{
-						Configuration.Current.IndexServers.Remove(toRemove);
-						Configuration.Current.Save();
-					}
-
-					ImGui.InputText("Add", ref addingIndexServer);
-					ImGui.SameLine();
-
-					ImGui.PushFont(UiBuilder.IconFont);
-					if (this.addingIndexServer.Length <= 0)
-						ImGui.BeginDisabled();
-
-					if (ImGui.Button(FontAwesomeIcon.Plus.ToIconString()))
-					{
-						Configuration.Current.IndexServers.Add(this.addingIndexServer);
-						this.addingIndexServer = string.Empty;
-						Configuration.Current.Save();
-					}
-
-					if (this.addingIndexServer.Length <= 0)
-						ImGui.EndDisabled();
-
-					ImGui.PopFont();
-				}
-
-				ImGui.EndTabItem();
-			}
-
-			ImGui.EndTabBar();
 		}
+
+		foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
+		{
+			syncProvider.DrawStatus();
+		}
+	}
+
+	private static void Icon(FontAwesomeIcon icon, uint color = 0xFFFFFFFF)
+	{
+		ImGui.PushFont(UiBuilder.IconFont);
+		ImGui.SetWindowFontScale(0.75f);
+		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+
+		ImGui.SetNextItemWidth(ImGui.GetTextLineHeight());
+		ImGui.TextColored(color, icon.ToIconString());
+
+		ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
+		ImGui.SetWindowFontScale(1.0f);
+		ImGui.PopFont();
 	}
 }

@@ -58,6 +58,8 @@ public class FileCache : IDisposable
 				DirectoryInfo? dir = this.GetDirectory();
 				dir?.Delete(true);
 				dir?.Create();
+				this.totalCacheSizeGb = 0;
+				this.fileCount = 0;
 			}
 		}
 	}
@@ -103,7 +105,7 @@ public class FileCache : IDisposable
 
 			this.totalCacheSizeGb = totalCacheSize / 1024.0f / 1024.0f / 1024.0f;
 
-			await Task.Delay(10000);
+			await Task.Delay(3000);
 		}
 	}
 }

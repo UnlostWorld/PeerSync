@@ -13,7 +13,11 @@ public class MainWindow : Window, IDisposable
 	private Configuration.Character? editingCharacterPassword = null;
 
 	public MainWindow()
+#if DEBUG
+		: base($"Peer Sync - Debug##PeerSyncMainWindow")
+#else
 		: base($"Peer Sync - v{Plugin.PluginInterface.Manifest.AssemblyVersion}##PeerSyncMainWindow")
+#endif
 	{
 		SizeConstraints = new WindowSizeConstraints
 		{
@@ -137,13 +141,6 @@ public class MainWindow : Window, IDisposable
 			if (ImGui.InputInt("Custom Port", ref port))
 			{
 				Configuration.Current.Port = (ushort)port;
-				Configuration.Current.Save();
-			}
-
-			string cache = Configuration.Current.CacheDirectory ?? string.Empty;
-			if (ImGui.InputText("Cache", ref cache))
-			{
-				Configuration.Current.CacheDirectory = cache;
 				Configuration.Current.Save();
 			}
 		}

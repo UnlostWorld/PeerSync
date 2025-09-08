@@ -169,9 +169,17 @@ public class MainWindow : Window, IDisposable
 						ImGui.EndTooltip();
 					}
 
-					if (ImGui.BeginPopupContextWindow($"index_{indexServer}"))
+					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
-						ImGui.PushID($"index_{indexServer}");
+						ImGui.OpenPopup($"index_{indexServer}_contextMenu");
+					}
+
+					if (ImGui.BeginPopup(
+						$"index_{indexServer}_contextMenu",
+						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+					{
+						ImGui.PushID($"index_{indexServer}_contextMenu");
 						if (ImGui.MenuItem("Remove"))
 						{
 							Configuration.Current.IndexServers.Remove(indexServer);
@@ -251,7 +259,7 @@ public class MainWindow : Window, IDisposable
 				ImGui.TableSetupColumn("Password", ImGuiTableColumnFlags.WidthStretch);
 				ImGui.TableNextRow();
 
-				foreach (Configuration.Character pair in Configuration.Current.Characters)
+				foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
 				{
 					ImGui.TableNextColumn();
 
@@ -261,24 +269,24 @@ public class MainWindow : Window, IDisposable
 					if (ImGui.IsItemHovered())
 					{
 						ImGui.BeginTooltip();
-						ImGui.Text($"{pair.GetIdentifier()}");
+						ImGui.Text($"{character.GetIdentifier()}");
 						ImGui.EndTooltip();
 					}
 
 					ImGui.TableNextColumn();
-					ImGui.Text($"{pair.CharacterName} @ {pair.World}");
+					ImGui.Text($"{character.CharacterName} @ {character.World}");
 
 					ImGui.TableNextColumn();
-					string password = pair.Password ?? string.Empty;
+					string password = character.Password ?? string.Empty;
 
-					if (this.editingCharacterPassword == pair)
+					if (this.editingCharacterPassword == character)
 					{
 						ImGui.PushItemWidth(-1);
 						ImGui.SetKeyboardFocusHere();
 						if (ImGui.InputText("###Password", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
 						{
-							pair.Password = password;
-							pair.ClearIdentifier();
+							character.Password = password;
+							character.ClearIdentifier();
 							Configuration.Current.Save();
 							this.editingCharacterPassword = null;
 						}
@@ -313,14 +321,14 @@ public class MainWindow : Window, IDisposable
 					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
 						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
-						ImGui.OpenPopup($"{pair}_contextMenu");
+						ImGui.OpenPopup($"character_{character}_contextMenu");
 					}
 
 					if (ImGui.BeginPopup(
-						$"{pair}_contextMenu",
+						$"character_{character}_contextMenu",
 						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 					{
-						ImGui.PushID($"{pair}_contextMenu");
+						ImGui.PushID($"character_{character}_contextMenu");
 						if (ImGui.MenuItem("Copy"))
 						{
 							ImGui.SetClipboardText(password);
@@ -328,12 +336,12 @@ public class MainWindow : Window, IDisposable
 
 						if (ImGui.MenuItem("Edit"))
 						{
-							this.editingCharacterPassword = pair;
+							this.editingCharacterPassword = character;
 						}
 
 						if (ImGui.MenuItem("Randomize"))
 						{
-							pair.GeneratePassword();
+							character.GeneratePassword();
 							Configuration.Current.Save();
 						}
 
@@ -373,6 +381,34 @@ public class MainWindow : Window, IDisposable
 					// Name
 					ImGui.TableNextColumn();
 					ImGui.Text($"{pair.CharacterName} @ {pair.World}");
+
+					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					{
+						ImGui.BeginTooltip();
+						ImGui.TextDisabled("You can remove pairs in the right-click context menu");
+						ImGui.EndTooltip();
+					}
+
+					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					{
+						ImGui.OpenPopup($"pair_{pair}_contextMenu");
+					}
+
+					if (ImGui.BeginPopup(
+						$"pair_{pair}_contextMenu",
+						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+					{
+						ImGui.PushID($"pair_{pair}_contextMenu");
+						if (ImGui.MenuItem("Remove"))
+						{
+							Configuration.Current.Pairs.Remove(pair);
+							Configuration.Current.Save();
+						}
+
+						ImGui.PopID();
+						ImGui.EndPopup();
+					}
 
 					// Status
 					ImGui.TableNextColumn();

@@ -18,3 +18,4 @@ Setup/Debug/
 *.idb
 *.recipe
 *.ilk
+packages.lock.json

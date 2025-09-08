@@ -170,7 +170,7 @@ public class PenumbraSync : SyncProviderBase
 		ReadOnlyDictionary<string, string>? resources = this.resourceMonitor.GetResources(objectIndex);
 		if (resources != null)
 		{
-			foreach ((string gamePath, string redirectPath) in resources)
+			foreach ((string gamePath, string redirectPath) in resources.AsReadOnly())
 			{
 				bool isFilePath = Path.IsPathRooted(redirectPath);
 				if (isFilePath)

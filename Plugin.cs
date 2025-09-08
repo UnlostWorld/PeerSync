@@ -499,8 +499,15 @@ public sealed class Plugin : IDalamudPlugin
 
 		foreach (SyncProviderBase sync in this.SyncProviders)
 		{
-			string? content = await sync.Serialize(player.ObjectIndex);
-			LocalCharacterData.Syncs.Add(sync.Key, content);
+			try
+			{
+				string? content = await sync.Serialize(player.ObjectIndex);
+				LocalCharacterData.Syncs.Add(sync.Key, content);
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, "Error collecting character data");
+			}
 		}
 
 		foreach (CharacterSync sync in checkedCharacters.Values)

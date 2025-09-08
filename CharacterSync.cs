@@ -132,8 +132,6 @@ public class CharacterSync : IDisposable
 		if (this.CurrentStatus != Status.Listening)
 			return;
 
-		Plugin.Log.Info($"{this.CharacterName} @ {this.World} Connected from {connection.EndPoint}");
-
 		this.connection = connection;
 
 		this.SetupConnection();

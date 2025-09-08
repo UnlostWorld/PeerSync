@@ -31,11 +31,13 @@ jobs:
       run: dotnet build PeerSync.sln /p:Configuration=Release /p:Version=${{ github.run_number }}
 
     - name: Zip Release
-      uses: TheDoctor0/zip-release@0.6.0
+      uses: TheDoctor0/zip-release@0.7.5
       with:
+        type: 'zip'
         filename: '${{ github.workspace }}/latest.zip'
         directory: '${{ github.workspace }}/bin/'
         exclusions: '*.pdb* *.xml*'
+        custom: -FS -r
 
     - name: Upload Release
       uses: ncipollo/release-action@v1

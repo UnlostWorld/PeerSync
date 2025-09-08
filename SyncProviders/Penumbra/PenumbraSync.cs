@@ -393,24 +393,40 @@ public class PenumbraSync : SyncProviderBase
 					ImGui.Text($" ({queuedUploads} in queue)");
 				}
 
+				int uploadIndex = 0;
 				foreach (FileUpload upload in this.uploads)
 				{
+					uploadIndex++;
 					if (upload.IsWaiting)
 						continue;
 
+					ImGui.BeginGroup();
 					ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 10);
 					ImGui.ProgressBar(upload.Progress, new(42, 5), string.Empty);
 					ImGui.SameLine();
 					ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 10);
 					ImGui.Text(upload.Name);
+					ImGui.EndGroup();
 
-					ImGui.Text(" > ");
-					ImGui.SameLine();
-					ImGui.Text(upload.Character.Pair.CharacterName);
-					ImGui.SameLine();
-					ImGui.Text(" @ ");
-					ImGui.SameLine();
-					ImGui.Text(upload.Character.Pair.World);
+					if (ImGui.IsItemHovered())
+					{
+						if (ImGui.BeginPopup($"upload####{uploadIndex}"))
+						{
+							ImGui.Text($"Uploading: {upload.Progress * 100}% ({upload.BytesSent / 1024} kb / {upload.BytesToSend / 1024} kb)");
+
+							ImGui.Text(upload.Name);
+
+							ImGui.Text("To: ");
+							ImGui.SameLine();
+							ImGui.Text(upload.Character.Pair.CharacterName);
+							ImGui.SameLine();
+							ImGui.Text(" @ ");
+							ImGui.SameLine();
+							ImGui.Text(upload.Character.Pair.World);
+
+							ImGui.EndPopup();
+						}
+					}
 				}
 			}
 
@@ -424,24 +440,40 @@ public class PenumbraSync : SyncProviderBase
 					ImGui.Text($" ({queuedDownloads} in queue)");
 				}
 
+				int downloadIndex = 0;
 				foreach (FileDownload download in this.downloads)
 				{
+					downloadIndex++;
 					if (download.IsWaiting)
 						continue;
 
+					ImGui.BeginGroup();
 					ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 10);
 					ImGui.ProgressBar(download.Progress, new(42, 5), string.Empty);
 					ImGui.SameLine();
 					ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 10);
 					ImGui.Text(download.Name);
-					ImGui.SameLine();
-					ImGui.Text(" < ");
-					ImGui.SameLine();
-					ImGui.Text(download.Character.Pair.CharacterName);
-					ImGui.SameLine();
-					ImGui.Text(" @ ");
-					ImGui.SameLine();
-					ImGui.Text(download.Character.Pair.World);
+					ImGui.EndGroup();
+
+					if (ImGui.IsItemHovered())
+					{
+						if (ImGui.BeginPopup($"upload####{downloadIndex}"))
+						{
+							ImGui.Text($"Downloading: {download.Progress * 100}% ({download.BytesReceived / 1024} kb / {download.BytesReceived / 1024} kb)");
+
+							ImGui.Text(download.Name);
+
+							ImGui.Text("From: ");
+							ImGui.SameLine();
+							ImGui.Text(download.Character.Pair.CharacterName);
+							ImGui.SameLine();
+							ImGui.Text(" @ ");
+							ImGui.SameLine();
+							ImGui.Text(download.Character.Pair.World);
+
+							ImGui.EndPopup();
+						}
+					}
 				}
 			}
 		}

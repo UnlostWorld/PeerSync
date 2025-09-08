@@ -73,6 +73,11 @@ public partial class Configuration : IPluginConfiguration
 				// The Identifier is sent to the index servers, and it contains the character name and world, so
 				// ensure its cryptographically secure in case of bad actors controlling servers.
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
+
+#if DEBUG
+				pluginVersion = "debug";
+#endif
+
 				string input = $"{this.CharacterName}{this.World}";
 				for (int i = 0; i < iterations; i++)
 				{

@@ -13,7 +13,11 @@ public class MainWindow : Window, IDisposable
 	private Configuration.Character? editingCharacterPassword = null;
 
 	public MainWindow()
+#if DEBUG
+		: base($"Peer Sync - Debug##PeerSyncMainWindow")
+#else
 		: base($"Peer Sync - v{Plugin.PluginInterface.Manifest.AssemblyVersion}##PeerSyncMainWindow")
+#endif
 	{
 		SizeConstraints = new WindowSizeConstraints
 		{

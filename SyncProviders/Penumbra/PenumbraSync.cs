@@ -416,7 +416,7 @@ public class PenumbraSync : SyncProviderBase
 						ImGui.SameLine();
 						ImGui.Text(upload.Character.Pair.CharacterName);
 						ImGui.SameLine();
-						ImGui.Text(" @ ");
+						ImGui.Text("@");
 						ImGui.SameLine();
 						ImGui.Text(upload.Character.Pair.World);
 
@@ -462,7 +462,7 @@ public class PenumbraSync : SyncProviderBase
 						ImGui.SameLine();
 						ImGui.Text(download.Character.Pair.CharacterName);
 						ImGui.SameLine();
-						ImGui.Text(" @ ");
+						ImGui.Text("@");
 						ImGui.SameLine();
 						ImGui.Text(download.Character.Pair.World);
 

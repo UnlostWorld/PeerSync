@@ -3,67 +3,86 @@
 namespace PeerSync.UI;
 
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
 using System;
 using System.Numerics;
 
 public class PairWindow : Window, IDisposable
 {
-	private Configuration.Pair? pair = null;
-	private string newPassword = string.Empty;
+	private string createPairCharacterName = string.Empty;
+	private string createPairWorld = string.Empty;
+	private string createPairPassword = string.Empty;
 
 	public PairWindow() : base(
-		"Peer Sync Pair##PairWindow",
-		ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse)
+		"Create a pair##PairWindow",
+		ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize)
 	{
 		SizeConstraints = new WindowSizeConstraints
 		{
-			MinimumSize = new Vector2(375, 175),
-			MaximumSize = new Vector2(375, 175),
+			MinimumSize = new Vector2(450, -1),
+			MaximumSize = new Vector2(450, -1),
 		};
 	}
 
-	public void Show(string characterName, string world)
+	public void Show(string characterName = "", string world = "")
 	{
-		this.pair = Configuration.Current.GetPair(characterName, world);
+		this.createPairCharacterName = characterName;
+		this.createPairWorld = world;
 		this.IsOpen = true;
-
-		if (this.pair == null)
-		{
-			this.pair = new();
-			this.pair.CharacterName = characterName;
-			this.pair.World = world;
-		}
 	}
 
 	public void Dispose() { }
 
 	public override void Draw()
 	{
-		if (this.pair == null
-			|| this.pair.CharacterName == null
-			|| this.pair.World == null)
-			return;
+		ImGui.TextWrapped("You will be unable to connect to this peer if they have not added your current character to their pair list.");
 
-		ImGui.LabelText("Character", $"{this.pair.CharacterName} @ {this.pair.World}");
+		ImGui.InputText("Name", ref this.createPairCharacterName);
+		ImGui.InputText("World", ref this.createPairWorld);
+		ImGui.InputText("Password", ref this.createPairPassword);
 
-		ImGui.InputText("Password", ref this.newPassword);
+		ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle, 1);
+		ImGui.SameLine();
+		ImGui.TextColoredWrapped(0xFF0080FF, "You should only pair with people you trust.");
+		ImGui.TextColoredWrapped(0xFF0080FF, "Malicious users could sync inappropriate or unstable mods with you, causing distress or crashes.");
 
-		ImGui.Separator();
-		if (this.newPassword.Length < 6)
+
+		bool valid = !string.IsNullOrEmpty(this.createPairCharacterName)
+			&& !string.IsNullOrEmpty(this.createPairWorld)
+			&& !string.IsNullOrEmpty(this.createPairPassword);
+
+		if (!valid)
 			ImGui.BeginDisabled();
 
-		if (ImGui.Button("Pair"))
-		{
-			this.pair.Password = this.newPassword;
+		ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (ImGui.GetContentRegionAvail().X - (200 + ImGui.GetStyle().ItemSpacing.X * 2)));
 
-			if (Configuration.Current.GetPair(this.pair.CharacterName, this.pair.World) == null)
-				Configuration.Current.Pairs.Add(this.pair);
+		if (ImGui.Button("Pair", new(100, 0)))
+		{
+			Configuration.Pair? pair = Configuration.Current.GetPair(this.createPairCharacterName, this.createPairWorld);
+
+			if (pair == null)
+			{
+				pair = new Configuration.Pair();
+				Configuration.Current.Pairs.Add(pair);
+			}
+
+			pair.CharacterName = this.createPairCharacterName;
+			pair.World = this.createPairWorld;
+			pair.Password = this.createPairPassword;
 
 			Configuration.Current.Save();
 			this.IsOpen = false;
 		}
 
-		ImGui.EndDisabled();
+		if (!valid)
+			ImGui.EndDisabled();
+
+		ImGui.SameLine();
+
+		if (ImGui.Button("Cancel", new(100, 0)))
+		{
+			this.IsOpen = false;
+		}
 	}
 }

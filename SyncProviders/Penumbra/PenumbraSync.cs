@@ -377,7 +377,6 @@ public class PenumbraSync : SyncProviderBase
 				Configuration.Current.Save();
 			}
 
-
 			ImGui.SetNextItemWidth(50);
 			if (ImGui.InputInt("Simultaneous Downloads", ref maxDownloads))
 			{
@@ -434,6 +433,8 @@ public class PenumbraSync : SyncProviderBase
 				}
 			}
 		}
+
+		this.fileCache.DrawInfo();
 	}
 
 	private void OnFileRequest(Connection connection, byte clientQueueIndex, string hash)
@@ -451,6 +452,8 @@ public class PenumbraSync : SyncProviderBase
 	public override void Dispose()
 	{
 		base.Dispose();
+
+		this.fileCache.Dispose();
 
 		foreach ((string identifier, Guid guid) in this.appliedCollections)
 		{

@@ -33,7 +33,7 @@ jobs:
     - name: Zip Release
       uses: TheDoctor0/zip-release@0.6.0
       with:
-        filename: '../../../../PeerSync.zip'
+        filename: './PeerSync.zip'
         directory: './bin/'
 
     - name: Upload Release

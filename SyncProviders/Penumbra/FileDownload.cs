@@ -93,7 +93,7 @@ public class FileDownload : IDisposable
 					if (prog == null)
 						return;
 
-					long chunk = 1024 * 512;
+					long chunk = 1024 * 32;
 
 					if (this.BytesReceived + chunk >= this.BytesToReceive)
 						chunk = this.BytesToReceive - this.BytesReceived;

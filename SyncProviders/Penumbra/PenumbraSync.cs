@@ -323,116 +323,112 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	{
 		base.DrawStatus();
 
-		int uploadCount = this.GetActiveUploadCount();
-		int maxUploads = Configuration.Current.MaxConcurrentUploads;
-
-		int downloadCount = this.GetActiveDownloadCount();
-		int maxDownloads = Configuration.Current.MaxConcurrentDownloads;
-
-		if (ImGui.CollapsingHeader($"Transfers (↑ {uploadCount} / {maxUploads}    ↓ {downloadCount} / {maxDownloads})###transfersSection"))
+		if (ImGui.CollapsingHeader($"Downloads ({this.GetActiveDownloadCount()} / {this.downloads.Count})###downloadsSection"))
 		{
 			ImGui.SetNextItemWidth(50);
-			if (ImGui.InputInt("Simultaneous Uploads", ref maxUploads))
-			{
-				Configuration.Current.MaxConcurrentUploads = maxUploads;
-				Configuration.Current.Save();
-			}
 
-			ImGui.SetNextItemWidth(50);
+			int maxDownloads = Configuration.Current.MaxConcurrentDownloads;
 			if (ImGui.InputInt("Simultaneous Downloads", ref maxDownloads))
 			{
 				Configuration.Current.MaxConcurrentDownloads = maxDownloads;
 				Configuration.Current.Save();
 			}
 
-			int queuedDownloads = this.downloads.Count - downloadCount;
-			int queuedUploads = this.uploads.Count - uploadCount;
-
-			if (uploadCount > 0 || queuedUploads > 0)
+			if (ImGui.BeginTable("DownloadProgressTable", 3))
 			{
-				ImGui.Text($"↑ Uploading");
-
-				if (queuedUploads > 0)
-				{
-					ImGui.SameLine();
-					ImGui.Text($" ({queuedUploads} in queue)");
-				}
-
-				int uploadIndex = 0;
-				foreach (FileUpload upload in this.uploads)
-				{
-					uploadIndex++;
-					if (upload.IsWaiting)
-						continue;
-
-					ImGui.BeginGroup();
-					ImGuiEx.ThinProgressBar(upload.Progress);
-					ImGui.SameLine();
-					ImGui.Text(upload.Name);
-					ImGui.EndGroup();
-
-					if (ImGui.IsItemHovered())
-					{
-						ImGui.BeginTooltip();
-						ImGui.Text($"Uploading: {(upload.Progress * 100).ToString("F0")}% ({upload.BytesSent / 1024} kb / {upload.BytesToSend / 1024} kb)");
-
-						ImGui.Text(upload.Name);
-
-						ImGui.Text("To: ");
-						ImGui.SameLine();
-						ImGui.Text(upload.Character.Pair.CharacterName);
-						ImGui.SameLine();
-						ImGui.Text("@");
-						ImGui.SameLine();
-						ImGui.Text(upload.Character.Pair.World);
-
-						ImGui.EndTooltip();
-					}
-				}
-			}
-
-			if (downloadCount > 0 || queuedDownloads > 0)
-			{
-				ImGui.Text($"↓ Downloading");
-
-				if (queuedUploads > 0)
-				{
-					ImGui.SameLine();
-					ImGui.Text($" ({queuedDownloads} in queue)");
-				}
+				ImGui.TableSetupColumn("###DownloadProgressTableName", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("###DownloadProgressTableProgress", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("###DownloadProgressTableHover", ImGuiTableColumnFlags.WidthFixed);
 
 				int downloadIndex = 0;
 				foreach (FileDownload download in this.downloads)
 				{
 					downloadIndex++;
-					if (download.IsWaiting)
-						continue;
 
-					ImGui.BeginGroup();
-					ImGuiEx.ThinProgressBar(download.Progress);
-					ImGui.SameLine();
+					ImGui.TableNextColumn();
 					ImGui.Text(download.Name);
-					ImGui.EndGroup();
 
-					if (ImGui.IsItemHovered())
+					ImGui.TableNextColumn();
+
+					if (!download.IsWaiting)
+						ImGuiEx.ThinProgressBar(download.Progress);
+
+					ImGui.TableNextColumn();
+					ImGui.Selectable(
+						$"##DownloadProgressRowSelector{downloadIndex}",
+						false,
+						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
 						ImGui.BeginTooltip();
 
-						ImGui.Text($"Downloading: {(download.Progress * 100).ToString("F0")}% ({download.BytesReceived / 1024} kb / {download.BytesToReceive / 1024} kb)");
-
 						ImGui.Text(download.Name);
 
-						ImGui.Text("From: ");
-						ImGui.SameLine();
-						ImGui.Text(download.Character.Pair.CharacterName);
-						ImGui.SameLine();
-						ImGui.Text("@");
-						ImGui.SameLine();
-						ImGui.Text(download.Character.Pair.World);
+						ImGui.Text($"{(download.Progress * 100).ToString("F0")}% ({download.BytesReceived / 1024} kb / {download.BytesToReceive / 1024} kb)");
+						ImGui.Text($"{download.Character.Pair.CharacterName} @ {download.Character.Pair.World}");
 
 						ImGui.EndTooltip();
 					}
+
+					ImGui.TableNextRow();
 				}
+
+				ImGui.EndTable();
+			}
+		}
+
+		if (ImGui.CollapsingHeader($"Uploads ({this.GetActiveUploadCount()} / {this.uploads.Count})###uploadsSection"))
+		{
+			ImGui.SetNextItemWidth(50);
+			int maxUploads = Configuration.Current.MaxConcurrentUploads;
+			if (ImGui.InputInt("Simultaneous Uploads", ref maxUploads))
+			{
+				Configuration.Current.MaxConcurrentUploads = maxUploads;
+				Configuration.Current.Save();
+			}
+
+			if (ImGui.BeginTable("UploadProgressTable", 3))
+			{
+				ImGui.TableSetupColumn("###UploadProgressTableName", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("###UploadProgressTableProgress", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("###UploadProgressTableHover", ImGuiTableColumnFlags.WidthFixed);
+
+				int uploadIndex = 0;
+				foreach (FileUpload upload in this.uploads)
+				{
+					uploadIndex++;
+
+					ImGui.TableNextColumn();
+					ImGui.Text(upload.Name);
+
+					ImGui.TableNextColumn();
+
+					if (!upload.IsWaiting)
+						ImGuiEx.ThinProgressBar(upload.Progress);
+
+					ImGui.TableNextColumn();
+					ImGui.Selectable(
+						$"##UploadProgressRowSelector{uploadIndex}",
+						false,
+						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					{
+						ImGui.BeginTooltip();
+
+						ImGui.Text(upload.Name);
+
+						ImGui.Text($"{(upload.Progress * 100).ToString("F0")}% ({upload.BytesSent / 1024} kb / {upload.BytesToSend / 1024} kb)");
+						ImGui.Text($"{upload.Character.Pair.CharacterName} @ {upload.Character.Pair.World}");
+
+						ImGui.EndTooltip();
+					}
+
+					ImGui.TableNextRow();
+				}
+
+				ImGui.EndTable();
 			}
 		}
 

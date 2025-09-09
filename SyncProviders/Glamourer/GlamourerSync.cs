@@ -8,7 +8,8 @@ public class GlamourerSync : SyncProviderBase
 {
 	private readonly GlamourerCommunicator glamourer = new();
 
-	public override string Key => "Glamourer";
+	public override string DisplayName => "Glamourer";
+	public override string Key => "gl";
 
 	public override async Task<string?> Serialize(ushort objectIndex)
 	{
@@ -21,7 +22,12 @@ public class GlamourerSync : SyncProviderBase
 	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!glamourer.GetIsAvailable())
+		{
+			if (!string.IsNullOrEmpty(content))
+				this.SetStatus(character, SyncProgressStatus.NotApplied);
+
 			return;
+		}
 
 		if (lastContent == content)
 			return;
@@ -29,10 +35,14 @@ public class GlamourerSync : SyncProviderBase
 		if (content == null)
 		{
 			await glamourer.RevertState(character.ObjectTableIndex);
+			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
-			await glamourer.SetState(character.ObjectTableIndex, content);
+			if (!character.Pair.IsTestPair)
+				await glamourer.SetState(character.ObjectTableIndex, content);
+
+			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}
 }

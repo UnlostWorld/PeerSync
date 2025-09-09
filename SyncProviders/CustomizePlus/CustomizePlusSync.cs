@@ -11,12 +11,18 @@ public class CustomizePlusSync : SyncProviderBase
 	private readonly CustomizePlusCommunicator customizePlus = new();
 	private readonly Dictionary<string, Guid> appliedProfiles = new();
 
-	public override string Key => "Customize+";
+	public override string DisplayName => "Customize+";
+	public override string Key => "c";
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync sync)
+	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!this.customizePlus.GetIsAvailable())
+		{
+			if (!string.IsNullOrEmpty(content))
+				this.SetStatus(character, SyncProgressStatus.NotApplied);
+
 			return;
+		}
 
 		if (lastContent == content)
 			return;
@@ -25,19 +31,22 @@ public class CustomizePlusSync : SyncProviderBase
 
 		if (content == null)
 		{
-			if (this.appliedProfiles.TryGetValue(sync.Pair.GetIdentifier(), out Guid guid))
+			if (this.appliedProfiles.TryGetValue(character.Pair.GetIdentifier(), out Guid guid))
 			{
 				this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
-				this.appliedProfiles.Remove(sync.Pair.GetIdentifier());
+				this.appliedProfiles.Remove(character.Pair.GetIdentifier());
 			}
+
+			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
-			Guid? guid = this.customizePlus.SetTemporaryProfileOnCharacter(sync.ObjectTableIndex, content);
+			Guid? guid = this.customizePlus.SetTemporaryProfileOnCharacter(character.ObjectTableIndex, content);
 			if (guid == null)
 				return;
 
-			this.appliedProfiles[sync.Pair.GetIdentifier()] = guid.Value;
+			this.appliedProfiles[character.Pair.GetIdentifier()] = guid.Value;
+			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}
 

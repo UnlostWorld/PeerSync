@@ -3,6 +3,7 @@
 namespace PeerSync;
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -164,6 +165,9 @@ public class CharacterSync : IDisposable
 
 	public bool Update()
 	{
+		if (this.Pair.IsTestPair)
+			return true;
+
 		IGameObject? obj = Plugin.ObjectTable[this.ObjectTableIndex];
 		if (obj == null)
 			return false;
@@ -191,12 +195,30 @@ public class CharacterSync : IDisposable
 		this.connection.Send(Objects.CharacterData, jsonBytes);
 	}
 
+	public void OnCharacterData(Connection? connection, CharacterData characterData)
+	{
+		// Sanity check
+		if (connection != this.connection)
+			return;
+
+		if (this.isApplyingData)
+			return;
+
+		Task.Run(() => ApplyCharacterData(characterData));
+	}
+
 	private async Task Connect()
 	{
 		try
 		{
 			if (Plugin.Instance == null || Plugin.Instance.LocalCharacter == null)
 				return;
+
+			if (this.Pair.IsTestPair)
+			{
+				this.CurrentStatus = Status.Connected;
+				return;
+			}
 
 			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Pair);
 			if (sort >= 0)
@@ -346,19 +368,7 @@ public class CharacterSync : IDisposable
 		this.Connected?.Invoke(this);
 	}
 
-	private void OnCharacterData(Connection connection, CharacterData characterData)
-	{
-		// Sanity check
-		if (connection != this.connection)
-			return;
-
-		if (this.isApplyingData)
-			return;
-
-		Task.Run(() => ApplyCharacterData(characterData));
-	}
-
-	private async Task ApplyCharacterData(CharacterData characterData)
+	public async Task ApplyCharacterData(CharacterData characterData)
 	{
 		if (this.isApplyingData)
 			return;
@@ -369,6 +379,9 @@ public class CharacterSync : IDisposable
 		{
 			try
 			{
+				if (this.tokenSource.IsCancellationRequested)
+					return;
+
 				if (Plugin.Instance == null)
 					return;
 

@@ -3,62 +3,35 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
 using Newtonsoft.Json;
 using PeerSync.Network;
-using Penumbra.Api.IpcSubscribers;
+using PeerSync.UI;
 
 namespace PeerSync.SyncProviders.Penumbra;
 
-public class Penumbra
+public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 {
-	public readonly GetEnabledState GetEnabledState = new(Plugin.PluginInterface);
-	public readonly GetMetaManipulations GetMetaManipulations = new(Plugin.PluginInterface);
-	public readonly CreateTemporaryCollection CreateTemporaryCollection = new(Plugin.PluginInterface);
-	public readonly AssignTemporaryCollection AssignTemporaryCollection = new(Plugin.PluginInterface);
-	public readonly RemoveTemporaryMod RemoveTemporaryMod = new(Plugin.PluginInterface);
-	public readonly AddTemporaryMod AddTemporaryMod = new(Plugin.PluginInterface);
-	public readonly RedrawObject RedrawObject = new(Plugin.PluginInterface);
-	public readonly DeleteTemporaryCollection DeleteTemporaryCollection = new(Plugin.PluginInterface);
+	public const int FileTimeout = 240_000;
+	public const int FileChunkSize = 1024 * 128; // 128kb chunks
 
-	public bool GetIsAvailable()
-	{
-		try
-		{
-			return GetEnabledState.Invoke();
-		}
-		catch (Exception)
-		{
-			return false;
-		}
-	}
-}
+	public readonly FileCache fileCache = new();
+	public readonly ConcurrentHashSet<FileDownload> downloads = new();
+	public readonly ConcurrentHashSet<FileUpload> uploads = new();
+	public byte lastQueueIndex = 0;
 
-public class PenumbraSync : SyncProviderBase
-{
-	const int fileTimeout = 240_000;
-	const int fileChunkSize = 1024 * 128; // 128kb chunks
-
-	private readonly FileCache fileCache = new();
-
-	private readonly ConcurrentHashSet<FileDownload> downloads = new();
-	private readonly ConcurrentHashSet<FileUpload> uploads = new();
-	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 	private readonly Penumbra penumbra = new();
 	private readonly ResourceMonitor resourceMonitor = new();
 	private readonly Dictionary<string, Guid> appliedCollections = new();
 	private readonly HashSet<int> hasSeenBefore = new();
 
-	private byte lastQueueIndex = 0;
-
-	public override string Key => "Penumbra";
+	public override string DisplayName => "Penumbra";
+	public override string Key => "p";
 
 	public static readonly HashSet<string> AllowedFileExtensions =
 	[
@@ -92,29 +65,6 @@ public class PenumbraSync : SyncProviderBase
 			character.Connection.Received -= this.OnReceived;
 
 		base.OnCharacterDisconnected(character);
-	}
-
-	private bool GetFileHash(string path, out string hash, out long fileSize)
-	{
-		FileInfo file = new(path);
-
-		hash = string.Empty;
-		fileSize = 0;
-
-		if (!file.Exists)
-			return false;
-
-		using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read, fileChunkSize, false);
-		fileSize = stream.Length;
-
-		SHA1 sha = SHA1.Create();
-		byte[] bytes = sha.ComputeHash(stream);
-		string str = BitConverter.ToString(bytes);
-		str = str.Replace("-", string.Empty, StringComparison.Ordinal);
-		str += Path.GetExtension(path);
-		hash = str;
-
-		return true;
 	}
 
 	private void OnReceived(Connection connection, byte typeId, byte[] data)
@@ -154,7 +104,7 @@ public class PenumbraSync : SyncProviderBase
 		}
 
 		// Perform file hashing on a separate thread.
-		await Task.Delay(1).ConfigureAwait(false);
+		await Plugin.Framework.RunOutsideUpdate();
 
 		PenumbraData data = new();
 
@@ -168,14 +118,13 @@ public class PenumbraSync : SyncProviderBase
 				bool isFilePath = Path.IsPathRooted(redirectPath);
 				if (isFilePath)
 				{
-					bool found = GetFileHash(redirectPath, out string hash, out long fileSize);
+					bool found = this.fileCache.GetFileHash(redirectPath, out string hash, out long fileSize);
 					if (!found)
 					{
 						Plugin.Log.Warning($"File not found for sync: {redirectPath}");
 						continue;
 					}
 
-					hashToFileLookup[hash] = new(redirectPath);
 					data.Files[gamePath] = hash;
 					data.FileSizes[hash] = fileSize;
 				}
@@ -195,10 +144,15 @@ public class PenumbraSync : SyncProviderBase
 		return JsonConvert.SerializeObject(data);
 	}
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync sync)
+	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!penumbra.GetIsAvailable())
+		{
+			if (!string.IsNullOrEmpty(content))
+				this.SetStatus(character, SyncProgressStatus.NotApplied);
+
 			return;
+		}
 
 		if (!this.fileCache.IsValid())
 			return;
@@ -208,13 +162,18 @@ public class PenumbraSync : SyncProviderBase
 
 		if (content == null)
 		{
-			if (this.appliedCollections.TryGetValue(sync.Pair.GetIdentifier(), out Guid existingCollectionId))
+			await Plugin.Framework.RunOnUpdate();
+
+			if (this.appliedCollections.TryGetValue(character.Pair.GetIdentifier(), out Guid existingCollectionId))
 			{
 				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
 			}
 
+			this.SetStatus(character, SyncProgressStatus.Empty);
 			return;
 		}
+
+		await Plugin.Framework.RunOutsideUpdate();
 
 		PenumbraData? lastData = null;
 		if (lastContent != null)
@@ -227,6 +186,8 @@ public class PenumbraSync : SyncProviderBase
 		if (lastData != null && data.IsSame(lastData))
 			return;
 
+		this.SetStatus(character, SyncProgressStatus.Syncing);
+
 		foreach ((string gamePath, string hash) in data.Files)
 		{
 			FileInfo? file = this.fileCache.GetFile(hash);
@@ -236,7 +197,7 @@ public class PenumbraSync : SyncProviderBase
 				data.FileSizes.TryGetValue(hash, out expectedSize);
 
 				string name = Path.GetFileName(gamePath);
-				new FileDownload(this, name, hash, expectedSize, sync);
+				new FileDownload(this, name, hash, expectedSize, character);
 			}
 		}
 
@@ -245,9 +206,9 @@ public class PenumbraSync : SyncProviderBase
 		while (!done)
 		{
 			done = true;
-			foreach (FileDownload t in this.downloads)
+			foreach (FileDownload download in this.downloads)
 			{
-				if (t.Character == sync && !t.IsComplete)
+				if (download.Character == character && !download.IsComplete)
 				{
 					done = false;
 					break;
@@ -257,6 +218,12 @@ public class PenumbraSync : SyncProviderBase
 			await Task.Delay(100);
 		}
 
+		// Don't actually apply to test pairs.
+		if (character.Pair.IsTestPair)
+		{
+			this.SetStatus(character, SyncProgressStatus.Applied);
+			return;
+		}
 
 		Dictionary<string, string> paths = new();
 		foreach ((string gamePath, string hash) in data.Files)
@@ -265,9 +232,10 @@ public class PenumbraSync : SyncProviderBase
 
 			// Verify that we did get all the files we need.
 			// This may fail if some downloads were corrupted or dropped.
-			// just silently fail out and let the next deserialize try again.
+			// just fail out and let the next deserialize try again.
 			if (file == null || !file.Exists)
 			{
+				Plugin.Log.Warning("Failed to download all necessary files.");
 				return;
 			}
 
@@ -282,25 +250,25 @@ public class PenumbraSync : SyncProviderBase
 		await Plugin.Framework.RunOnUpdate();
 
 		Guid collectionId;
-		if (!this.appliedCollections.ContainsKey(sync.Pair.GetIdentifier()))
+		if (!this.appliedCollections.ContainsKey(character.Pair.GetIdentifier()))
 		{
 			this.penumbra.CreateTemporaryCollection.Invoke(
 				"PeerSync",
-				sync.Pair.GetIdentifier(),
+				character.Pair.GetIdentifier(),
 				out collectionId).ThrowOnFailure();
 
-			this.appliedCollections.Add(sync.Pair.GetIdentifier(), collectionId);
+			this.appliedCollections.Add(character.Pair.GetIdentifier(), collectionId);
 		}
 		else
 		{
-			collectionId = this.appliedCollections[sync.Pair.GetIdentifier()];
+			collectionId = this.appliedCollections[character.Pair.GetIdentifier()];
 		}
 
 		try
 		{
 			this.penumbra.AssignTemporaryCollection.Invoke(
 				collectionId,
-				sync.ObjectTableIndex,
+				character.ObjectTableIndex,
 				true).ThrowOnFailure();
 
 			this.penumbra.RemoveTemporaryMod.Invoke(
@@ -314,8 +282,8 @@ public class PenumbraSync : SyncProviderBase
 				data.MetaManipulations ?? string.Empty,
 				0).ThrowOnFailure();
 
-			this.penumbra.RedrawObject.Invoke(sync.ObjectTableIndex);
-
+			this.penumbra.RedrawObject.Invoke(character.ObjectTableIndex);
+			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 		catch (Exception ex)
 		{
@@ -398,10 +366,8 @@ public class PenumbraSync : SyncProviderBase
 						continue;
 
 					ImGui.BeginGroup();
-					ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 10);
-					ImGui.ProgressBar(upload.Progress, new(42, 5), string.Empty);
+					ImGuiEx.ThinProgressBar(upload.Progress);
 					ImGui.SameLine();
-					ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 10);
 					ImGui.Text(upload.Name);
 					ImGui.EndGroup();
 
@@ -443,10 +409,8 @@ public class PenumbraSync : SyncProviderBase
 						continue;
 
 					ImGui.BeginGroup();
-					ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 10);
-					ImGui.ProgressBar(download.Progress, new(42, 5), string.Empty);
+					ImGuiEx.ThinProgressBar(download.Progress);
 					ImGui.SameLine();
-					ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 10);
 					ImGui.Text(download.Name);
 					ImGui.EndGroup();
 
@@ -521,404 +485,5 @@ public class PenumbraSync : SyncProviderBase
 		}
 
 		this.uploads.Clear();
-	}
-
-	public class PenumbraData
-	{
-		public Dictionary<string, string> Files { get; set; } = new();
-		public Dictionary<string, long> FileSizes { get; set; } = new();
-		public Dictionary<string, string> Redirects { get; set; } = new();
-		public string? MetaManipulations { get; set; }
-
-		public bool IsSame(PenumbraData other)
-		{
-			if (this.Files.Count != other.Files.Count)
-				return false;
-
-			if (this.FileSizes.Count != other.FileSizes.Count)
-				return false;
-
-			if (this.Redirects.Count != other.Redirects.Count)
-				return false;
-
-
-			if (this.MetaManipulations != other.MetaManipulations)
-				return false;
-
-			foreach ((string key, string value) in this.Files)
-			{
-				if (!other.Files.TryGetValue(key, out string? otherValue)
-				|| otherValue != value)
-				{
-					return false;
-				}
-			}
-
-			foreach ((string key, long value) in this.FileSizes)
-			{
-				if (!other.FileSizes.TryGetValue(key, out long otherValue)
-				|| otherValue != value)
-				{
-					return false;
-				}
-			}
-
-			foreach ((string key, string value) in this.Redirects)
-			{
-				if (!other.Redirects.TryGetValue(key, out string? otherValue)
-				|| otherValue != value)
-				{
-					return false;
-				}
-			}
-
-			return true;
-		}
-	}
-
-	public class FileUpload : IDisposable
-	{
-		public int BytesSent = 0;
-		public long BytesToSend = 0;
-
-		public readonly CharacterSync Character;
-
-		private readonly PenumbraSync sync;
-		private readonly string hash;
-		private readonly byte clientQueueIndex;
-		private readonly CancellationTokenSource tokenSource = new();
-
-		public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterSync character)
-		{
-			this.sync = sync;
-			this.hash = hash;
-			this.Character = character;
-			this.clientQueueIndex = clientQueueIndex;
-
-			FileInfo? fileInfo = null;
-			if (sync.hashToFileLookup.TryGetValue(hash, out fileInfo) && fileInfo != null)
-			{
-				this.Name = fileInfo.Name;
-			}
-			else
-			{
-				this.Name = hash;
-			}
-
-			sync.uploads.Add(this);
-
-			Task.Run(this.Transfer);
-		}
-
-		public string Name { get; private set; }
-		public bool IsWaiting { get; private set; }
-		public float Progress => (float)this.BytesSent / (float)this.BytesToSend;
-
-		public void Dispose()
-		{
-			if (!this.tokenSource.IsCancellationRequested)
-				this.tokenSource.Cancel();
-
-			this.tokenSource.Dispose();
-		}
-
-		private async Task Transfer()
-		{
-			this.IsWaiting = true;
-
-			do
-			{
-				lock (sync.downloads)
-				{
-					this.IsWaiting = sync.GetActiveUploadCount() >= Configuration.Current.MaxConcurrentUploads;
-				}
-
-				await Task.Delay(250);
-			}
-			while (this.IsWaiting && !this.tokenSource.IsCancellationRequested);
-
-			this.IsWaiting = false;
-			try
-			{
-				FileInfo? fileInfo = null;
-				if (!sync.hashToFileLookup.TryGetValue(hash, out fileInfo) || fileInfo == null || !fileInfo.Exists)
-				{
-					Plugin.Log.Warning($"File: {hash} missing!");
-					this.Character.Send(Objects.FileData, [this.clientQueueIndex]);
-					return;
-				}
-
-				this.Name = fileInfo.Name;
-
-				FileStream? stream = null;
-				int attempts = 5;
-				Exception? lastException = null;
-				while (stream == null && attempts > 0)
-				{
-					try
-					{
-						stream = new(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
-					}
-					catch (IOException ex)
-					{
-						lastException = ex;
-						stream?.Dispose();
-						stream = null;
-						await Task.Delay(100);
-					}
-				}
-
-				if (stream == null)
-				{
-					Plugin.Log.Error(lastException, "Error reading file for upload");
-					return;
-				}
-
-				await Task.Delay(10);
-
-				this.BytesSent = 0;
-				this.BytesToSend = stream.Length;
-				stream.Position = 0;
-
-				do
-				{
-					long bytesLeft = this.BytesToSend - this.BytesSent;
-					int thisChunkSize = (int)Math.Min(fileChunkSize, bytesLeft);
-
-					byte[] bytes = new byte[thisChunkSize + 1];
-					bytes[0] = this.clientQueueIndex;
-					stream.ReadExactly(bytes, 1, thisChunkSize);
-
-					this.Character.Send(Objects.FileData, bytes);
-					this.BytesSent += thisChunkSize;
-					await Task.Delay(10);
-				}
-				while (this.BytesSent < this.BytesToSend && !this.tokenSource.IsCancellationRequested);
-
-				// File complete flag
-				this.Character.Send(Objects.FileData, [this.clientQueueIndex]);
-			}
-			catch (Exception ex)
-			{
-				Plugin.Log.Error(ex, "Error uploading file");
-			}
-			finally
-			{
-				if (!this.sync.uploads.TryRemove(this))
-				{
-					Plugin.Log.Error("Error removing upload from queue");
-				}
-
-				GC.Collect();
-			}
-		}
-	}
-
-	public class FileDownload : IDisposable
-	{
-		public long BytesToReceive = 0;
-		public long BytesReceived = 0;
-
-		public readonly string Name;
-
-		private readonly PenumbraSync sync;
-		private readonly string hash;
-		private readonly CharacterSync character;
-		private FileStream? fileStream;
-		private byte queueIndex;
-		private readonly CancellationTokenSource tokenSource = new();
-
-		public FileDownload(
-			PenumbraSync sync,
-			string name,
-			string hash,
-			long expectedSize,
-			CharacterSync character)
-		{
-			this.sync = sync;
-			this.Name = name;
-			this.hash = hash;
-			this.character = character;
-			this.BytesToReceive = expectedSize;
-
-			Task.Run(this.Transfer);
-		}
-
-		public CharacterSync Character => character;
-		public bool IsWaiting { get; private set; }
-		public float Progress => (float)this.BytesReceived / (float)this.BytesToReceive;
-		public bool IsComplete { get; private set; }
-
-		public void Dispose()
-		{
-			if (!this.tokenSource.IsCancellationRequested)
-				this.tokenSource.Cancel();
-
-			this.tokenSource.Dispose();
-			this.fileStream?.Dispose();
-			if (this.character.Connection != null)
-				this.character.Connection.Received -= this.OnReceived;
-
-			this.sync.downloads.TryRemove(this);
-		}
-
-		private async Task Transfer()
-		{
-			try
-			{
-				this.sync.downloads.Add(this);
-
-				this.IsComplete = false;
-				this.IsWaiting = true;
-
-				do
-				{
-					lock (sync.downloads)
-					{
-						this.IsWaiting = sync.GetActiveDownloadCount() >= Configuration.Current.MaxConcurrentDownloads;
-					}
-
-					await Task.Delay(500);
-				}
-				while (this.IsWaiting && !this.tokenSource.IsCancellationRequested);
-
-				this.IsWaiting = false;
-				FileInfo? file = sync.fileCache.GetFile(hash);
-
-				if (file == null)
-					return;
-
-				if (!file.Exists)
-				{
-					if (this.sync.IsDisposed || this.character.Connection == null)
-						return;
-
-					this.queueIndex = this.sync.lastQueueIndex++;
-					this.character.Connection.Received += this.OnReceived;
-
-					byte[] hashBytes = Encoding.UTF8.GetBytes(hash);
-					byte[] objectBytes = new byte[hashBytes.Length + 1];
-					objectBytes[0] = this.queueIndex;
-					Array.Copy(hashBytes, 0, objectBytes, 1, hashBytes.Length);
-
-					character.Send(Objects.FileRequest, objectBytes);
-
-					Stopwatch sw = new();
-					sw.Start();
-					while (!this.IsComplete && sw.ElapsedMilliseconds < PenumbraSync.fileTimeout
-						 && !this.tokenSource.IsCancellationRequested)
-					{
-						await Task.Delay(10);
-					}
-
-					sw.Stop();
-
-					if (this.fileStream != null)
-					{
-						lock (this.fileStream)
-						{
-							this.fileStream.Flush();
-							this.fileStream.Dispose();
-							this.fileStream = null;
-						}
-					}
-
-					if (this.tokenSource.IsCancellationRequested)
-						return;
-
-					if (sw.ElapsedMilliseconds >= PenumbraSync.fileTimeout)
-						throw new TimeoutException();
-
-					if (this.BytesReceived <= 0)
-						throw new Exception("Received 0 length file");
-
-					// hash verify
-					bool found = sync.GetFileHash(file.FullName, out string gotHash, out long fileSize);
-					if (gotHash != hash)
-					{
-						Plugin.Log.Warning($"File failed to pass validation. Expected: {hash}, got {gotHash}");
-						file.Delete();
-					}
-
-					this.IsComplete = true;
-				}
-			}
-			catch (Exception ex)
-			{
-				Plugin.Log.Error(ex, "Error downloading file");
-			}
-			finally
-			{
-				this.IsComplete = true;
-
-				if (this.fileStream != null)
-				{
-					lock (this.fileStream)
-					{
-						this.fileStream.Flush();
-						this.fileStream.Dispose();
-						this.fileStream = null;
-					}
-				}
-
-				if (this.character.Connection != null)
-					this.character.Connection.Received -= this.OnReceived;
-
-				this.sync.downloads.TryRemove(this);
-
-				GC.Collect();
-			}
-		}
-
-		private void OnReceived(Connection connection, byte typeId, byte[] data)
-		{
-			if (typeId == Objects.FileData)
-			{
-				byte clientQueueIndex = data[0];
-
-				if (clientQueueIndex != this.queueIndex)
-					return;
-
-				if (connection != this.character.Connection)
-					return;
-
-				byte[] fileData = new byte[data.Length - 1];
-				Array.Copy(data, 1, fileData, 0, data.Length - 1);
-				this.OnFileData(fileData);
-			}
-		}
-
-		private void OnFileData(byte[] data)
-		{
-			if (this.sync.IsDisposed || this.tokenSource.IsCancellationRequested)
-				return;
-
-			try
-			{
-				if (data.Length <= 1)
-				{
-					this.IsComplete = true;
-				}
-				else
-				{
-					if (this.fileStream == null)
-					{
-						FileInfo? file = sync.fileCache.GetFile(hash);
-						this.fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.None);
-					}
-
-					lock (this.fileStream)
-					{
-						this.fileStream.Write(data);
-					}
-
-					BytesReceived += data.Length;
-				}
-			}
-			catch (Exception ex)
-			{
-				Plugin.Log.Error(ex, "Error receiving file data");
-			}
-		}
 	}
 }

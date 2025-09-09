@@ -11,6 +11,8 @@ public static class IFrameworkExtensions
 {
 	public static RunOnUpdateCompletionSource RunOnUpdate(this IFramework self) => new();
 
+	public static RunOutsideUpdateCompletionSource RunOutsideUpdate(this IFramework self) => new();
+
 	public static async Task Delay(this IFramework self, int ms)
 	{
 		await Task.Delay(ms);
@@ -30,6 +32,22 @@ public static class IFrameworkExtensions
 		public readonly void OnCompleted(Action continuation)
 		{
 			Plugin.Framework.RunOnFrameworkThread(continuation);
+		}
+	}
+
+	public struct RunOutsideUpdateCompletionSource()
+		: INotifyCompletion
+	{
+		public bool IsCompleted => !Plugin.Framework.IsInFrameworkUpdateThread;
+
+		public RunOutsideUpdateCompletionSource GetAwaiter() => this;
+		public readonly void GetResult()
+		{
+		}
+
+		public readonly void OnCompleted(Action continuation)
+		{
+			Task.Run(continuation);
 		}
 	}
 }

@@ -175,12 +175,40 @@ public class MainWindow : Window, IDisposable
 		{
 			if (ImGui.BeginTable("IndexServersTable", 2))
 			{
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 20);
 				ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableNextRow();
 
 				foreach (string indexServer in Configuration.Current.IndexServers.AsReadOnly())
 				{
+					// Status
+					ImGui.TableNextColumn();
+					Plugin.IndexServerStatus status = Plugin.IndexServerStatus.None;
+					Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out status);
+
+					if (status == Plugin.IndexServerStatus.Online)
+					{
+						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+
+						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+						{
+							ImGui.BeginTooltip();
+							ImGui.TextDisabled("Connected to index server");
+							ImGui.EndTooltip();
+						}
+					}
+					else if (status == Plugin.IndexServerStatus.Offline)
+					{
+						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
+
+						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+						{
+							ImGui.BeginTooltip();
+							ImGui.TextDisabled("Failed to connect to index server");
+							ImGui.EndTooltip();
+						}
+					}
+
 					// Url
 					ImGui.TableNextColumn();
 					ImGui.Text(indexServer);
@@ -213,34 +241,6 @@ public class MainWindow : Window, IDisposable
 
 						ImGui.PopID();
 						ImGui.EndPopup();
-					}
-
-					// Status
-					ImGui.TableNextColumn();
-					Plugin.IndexServerStatus status = Plugin.IndexServerStatus.None;
-					Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out status);
-
-					if (status == Plugin.IndexServerStatus.Online)
-					{
-						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-
-						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-						{
-							ImGui.BeginTooltip();
-							ImGui.TextDisabled("Connected to index server");
-							ImGui.EndTooltip();
-						}
-					}
-					else if (status == Plugin.IndexServerStatus.Offline)
-					{
-						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
-
-						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-						{
-							ImGui.BeginTooltip();
-							ImGui.TextDisabled("Failed to connect to index server");
-							ImGui.EndTooltip();
-						}
 					}
 
 					ImGui.TableNextRow();
@@ -373,7 +373,7 @@ public class MainWindow : Window, IDisposable
 		{
 			if (ImGui.BeginTable("PairsTable", 4))
 			{
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 18);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 20);
 				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
 				ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);

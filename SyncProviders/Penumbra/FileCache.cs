@@ -3,7 +3,9 @@
 namespace PeerSync.SyncProviders.Penumbra;
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
@@ -13,12 +15,57 @@ public class FileCache : IDisposable
 {
 	private readonly CancellationTokenSource tokenSource = new();
 
+	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
+
 	private float totalCacheSizeGb = 0;
 	private int fileCount = 0;
 
 	public FileCache()
 	{
 		Task.Run(this.CacheThread, this.tokenSource.Token);
+	}
+
+	public FileInfo? GetFileInfo(string hash)
+	{
+		FileInfo? fileInfo = null;
+		this.hashToFileLookup.TryGetValue(hash, out fileInfo);
+		return fileInfo;
+	}
+
+	public string GetFileName(string hash)
+	{
+		FileInfo? fileInfo = null;
+		if (this.hashToFileLookup.TryGetValue(hash, out fileInfo) && fileInfo != null)
+		{
+			return fileInfo.Name;
+		}
+
+		return hash;
+	}
+
+	public bool GetFileHash(string path, out string hash, out long fileSize)
+	{
+		FileInfo file = new(path);
+
+		hash = string.Empty;
+		fileSize = 0;
+
+		if (!file.Exists)
+			return false;
+
+		using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read, PenumbraSync.FileChunkSize, false);
+		fileSize = stream.Length;
+
+		SHA1 sha = SHA1.Create();
+		byte[] bytes = sha.ComputeHash(stream);
+		string str = BitConverter.ToString(bytes);
+		str = str.Replace("-", string.Empty, StringComparison.Ordinal);
+		str += Path.GetExtension(path);
+		hash = str;
+
+		this.hashToFileLookup[hash] = new(path);
+
+		return true;
 	}
 
 	public void Dispose()

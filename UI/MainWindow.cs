@@ -6,6 +6,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 public class MainWindow : Window, IDisposable
@@ -174,44 +175,12 @@ public class MainWindow : Window, IDisposable
 		{
 			if (ImGui.BeginTable("IndexServersTable", 2))
 			{
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 20);
 				ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableNextRow();
 
 				foreach (string indexServer in Configuration.Current.IndexServers.AsReadOnly())
 				{
-					// Url
-					ImGui.TableNextColumn();
-					ImGui.Text(indexServer);
-
-					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-					{
-						ImGui.BeginTooltip();
-						ImGui.TextDisabled("You can remove index servers in the right-click context menu");
-						ImGui.EndTooltip();
-					}
-
-					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
-						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-					{
-						ImGui.OpenPopup($"index_{indexServer}_contextMenu");
-					}
-
-					if (ImGui.BeginPopup(
-						$"index_{indexServer}_contextMenu",
-						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
-					{
-						ImGui.PushID($"index_{indexServer}_contextMenu");
-						if (ImGui.MenuItem("Remove"))
-						{
-							Configuration.Current.IndexServers.Remove(indexServer);
-							Configuration.Current.Save();
-						}
-
-						ImGui.PopID();
-						ImGui.EndPopup();
-					}
-
 					// Status
 					ImGui.TableNextColumn();
 					Plugin.IndexServerStatus status = Plugin.IndexServerStatus.None;
@@ -240,17 +209,44 @@ public class MainWindow : Window, IDisposable
 						}
 					}
 
+					// Url
+					ImGui.TableNextColumn();
+					ImGui.Text(indexServer);
+
+					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					{
+						ImGui.SetNextWindowSizeConstraints(new Vector2(400, 0), new Vector2(400, 400));
+						ImGui.BeginTooltip();
+						ImGui.TextWrapped("Index servers are used to track the online status of peers. Your character name, world, and password are never sent to any index server, however your character Identifier (which is encrypted by all three), is. It is safe to use any index server you wish, you may also use multiple at the same time.");
+						ImGui.TextDisabled("You can remove index servers in the right-click context menu");
+						ImGui.EndTooltip();
+					}
+
+					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					{
+						ImGui.OpenPopup($"index_{indexServer}_contextMenu");
+					}
+
+					if (ImGui.BeginPopup(
+						$"index_{indexServer}_contextMenu",
+						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+					{
+						ImGui.PushID($"index_{indexServer}_contextMenu");
+						if (ImGui.MenuItem("Remove"))
+						{
+							Configuration.Current.IndexServers.Remove(indexServer);
+							Configuration.Current.Save();
+						}
+
+						ImGui.PopID();
+						ImGui.EndPopup();
+					}
+
 					ImGui.TableNextRow();
 				}
 
 				ImGui.EndTable();
-			}
-
-			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-			{
-				ImGui.BeginTooltip();
-				ImGui.TextWrapped("Index servers are used to track the online status of peers. Your character name, world, and password are never sent to any index server, however your character Identifier (which is encrypted by all three), is. It is safe to use any index server you wish, you may also use multiple at the same time.");
-				ImGui.EndTooltip();
 			}
 		}
 
@@ -375,36 +371,65 @@ public class MainWindow : Window, IDisposable
 
 		if (ImGui.CollapsingHeader($"Pairs ({Configuration.Current.Pairs.Count})###PairsSection"))
 		{
-			if (ImGui.BeginTable("PairsTable", 3))
+			if (ImGui.BeginTable("PairsTable", 4))
 			{
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 20);
 				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Finger", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableNextRow();
+				ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 
 				foreach (Configuration.Pair pair in Configuration.Current.Pairs)
 				{
-					// Fingerprint
-					ImGui.TableNextColumn();
-					ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
+					CharacterSync? sync = null;
+					if (pair.CharacterName != null && pair.World != null)
+						sync = Plugin.Instance?.GetCharacterSync(pair.CharacterName, pair.World);
 
-					if (ImGui.IsItemHovered())
+					List<SyncProgressBase>? progresses = null;
+					if (sync != null)
+						progresses = plugin.GetSyncProgress(sync);
+
+					// Status
+					ImGui.TableNextColumn();
+					if (sync != null)
 					{
-						ImGui.BeginTooltip();
-						ImGui.Text($"{pair.GetIdentifier()}");
-						ImGui.EndTooltip();
+						ImGuiEx.Icon(sync.CurrentStatus.GetIcon());
 					}
 
 					// Name
 					ImGui.TableNextColumn();
 					ImGui.Text($"{pair.CharacterName} @ {pair.World}");
 
-					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					// Progress
+					ImGui.TableNextColumn();
+					if (progresses != null)
 					{
-						ImGui.BeginTooltip();
-						ImGui.TextDisabled("You can remove pairs in the right-click context menu");
-						ImGui.EndTooltip();
+						long total = 0;
+						long current = 0;
+
+						foreach (SyncProgressBase progress in progresses)
+						{
+							total += progress.Total;
+							current += progress.Current;
+						}
+
+						float p = (float)current / (float)total;
+
+						if (total <= 0)
+							p = 1;
+
+						if (p < 1)
+						{
+							ImGuiEx.ThinProgressBar(p);
+						}
 					}
+
+					ImGui.TableNextColumn();
+
+					// Tooltip
+					ImGui.Selectable(
+						$"##RowSelector{pair}",
+						false,
+						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
 
 					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
 						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
@@ -427,109 +452,64 @@ public class MainWindow : Window, IDisposable
 						ImGui.EndPopup();
 					}
 
-					// Status
-					ImGui.TableNextColumn();
-
-					CharacterSync? sync = null;
-					if (pair.CharacterName != null && pair.World != null)
-						sync = Plugin.Instance?.GetCharacterSync(pair.CharacterName, pair.World);
-
-					if (sync != null)
+					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
-						switch (sync.CurrentStatus)
+						ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
+						ImGui.BeginTooltip();
+
+						ImGui.Text($"{pair.CharacterName} @ {pair.World}");
+						ImGui.Separator();
+
+						ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.25f);
+						ImGui.SameLine();
+						ImGui.SetWindowFontScale(0.75f);
+						ImGui.TextColoredWrapped(0x80FFFFFF, $"{pair.GetIdentifier()}");
+						ImGui.SetWindowFontScale(1.0f);
+						ImGui.Separator();
+
+						if (sync != null)
 						{
-							case CharacterSync.Status.None:
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
-
-								if (ImGui.IsItemHovered())
-								{
-									ImGui.BeginTooltip();
-									ImGui.Text("Initializing...");
-									ImGui.EndTooltip();
-								}
-
-								break;
-							}
-
-							case CharacterSync.Status.Listening:
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
-
-								if (ImGui.IsItemHovered())
-								{
-									ImGui.BeginTooltip();
-									ImGui.Text("Listening for connections...");
-									ImGui.EndTooltip();
-								}
-								break;
-							}
-
-							case CharacterSync.Status.Searching:
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.Search);
-								if (ImGui.IsItemHovered())
-								{
-									ImGui.BeginTooltip();
-									ImGui.Text("Searching for peer");
-									ImGui.EndTooltip();
-								}
-								break;
-							}
-
-							case CharacterSync.Status.Disconnected:
-							case CharacterSync.Status.Offline:
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.Bed);
-								if (ImGui.IsItemHovered())
-								{
-									ImGui.BeginTooltip();
-									ImGui.Text("Peer is offline");
-									ImGui.EndTooltip();
-								}
-								break;
-							}
-
-							case CharacterSync.Status.Connecting:
-							case CharacterSync.Status.Handshake:
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.Handshake);
-								if (ImGui.IsItemHovered())
-								{
-									ImGui.BeginTooltip();
-									ImGui.Text("Connecting...");
-									ImGui.EndTooltip();
-								}
-								break;
-							}
-
-							case CharacterSync.Status.Connected:
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-								if (ImGui.IsItemHovered())
-								{
-									ImGui.BeginTooltip();
-									ImGui.Text("Connected to peer");
-									ImGui.EndTooltip();
-								}
-								break;
-							}
-
-							case CharacterSync.Status.HandshakeFailed:
-							case CharacterSync.Status.ConnectionFailed:
-							{
-								ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-
-								if (ImGui.IsItemHovered())
-								{
-									ImGui.BeginTooltip();
-									ImGui.Text("Failed to connect to peer");
-									ImGui.EndTooltip();
-								}
-
-								break;
-							}
+							ImGuiEx.Icon(sync.CurrentStatus.GetIcon());
+							ImGui.SameLine();
+							ImGui.Text(sync.CurrentStatus.GetMessage());
+							ImGui.Separator();
 						}
+
+						if (progresses != null)
+						{
+							if (ImGui.BeginTable("PairProgressInfoTable", 3))
+							{
+								ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+								ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthFixed);
+								ImGui.TableSetupColumn("Info", ImGuiTableColumnFlags.WidthStretch);
+								ImGui.TableNextRow();
+
+								foreach (SyncProgressBase progress in progresses)
+								{
+									ImGui.TableNextColumn();
+									progress.DrawStatus();
+
+									ImGui.TableNextColumn();
+									ImGui.Text(progress.Provider.DisplayName);
+
+									ImGui.TableNextColumn();
+									progress.DrawInfo();
+
+									ImGui.TableNextRow();
+								}
+
+								ImGui.EndTable();
+							}
+
+							ImGui.Spacing();
+						}
+
+
+
+						ImGui.Spacing();
+
+						ImGui.TextDisabled("Right-click for more options");
+						ImGui.EndTooltip();
 					}
 
 					ImGui.TableNextRow();

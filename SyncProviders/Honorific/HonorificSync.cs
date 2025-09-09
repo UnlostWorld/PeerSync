@@ -6,14 +6,20 @@ namespace PeerSync.SyncProviders.Honorific;
 
 public class HonorificSync : SyncProviderBase
 {
-	public override string Key => "Honorific";
+	public override string DisplayName => "Honorific";
+	public override string Key => "h";
 
 	private readonly HonorificCommunicator honorific = new();
 
 	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!this.honorific.GetIsAvailable())
+		{
+			if (!string.IsNullOrEmpty(content))
+				this.SetStatus(character, SyncProgressStatus.NotApplied);
+
 			return;
+		}
 
 		if (lastContent == content)
 			return;
@@ -23,10 +29,12 @@ public class HonorificSync : SyncProviderBase
 		if (content == null)
 		{
 			this.honorific.ClearCharacterTitle(character.ObjectTableIndex);
+			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
 			this.honorific.SetCharacterTitle(character.ObjectTableIndex, content);
+			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}
 

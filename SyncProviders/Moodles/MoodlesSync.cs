@@ -8,14 +8,20 @@ namespace PeerSync.SyncProviders.Moodles;
 
 public class MoodlesSync : SyncProviderBase
 {
-	public override string Key => "Moodles";
+	public override string DisplayName => "Moodles";
+	public override string Key => "m";
 
 	private readonly MoodlesCommunicator moodles = new();
 
 	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
 	{
 		if (!this.moodles.GetIsAvailable())
+		{
+			if (!string.IsNullOrEmpty(content))
+				this.SetStatus(character, SyncProgressStatus.NotApplied);
+
 			return;
+		}
 
 		if (lastContent == content)
 			return;
@@ -29,10 +35,12 @@ public class MoodlesSync : SyncProviderBase
 		if (content == null)
 		{
 			this.moodles.ClearStatusManager(playerCharacter);
+			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
 			this.moodles.SetStatusManagerByPC(playerCharacter, content);
+			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}
 

@@ -62,6 +62,8 @@ public partial class Configuration : IPluginConfiguration
 		public string? World { get; set; }
 		public string? Password { get; set; }
 
+		public bool IsTestPair => this.World == "Earth";
+
 		private string? identifier;
 
 		public string GetIdentifier()

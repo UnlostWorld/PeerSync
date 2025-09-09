@@ -40,13 +40,14 @@ public static class Objects
 public sealed class Plugin : IDalamudPlugin
 {
 	private const string commandName = "/psync";
+
 	public readonly List<SyncProviderBase> SyncProviders = new()
 	{
-		new GlamourerSync(),
-		new PenumbraSync(),
 		new CustomizePlusSync(),
 		new MoodlesSync(),
 		new HonorificSync(),
+		new GlamourerSync(),
+		new PenumbraSync(),
 	};
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
@@ -166,6 +167,22 @@ public sealed class Plugin : IDalamudPlugin
 			return provider;
 
 		return null;
+	}
+
+	public List<SyncProgressBase> GetSyncProgress(CharacterSync character)
+	{
+		List<SyncProgressBase> progresses = new();
+
+		foreach (SyncProviderBase sync in this.SyncProviders)
+		{
+			SyncProgressBase? progress = sync.GetProgress(character);
+			if (progress != null)
+			{
+				progresses.Add(progress);
+			}
+		}
+
+		return progresses;
 	}
 
 	public void Start()
@@ -403,6 +420,20 @@ public sealed class Plugin : IDalamudPlugin
 			if (shuttingDown)
 				return;
 
+			// For testing, add any 'Earth' characters as if thy are here.
+			foreach (Configuration.Pair pair in Configuration.Current.Pairs)
+			{
+				if (pair.IsTestPair)
+				{
+					CharacterSync sync = new(this.network, pair);
+					sync.ObjectTableIndex = 0;
+					string compoundName = $"{pair.CharacterName}@{pair.World}";
+					this.checkedCharacters[compoundName] = sync;
+
+					this.OnCharacterConnected(sync);
+				}
+			}
+
 			this.CurrentStatus = Status.Init_Index;
 			while (!shuttingDown)
 			{
@@ -549,6 +580,12 @@ public sealed class Plugin : IDalamudPlugin
 		{
 			if (!sync.IsConnected)
 				continue;
+
+			if (sync.Pair.IsTestPair)
+			{
+				await sync.ApplyCharacterData(LocalCharacterData);
+				return;
+			}
 
 			try
 			{

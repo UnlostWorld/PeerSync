@@ -371,6 +371,8 @@ public class MainWindow : Window, IDisposable
 
 		if (ImGui.CollapsingHeader($"Pairs ({Configuration.Current.Pairs.Count})###PairsSection"))
 		{
+			Configuration.Pair? pairToRemove = null;
+
 			if (ImGui.BeginTable("PairsTable", 4))
 			{
 				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 20);
@@ -443,10 +445,7 @@ public class MainWindow : Window, IDisposable
 					{
 						ImGui.PushID($"pair_{pair}_contextMenu");
 						if (ImGui.MenuItem("Remove"))
-						{
-							Configuration.Current.Pairs.Remove(pair);
-							Configuration.Current.Save();
-						}
+							pairToRemove = pair;
 
 						ImGui.PopID();
 						ImGui.EndPopup();
@@ -516,6 +515,12 @@ public class MainWindow : Window, IDisposable
 				}
 
 				ImGui.EndTable();
+			}
+
+			if (pairToRemove != null)
+			{
+				Configuration.Current.Pairs.Remove(pairToRemove);
+				Configuration.Current.Save();
 			}
 		}
 

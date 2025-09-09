@@ -283,7 +283,7 @@ public class MainWindow : Window, IDisposable
 					{
 						ImGui.PushItemWidth(-1);
 						ImGui.SetKeyboardFocusHere();
-						if (ImGui.InputText("###Password", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
+						if (ImGui.InputText($"###Password{character}", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
 						{
 							character.Password = password;
 							character.ClearIdentifier();
@@ -297,7 +297,7 @@ public class MainWindow : Window, IDisposable
 					{
 						ImGui.BeginDisabled();
 						ImGui.PushItemWidth(-1);
-						ImGui.InputText("###Password", ref password);
+						ImGui.InputText("###Password{character}", ref password);
 						ImGui.PopItemWidth();
 						ImGui.EndDisabled();
 					}

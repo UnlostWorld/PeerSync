@@ -576,8 +576,6 @@ public sealed class Plugin : IDalamudPlugin
 			}
 		}
 
-		LocalCharacterData.Syncs["h"] = "test";
-
 		foreach (CharacterSync sync in checkedCharacters.Values)
 		{
 			if (!sync.IsConnected)

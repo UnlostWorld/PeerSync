@@ -186,7 +186,9 @@ public class MainWindow : Window, IDisposable
 
 					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
+						ImGui.SetNextWindowSizeConstraints(new Vector2(400, 0), new Vector2(400, 400));
 						ImGui.BeginTooltip();
+						ImGui.TextWrapped("Index servers are used to track the online status of peers. Your character name, world, and password are never sent to any index server, however your character Identifier (which is encrypted by all three), is. It is safe to use any index server you wish, you may also use multiple at the same time.");
 						ImGui.TextDisabled("You can remove index servers in the right-click context menu");
 						ImGui.EndTooltip();
 					}
@@ -244,13 +246,6 @@ public class MainWindow : Window, IDisposable
 				}
 
 				ImGui.EndTable();
-			}
-
-			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-			{
-				ImGui.BeginTooltip();
-				ImGui.TextWrapped("Index servers are used to track the online status of peers. Your character name, world, and password are never sent to any index server, however your character Identifier (which is encrypted by all three), is. It is safe to use any index server you wish, you may also use multiple at the same time.");
-				ImGui.EndTooltip();
 			}
 		}
 

@@ -256,6 +256,8 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		if (this.CancellationToken.IsCancellationRequested)
 			return;
 
+		await Task.Delay(100, this.CancellationToken);
+
 		Dictionary<string, string> paths = new();
 		foreach ((string gamePath, string hash) in data.Files)
 		{
@@ -333,6 +335,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			{
 				Configuration.Current.MaxDownloads = maxDownloads;
 				Configuration.Current.Save();
+
+				this.downloadGroup.Cancel();
+				this.downloadGroup.SetCount(maxDownloads);
 			}
 
 			this.downloadGroup.DrawStatus("DownloadTable");
@@ -345,6 +350,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			{
 				Configuration.Current.MaxUploads = maxUploads;
 				Configuration.Current.Save();
+
+				this.uploadGroup.Cancel();
+				this.uploadGroup.SetCount(maxUploads);
 			}
 
 			this.uploadGroup.DrawStatus("UploadTable");
@@ -400,7 +408,7 @@ public class TransferGroup
 {
 	private readonly ConcurrentQueue<FileTransfer> pending = new();
 	private readonly ConcurrentHashSet<FileTransfer> active = new();
-	private readonly CancellationTokenSource transferTaskTokenSource = new();
+	private CancellationTokenSource transferTaskTokenSource = new();
 
 	public int ActiveCount => this.active.Count;
 	public int QueueCount => this.pending.Count;
@@ -420,6 +428,7 @@ public class TransferGroup
 
 	public void SetCount(int count)
 	{
+		this.transferTaskTokenSource = new();
 		for (int i = 0; i < count; i++)
 		{
 			Task.Run(TransferTask, this.transferTaskTokenSource.Token);

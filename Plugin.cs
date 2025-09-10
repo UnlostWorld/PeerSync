@@ -504,7 +504,7 @@ public sealed class Plugin : IDalamudPlugin
 			{
 				if (character.IsConnected)
 				{
-					dtrTooltipBuilder.AddText($"\n・{character.Pair.CharacterName}@{character.Pair.World}");
+					dtrTooltipBuilder.AddText($"\n・{character.Pair.CharacterName} @ {character.Pair.World}");
 					connectedCount++;
 				}
 			}

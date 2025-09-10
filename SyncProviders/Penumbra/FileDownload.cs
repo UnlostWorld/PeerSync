@@ -114,7 +114,7 @@ public class FileDownload : IDisposable
 			if (file == null)
 				return;
 
-			while (!file.Exists)
+			while (!this.IsComplete)
 			{
 				if (this.sync.IsDisposed || this.character.Connection == null)
 					return;
@@ -172,13 +172,16 @@ public class FileDownload : IDisposable
 					file.Delete();
 				}
 
-				if (!file.Exists)
+				file = sync.fileCache.GetFile(hash);
+				this.IsComplete = file.Exists;
+
+				if (!this.IsComplete)
 				{
 					Plugin.Log.Information($"Retry download: {this.Name}");
+					this.BytesReceived = 0;
+					await Task.Delay(1000);
 				}
 			}
-
-			this.IsComplete = true;
 		}
 		catch (Exception ex)
 		{

@@ -9,16 +9,27 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using PeerSync;
+using PeerSync.UI;
+
+public enum FileDeletionReasons
+{
+	None,
+	Age,
+	Hash,
+}
 
 public class FileCache : IDisposable
 {
+	private const int scanDelay = 10 * 60 * 1000; // every 10 minutes after boot.
 	private readonly CancellationTokenSource tokenSource = new();
-
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
+	private readonly Dictionary<FileInfo, FileDeletionReasons> deletedFiles = new();
 
 	private float totalCacheSizeGb = 0;
 	private int fileCount = 0;
+	private int scanCount = 0;
 
 	public FileCache()
 	{
@@ -89,24 +100,65 @@ public class FileCache : IDisposable
 
 	public void DrawInfo()
 	{
-		if (ImGui.CollapsingHeader($"File Cache ({this.totalCacheSizeGb.ToString("F2")} Gb)###cacheSection"))
+		string cacheSizeStr = this.totalCacheSizeGb.ToString("F2") + "Gb";
+		float p = (float)this.scanCount / (float)this.fileCount;
+
+		if (p < 1)
+			cacheSizeStr = "Scanning...";
+
+		if (ImGui.CollapsingHeader($"File Cache ({cacheSizeStr})###cacheSection"))
 		{
 			string cache = Configuration.Current.CacheDirectory ?? string.Empty;
-			if (ImGui.InputText("Directory", ref cache))
+			if (ImGui.InputText("Directory", ref cache, 512, ImGuiInputTextFlags.EnterReturnsTrue))
 			{
 				Configuration.Current.CacheDirectory = cache;
 				Configuration.Current.Save();
 			}
 
-			ImGui.Text($"{fileCount} files in cache");
-
-			if (ImGui.Button("Clear"))
+			if (p < 1)
 			{
-				DirectoryInfo? dir = this.GetDirectory();
-				dir?.Delete(true);
-				dir?.Create();
-				this.totalCacheSizeGb = 0;
-				this.fileCount = 0;
+				ImGui.BeginGroup();
+				ImGui.Text("Scanning");
+				ImGui.SameLine();
+				ImGuiEx.ThinProgressBar(p, -1);
+				ImGui.EndGroup();
+
+				if (ImGui.IsItemHovered())
+				{
+					ImGui.BeginTooltip();
+					ImGui.Text($"Scanning {this.scanCount} of {this.fileCount} files in cache");
+					ImGui.EndTooltip();
+				}
+			}
+
+			lock (this.deletedFiles)
+			{
+				if (this.deletedFiles.Count > 0)
+				{
+					ImGui.Text("Removed:");
+					if (this.deletedFiles.Count < 256)
+					{
+						foreach ((FileInfo file, FileDeletionReasons reason) in this.deletedFiles)
+						{
+							if (reason == FileDeletionReasons.Age)
+							{
+								ImGuiEx.Icon(FontAwesomeIcon.Clock);
+							}
+							else
+							{
+								ImGuiEx.Icon(FontAwesomeIcon.ExclamationTriangle);
+							}
+
+							ImGui.SameLine();
+							ImGui.Text(file.Name);
+						}
+					}
+					else
+					{
+						ImGui.SameLine();
+						ImGui.Text($"{this.deletedFiles.Count} files from cache");
+					}
+				}
 			}
 		}
 	}
@@ -142,17 +194,52 @@ public class FileCache : IDisposable
 			if (dir != null && dir.Exists)
 			{
 				FileInfo[] files = dir.GetFiles();
+				this.fileCount = files.Length;
+				this.scanCount = 0;
+
+				this.deletedFiles.Clear();
+
 				foreach (FileInfo file in files)
 				{
-					totalCacheSize += file.Length;
+					if (this.tokenSource.IsCancellationRequested)
+						return;
+
+					scanCount++;
+					GetFileHash(file.FullName, out string hash, out long size);
+
+					if (file.Name != hash)
+					{
+						Plugin.Log.Warning($"Incorrect file hash! Expected: {file.Name}, got: {hash}");
+						this.deletedFiles.Add(file, FileDeletionReasons.Hash);
+						continue;
+					}
+
+					TimeSpan age = DateTime.UtcNow - file.LastWriteTimeUtc;
+					if (age.TotalDays > 30)
+					{
+						this.deletedFiles.Add(file, FileDeletionReasons.Age);
+						continue;
+					}
+
+					totalCacheSize += size;
 				}
 
-				this.fileCount = files.Length;
+				foreach (FileInfo file in this.deletedFiles.Keys)
+				{
+					try
+					{
+						file.Delete();
+					}
+					catch (Exception ex)
+					{
+						Plugin.Log.Warning(ex, $"Failed to delete file: {file.FullName}");
+					}
+				}
+
+				this.totalCacheSizeGb = totalCacheSize / 1024.0f / 1024.0f / 1024.0f;
 			}
 
-			this.totalCacheSizeGb = totalCacheSize / 1024.0f / 1024.0f / 1024.0f;
-
-			await Task.Delay(3000);
+			await Task.Delay(scanDelay);
 		}
 	}
 }

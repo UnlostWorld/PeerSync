@@ -82,6 +82,7 @@ public enum SyncProgressStatus
 	Applied,
 	Empty,
 	NotApplied,
+	Error,
 }
 
 public static class SyncProgressStatusExtensions
@@ -95,6 +96,7 @@ public static class SyncProgressStatusExtensions
 			case SyncProgressStatus.Applied: return FontAwesomeIcon.Check;
 			case SyncProgressStatus.Empty: return FontAwesomeIcon.None;
 			case SyncProgressStatus.NotApplied: return FontAwesomeIcon.Times;
+			case SyncProgressStatus.Error: return FontAwesomeIcon.ExclamationTriangle;
 		}
 
 		return FontAwesomeIcon.None;

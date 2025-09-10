@@ -199,6 +199,10 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				string name = Path.GetFileName(gamePath);
 				new FileDownload(this, name, hash, expectedSize, character);
 			}
+			else
+			{
+				file.LastWriteTimeUtc = DateTime.UtcNow;
+			}
 		}
 
 		// Wait for all downloads from the target character to complete...
@@ -231,11 +235,10 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			FileInfo? file = this.fileCache.GetFile(hash);
 
 			// Verify that we did get all the files we need.
-			// This may fail if some downloads were corrupted or dropped.
-			// just fail out and let the next deserialize try again.
 			if (file == null || !file.Exists)
 			{
-				Plugin.Log.Warning("Failed to download all necessary files.");
+				Plugin.Log.Error($"Failed to download file: {gamePath} ({hash})");
+				this.SetStatus(character, SyncProgressStatus.Error);
 				return;
 			}
 
@@ -288,6 +291,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		catch (Exception ex)
 		{
 			Plugin.Log.Error(ex, "Error applying penumbra collection");
+			this.SetStatus(character, SyncProgressStatus.Error);
 		}
 	}
 

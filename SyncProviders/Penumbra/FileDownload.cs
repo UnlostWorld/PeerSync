@@ -114,7 +114,7 @@ public class FileDownload : IDisposable
 			if (file == null)
 				return;
 
-			if (!file.Exists)
+			while (!file.Exists)
 			{
 				if (this.sync.IsDisposed || this.character.Connection == null)
 					return;
@@ -153,10 +153,16 @@ public class FileDownload : IDisposable
 					return;
 
 				if (sw.ElapsedMilliseconds >= PenumbraSync.FileTimeout)
+				{
+					file.Delete();
 					throw new TimeoutException();
+				}
 
 				if (this.BytesReceived <= 0)
-					throw new Exception("Received 0 length file");
+				{
+					Plugin.Log.Warning($"Received 0 length file");
+					file.Delete();
+				}
 
 				// hash verify
 				bool found = this.sync.fileCache.GetFileHash(file.FullName, out string gotHash, out long fileSize);
@@ -166,8 +172,13 @@ public class FileDownload : IDisposable
 					file.Delete();
 				}
 
-				this.IsComplete = true;
+				if (!file.Exists)
+				{
+					Plugin.Log.Information($"Retry download: {this.Name}");
+				}
 			}
+
+			this.IsComplete = true;
 		}
 		catch (Exception ex)
 		{

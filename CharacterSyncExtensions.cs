@@ -17,7 +17,6 @@ public static class CharacterSyncExtensions
 			case CharacterSync.Status.Connecting: return "Connecting...";
 			case CharacterSync.Status.ConnectionFailed: return "Failed to connect to peer.";
 			case CharacterSync.Status.Handshake: return "Connecting...";
-			case CharacterSync.Status.HandshakeFailed: return "Failed to connect to peer.";
 			case CharacterSync.Status.Connected: return "Connected to peer.";
 			case CharacterSync.Status.Disconnected: return "Peer is offline";
 		}
@@ -36,11 +35,10 @@ public static class CharacterSyncExtensions
 			case CharacterSync.Status.Connecting: return FontAwesomeIcon.Handshake;
 			case CharacterSync.Status.ConnectionFailed: return FontAwesomeIcon.ExclamationTriangle;
 			case CharacterSync.Status.Handshake: return FontAwesomeIcon.Handshake;
-			case CharacterSync.Status.HandshakeFailed: return FontAwesomeIcon.ExclamationTriangle;
 			case CharacterSync.Status.Connected: return FontAwesomeIcon.Wifi;
 			case CharacterSync.Status.Disconnected: return FontAwesomeIcon.Bed;
 		}
 
-		return FontAwesomeIcon.None;
+		return FontAwesomeIcon.QuestionCircle;
 	}
 }

@@ -42,14 +42,7 @@ public sealed class Plugin : IDalamudPlugin
 {
 	private const string commandName = "/psync";
 
-	public readonly List<SyncProviderBase> SyncProviders = new()
-	{
-		new CustomizePlusSync(),
-		new MoodlesSync(),
-		new HonorificSync(),
-		new GlamourerSync(),
-		new PenumbraSync(),
-	};
+	public readonly List<SyncProviderBase> SyncProviders = new();
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -203,6 +196,7 @@ public sealed class Plugin : IDalamudPlugin
 			sync.Dispose();
 		}
 
+		this.SyncProviders.Clear();
 		this.providerLookup.Clear();
 
 		if (this.network != null)
@@ -220,6 +214,13 @@ public sealed class Plugin : IDalamudPlugin
 	public void Start()
 	{
 		this.tokenSource = new();
+
+		this.SyncProviders.Add(new CustomizePlusSync());
+		this.SyncProviders.Add(new MoodlesSync());
+		this.SyncProviders.Add(new HonorificSync());
+		this.SyncProviders.Add(new GlamourerSync());
+		this.SyncProviders.Add(new PenumbraSync());
+
 		Task.Run(this.InitializeAsync, this.tokenSource.Token);
 
 		foreach (SyncProviderBase provider in this.SyncProviders)

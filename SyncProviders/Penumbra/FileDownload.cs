@@ -129,15 +129,10 @@ public class FileDownload : IDisposable
 
 				character.Send(Objects.FileRequest, objectBytes);
 
-				Stopwatch sw = new();
-				sw.Start();
-				while (!this.IsComplete && sw.ElapsedMilliseconds < PenumbraSync.FileTimeout
-					 && !this.tokenSource.IsCancellationRequested)
+				while (!this.IsComplete && !this.tokenSource.IsCancellationRequested)
 				{
 					await Task.Delay(10);
 				}
-
-				sw.Stop();
 
 				if (this.fileStream != null)
 				{
@@ -151,12 +146,6 @@ public class FileDownload : IDisposable
 
 				if (this.tokenSource.IsCancellationRequested)
 					return;
-
-				if (sw.ElapsedMilliseconds >= PenumbraSync.FileTimeout)
-				{
-					file.Delete();
-					throw new TimeoutException();
-				}
 
 				if (this.BytesReceived <= 0)
 				{

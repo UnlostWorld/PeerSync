@@ -99,6 +99,14 @@ public class CharacterSync : IDisposable
 		if (this.tokenSource.IsCancellationRequested)
 			return;
 
+		if (this.connection != null)
+		{
+			this.connection.Received -= this.OnReceived;
+			this.connection.Disconnected -= this.OnDisconnected;
+			this.connection.Dispose();
+		}
+
+
 		this.CurrentStatus = Status.None;
 		Task.Run(this.Connect);
 	}
@@ -150,6 +158,7 @@ public class CharacterSync : IDisposable
 		{
 			this.connection.Received -= this.OnReceived;
 			this.connection.Disconnected -= this.OnDisconnected;
+			this.connection.Dispose();
 		}
 
 		if (!tokenSource.IsCancellationRequested)

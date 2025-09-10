@@ -30,7 +30,7 @@ public class FileUpload : IDisposable
 
 		sync.uploads.Add(this);
 
-		Task.Run(this.Transfer);
+		Task.Run(this.Transfer, tokenSource.Token);
 	}
 
 	public string Name { get; private set; }
@@ -47,6 +47,8 @@ public class FileUpload : IDisposable
 
 	private async Task Transfer()
 	{
+		await Plugin.Framework.RunOutsideUpdate();
+
 		this.IsWaiting = true;
 
 		do

@@ -19,6 +19,7 @@ public class FileDownload : FileTransfer
 
 	private FileStream? fileStream;
 	private byte queueIndex;
+	private Exception? recieveError;
 
 	public FileDownload(
 		PenumbraSync sync,
@@ -104,6 +105,9 @@ public class FileDownload : FileTransfer
 					gotAllData = this.BytesReceived >= this.BytesToReceive;
 				}
 
+				if (this.recieveError != null)
+					throw this.recieveError;
+
 				await Task.Delay(10, this.cancellationToken);
 			}
 
@@ -186,7 +190,7 @@ public class FileDownload : FileTransfer
 		}
 		catch (Exception ex)
 		{
-			Plugin.Log.Error(ex, "Error receiving file data");
+			this.recieveError = new Exception("Error receiving file data", ex);
 		}
 	}
 }

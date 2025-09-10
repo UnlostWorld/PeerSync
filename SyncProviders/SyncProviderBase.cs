@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface;
 using PeerSync;
 using PeerSync.UI;
@@ -24,6 +25,10 @@ public abstract class SyncProviderBase : IDisposable
 	public virtual void Dispose()
 	{
 		this.IsDisposed = true;
+	}
+
+	public virtual void GetDtrStatus(ref SeStringBuilder dtrEntryBuilder, ref SeStringBuilder dtrTooltipBuilder)
+	{
 	}
 
 	public virtual void OnCharacterConnected(CharacterSync character)

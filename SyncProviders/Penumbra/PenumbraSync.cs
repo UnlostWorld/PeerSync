@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.Text.SeStringHandling;
 using Newtonsoft.Json;
 using PeerSync.Network;
 using PeerSync.UI;
@@ -50,6 +51,24 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		".skp",
 		".shpk"
 	];
+
+	public override void GetDtrStatus(ref SeStringBuilder dtrEntryBuilder, ref SeStringBuilder dtrTooltipBuilder)
+	{
+		base.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
+
+		int downloads = this.GetActiveDownloadCount();
+		int uploads = this.GetActiveUploadCount();
+
+		if (downloads > 0)
+		{
+			dtrEntryBuilder.AddText("↓");
+		}
+
+		if (uploads > 0)
+		{
+			dtrEntryBuilder.AddText("↑");
+		}
+	}
 
 	public override void OnCharacterConnected(CharacterSync character)
 	{

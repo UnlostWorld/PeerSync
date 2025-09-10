@@ -28,6 +28,7 @@ using PeerSync.SyncProviders.CustomizePlus;
 using PeerSync.SyncProviders.Moodles;
 using PeerSync.SyncProviders.Honorific;
 using Dalamud.Game.Command;
+using Dalamud.Game.Gui.Dtr;
 
 public static class Objects
 {
@@ -59,12 +60,13 @@ public sealed class Plugin : IDalamudPlugin
 	[PluginService] public static IFramework Framework { get; private set; } = null!;
 	[PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
 	[PluginService] public static IContextMenu ContextMenu { get; private set; } = null!;
+	[PluginService] public static IDtrBar DtrBar { get; private set; } = null!;
 
 	public static Plugin? Instance { get; private set; } = null;
 
 	public CharacterData? LocalCharacterData;
 	public Configuration.Character? LocalCharacter;
-	public Status CurrentStatus;
+	public PluginStatus Status;
 	public readonly Dictionary<string, IndexServerStatus> IndexServersStatus = new();
 
 	public readonly WindowSystem WindowSystem = new("StudioSync");
@@ -76,6 +78,7 @@ public sealed class Plugin : IDalamudPlugin
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
 	private readonly ConnectionManager network = new();
+	private readonly IDtrBarEntry dtrBarEntry;
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
@@ -87,36 +90,19 @@ public sealed class Plugin : IDalamudPlugin
 
 		MainWindow.IsOpen = true;
 
-		this.Start();
-
 		CommandManager.AddHandler(commandName, new CommandInfo(OnCommand)
 		{
 			HelpMessage = "Show the Peer Sync window with /psync"
 		});
+
+		this.dtrBarEntry = DtrBar.Get("Peer Sync");
+		this.dtrBarEntry.Text = SeStringUtils.ToSeString("\uE0BC");
+		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync - {this.Status.GetMessage()}");
+
+		this.Start();
 	}
 
 	public string Name => "Peer Sync";
-
-	public enum Status
-	{
-		None,
-
-		Init_OpenPort,
-		Init_Listen,
-		Init_Character,
-		Init_Index,
-
-		Error_NoIndexServer,
-		Error_CantListen,
-		Error_NoPassword,
-		Error_NoCharacter,
-		Error_Index,
-
-		Online,
-
-		ShutdownRequested,
-		Shutdown,
-	}
 
 	public enum IndexServerStatus
 	{
@@ -208,8 +194,12 @@ public sealed class Plugin : IDalamudPlugin
 	public void Dispose()
 	{
 		Plugin.Log.Information("Stopping...");
-		if (this.CurrentStatus != Status.Shutdown)
-			this.CurrentStatus = Status.ShutdownRequested;
+		if (this.Status != PluginStatus.Shutdown)
+			this.Status = PluginStatus.ShutdownRequested;
+
+		SeStringBuilder dtrEntryBuilder = new();
+		dtrEntryBuilder.AddText($"\uE0BC");
+		this.dtrBarEntry.Text = dtrEntryBuilder.Build();
 
 		this.shuttingDown = true;
 
@@ -316,7 +306,7 @@ public sealed class Plugin : IDalamudPlugin
 
 			if (Configuration.Current.IndexServers.Count <= 0)
 			{
-				this.CurrentStatus = Status.Error_NoIndexServer;
+				this.Status = PluginStatus.Error_NoIndexServer;
 				return;
 			}
 
@@ -327,14 +317,14 @@ public sealed class Plugin : IDalamudPlugin
 				port = (ushort)(15400 + Random.Shared.Next(99));
 
 			Plugin.Log.Information($"Opening port {port}");
-			this.CurrentStatus = Status.Init_OpenPort;
+			this.Status = PluginStatus.Init_OpenPort;
 			using CancellationTokenSource cts = new(10000);
 			INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts.Token);
 			await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
 			Plugin.Log.Information($"Opened port {port}");
 
 			// Setup TCP listen
-			this.CurrentStatus = Status.Init_Listen;
+			this.Status = PluginStatus.Init_Listen;
 			try
 			{
 				this.network.BeginListen(port);
@@ -343,7 +333,7 @@ public sealed class Plugin : IDalamudPlugin
 			catch (Exception ex)
 			{
 				Plugin.Log.Error(ex, "Error listening for connections");
-				this.CurrentStatus = Status.Error_CantListen;
+				this.Status = PluginStatus.Error_CantListen;
 				return;
 			}
 
@@ -366,7 +356,7 @@ public sealed class Plugin : IDalamudPlugin
 			{
 				await Framework.RunOnUpdate();
 
-				this.CurrentStatus = Status.Init_Character;
+				this.Status = PluginStatus.Init_Character;
 				while (this.LocalCharacter == null || string.IsNullOrEmpty(this.LocalCharacter?.Password))
 				{
 					await Framework.Delay(500);
@@ -404,7 +394,7 @@ public sealed class Plugin : IDalamudPlugin
 
 					if (string.IsNullOrEmpty(LocalCharacter.Password))
 					{
-						this.CurrentStatus = Status.Error_NoPassword;
+						this.Status = PluginStatus.Error_NoPassword;
 						continue;
 					}
 
@@ -415,7 +405,7 @@ public sealed class Plugin : IDalamudPlugin
 			}
 			catch (Exception ex)
 			{
-				this.CurrentStatus = Status.Error_NoCharacter;
+				this.Status = PluginStatus.Error_NoCharacter;
 				Plugin.Log.Error(ex, $"Failed to get current character");
 				return;
 			}
@@ -437,7 +427,7 @@ public sealed class Plugin : IDalamudPlugin
 				}
 			}
 
-			this.CurrentStatus = Status.Init_Index;
+			this.Status = PluginStatus.Init_Index;
 			while (!shuttingDown)
 			{
 				try
@@ -463,13 +453,13 @@ public sealed class Plugin : IDalamudPlugin
 
 					await this.UpdateData();
 
-					this.CurrentStatus = Status.Online;
+					this.Status = PluginStatus.Online;
 					this.connected = true;
 					await Task.Delay(5000);
 				}
 				catch (Exception ex)
 				{
-					this.CurrentStatus = Status.Error_Index;
+					this.Status = PluginStatus.Error_Index;
 					Plugin.Log.Error(ex, $"Failed to connect to index server");
 					return;
 				}
@@ -477,17 +467,23 @@ public sealed class Plugin : IDalamudPlugin
 		}
 		finally
 		{
-			this.CurrentStatus = Status.Shutdown;
+			this.Status = PluginStatus.Shutdown;
 		}
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)
 	{
+		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync - {this.Status.GetMessage()}");
+
 		if (!this.connected)
 			return;
 
 		// Update characters, remove missing characters
 		HashSet<string> toRemove = new();
+		SeStringBuilder dtrTooltipBuilder = new();
+		dtrTooltipBuilder.AddText($"Peer Sync - {this.Status.GetMessage()}");
+
+		int connectedCount = 0;
 		foreach ((string identifier, CharacterSync character) in this.checkedCharacters)
 		{
 			bool isValid = character.Update();
@@ -497,6 +493,14 @@ public sealed class Plugin : IDalamudPlugin
 				character.Connected -= this.OnCharacterConnected;
 				character.Disconnected -= this.OnCharacterDisconnected;
 				character.Dispose();
+			}
+			else
+			{
+				if (character.IsConnected)
+				{
+					dtrTooltipBuilder.AddText($"\n・{character.Pair.CharacterName}@{character.Pair.World}");
+					connectedCount++;
+				}
 			}
 		}
 
@@ -531,6 +535,20 @@ public sealed class Plugin : IDalamudPlugin
 				this.checkedCharacters.Add(compoundName, sync);
 			}
 		}
+
+		SeStringBuilder dtrEntryBuilder = new();
+		dtrEntryBuilder.AddText($"\uE0BD");
+
+		if (connectedCount > 0)
+			dtrEntryBuilder.AddText($"{connectedCount}");
+
+		foreach (SyncProviderBase sync in this.SyncProviders)
+		{
+			sync.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
+		}
+
+		this.dtrBarEntry.Text = dtrEntryBuilder.ToString();
+		this.dtrBarEntry.Tooltip = dtrTooltipBuilder.ToString();
 	}
 
 	private void OnCharacterConnected(CharacterSync character)

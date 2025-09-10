@@ -35,104 +35,9 @@ public class MainWindow : Window, IDisposable
 		if (plugin == null)
 			return;
 
-		switch (plugin.CurrentStatus)
-		{
-			case Plugin.Status.Init_OpenPort:
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
-				ImGui.SameLine();
-				ImGui.Text("Opening Port...");
-				break;
-			}
-
-			case Plugin.Status.Init_Listen:
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
-				ImGui.SameLine();
-				ImGui.Text("Creating a listen server...");
-				break;
-			}
-
-			case Plugin.Status.Init_Character:
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
-				ImGui.SameLine();
-				ImGui.Text("Waiting for character...");
-				break;
-			}
-
-			case Plugin.Status.Init_Index:
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
-				ImGui.SameLine();
-				ImGui.Text("Connecting to Index servers...");
-				break;
-			}
-
-			case Plugin.Status.Error_NoIndexServer:
-			{
-				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-				ImGui.SameLine();
-				ImGui.TextColored(0xFF0080FF, "No Index server configured");
-				break;
-			}
-
-			case Plugin.Status.Error_CantListen:
-			{
-				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-				ImGui.SameLine();
-				ImGui.TextColored(0xFF0080FF, "Failed to create a listen server");
-				break;
-			}
-
-			case Plugin.Status.Error_NoPassword:
-			{
-				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-				ImGui.SameLine();
-				ImGui.TextColored(0xFF0080FF, "No password is set for the current character");
-				break;
-			}
-
-			case Plugin.Status.Error_NoCharacter:
-			{
-				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-				ImGui.SameLine();
-				ImGui.TextColored(0xFF0080FF, "Failed to get the current character");
-				break;
-			}
-
-			case Plugin.Status.Error_Index:
-			{
-				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-				ImGui.SameLine();
-				ImGui.TextColored(0xFF0080FF, "Failed to communicate with Index servers");
-				break;
-			}
-
-			case Plugin.Status.Online:
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-				ImGui.SameLine();
-				ImGui.Text("Online");
-				break;
-			}
-
-			case Plugin.Status.ShutdownRequested:
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.Bed);
-				ImGui.SameLine();
-				ImGui.Text("Shutting down...");
-				break;
-			}
-
-			case Plugin.Status.Shutdown:
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.Bed);
-				ImGui.SameLine();
-				ImGui.Text("Shut down");
-				break;
-			}
-		}
+		ImGuiEx.Icon(plugin.Status.GetIcon());
+		ImGui.SameLine();
+		ImGui.Text(plugin.Status.GetMessage());
 
 		ImGui.Spacing();
 
@@ -395,11 +300,17 @@ public class MainWindow : Window, IDisposable
 					if (sync != null)
 					{
 						ImGuiEx.Icon(sync.CurrentStatus.GetIcon());
-					}
 
-					// Name
-					ImGui.TableNextColumn();
-					ImGui.Text($"{pair.CharacterName} @ {pair.World}");
+						// Name
+						ImGui.TableNextColumn();
+						ImGui.Text($"{pair.CharacterName} @ {pair.World}");
+					}
+					else
+					{
+						// Name
+						ImGui.TableNextColumn();
+						ImGui.TextDisabled($"{pair.CharacterName} @ {pair.World}");
+					}
 
 					// Progress
 					ImGui.TableNextColumn();

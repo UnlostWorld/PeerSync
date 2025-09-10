@@ -220,14 +220,6 @@ public class CharacterSync : IDisposable
 				return;
 			}
 
-			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Pair);
-			if (sort >= 0)
-			{
-				// We're the host.
-				this.CurrentStatus = Status.Listening;
-				return;
-			}
-
 			// We're the client.
 			this.CurrentStatus = Status.Searching;
 			SyncStatus request = new();
@@ -261,6 +253,14 @@ public class CharacterSync : IDisposable
 				this.CurrentStatus = Status.Offline;
 				await Task.Delay(30000, this.tokenSource.Token);
 				this.Reconnect();
+				return;
+			}
+
+			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Pair);
+			if (sort >= 0)
+			{
+				// We're the host.
+				this.CurrentStatus = Status.Listening;
 				return;
 			}
 

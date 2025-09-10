@@ -60,9 +60,6 @@ public class CharacterSync : IDisposable
 		// We've established a connection and are now identifying ourselves.
 		Handshake,
 
-		// We've failed to establish two way connection.
-		HandshakeFailed,
-
 		// They've established a connection back.
 		Connected,
 
@@ -310,24 +307,15 @@ public class CharacterSync : IDisposable
 			if (this.tokenSource.IsCancellationRequested)
 				return;
 
-			int attempts = 0;
-			while (this.CurrentStatus == Status.Handshake && attempts < 10)
+			while (this.CurrentStatus == Status.Handshake)
 			{
-				if (this.tokenSource.IsCancellationRequested)
+				if (this.tokenSource.IsCancellationRequested
+					|| this.connection == null
+					|| !this.connection.IsConnected)
 					return;
 
-				attempts++;
 				this.SendIAm();
-				await Task.Delay(3000);
-			}
-
-			if (this.tokenSource.IsCancellationRequested)
-				return;
-
-			if (attempts >= 10)
-			{
-				this.CurrentStatus = Status.HandshakeFailed;
-				throw new Exception("Handshake failed");
+				await Task.Delay(5000);
 			}
 		}
 		catch (TaskCanceledException)

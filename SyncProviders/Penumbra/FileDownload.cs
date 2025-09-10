@@ -129,7 +129,9 @@ public class FileDownload : IDisposable
 
 				character.Send(Objects.FileRequest, objectBytes);
 
-				while (!this.IsComplete && !this.tokenSource.IsCancellationRequested)
+				while (!this.IsComplete
+					&& !this.tokenSource.IsCancellationRequested
+					&& !this.sync.IsDisposed)
 				{
 					await Task.Delay(10);
 				}
@@ -144,8 +146,11 @@ public class FileDownload : IDisposable
 					}
 				}
 
-				if (this.tokenSource.IsCancellationRequested)
+				if (this.sync.IsDisposed || this.tokenSource.IsCancellationRequested)
+				{
+					file.Delete();
 					return;
+				}
 
 				if (this.BytesReceived <= 0)
 				{

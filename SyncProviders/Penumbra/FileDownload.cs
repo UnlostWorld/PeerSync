@@ -81,68 +81,64 @@ public class FileDownload : FileTransfer
 		if (file == null)
 			return;
 
-		while (!this.IsComplete)
+		if (this.cancellationToken.IsCancellationRequested
+			|| this.Character.Connection == null)
+			return;
+
+		this.queueIndex = this.sync.lastQueueIndex++;
+		this.Character.Connection.Received += this.OnReceived;
+
+		byte[] hashBytes = Encoding.UTF8.GetBytes(hash);
+		byte[] objectBytes = new byte[hashBytes.Length + 1];
+		objectBytes[0] = this.queueIndex;
+		Array.Copy(hashBytes, 0, objectBytes, 1, hashBytes.Length);
+
+		this.Character.Send(Objects.FileRequest, objectBytes);
+
+		bool gotAllData = false;
+		while (!gotAllData && !this.cancellationToken.IsCancellationRequested)
 		{
-			if (this.cancellationToken.IsCancellationRequested
-				|| this.Character.Connection == null)
-				return;
-
-			this.queueIndex = this.sync.lastQueueIndex++;
-			this.Character.Connection.Received += this.OnReceived;
-
-			byte[] hashBytes = Encoding.UTF8.GetBytes(hash);
-			byte[] objectBytes = new byte[hashBytes.Length + 1];
-			objectBytes[0] = this.queueIndex;
-			Array.Copy(hashBytes, 0, objectBytes, 1, hashBytes.Length);
-
-			this.Character.Send(Objects.FileRequest, objectBytes);
-
-			bool gotAllData = false;
-			while (!gotAllData && !this.cancellationToken.IsCancellationRequested)
+			lock (this)
 			{
-				lock (this)
-				{
-					gotAllData = this.BytesReceived >= this.BytesToReceive;
-				}
-
-				if (this.recieveError != null)
-					throw this.recieveError;
-
-				await Task.Delay(10, this.cancellationToken);
+				gotAllData = this.BytesReceived >= this.BytesToReceive;
 			}
 
-			if (this.fileStream != null)
-			{
-				lock (this.fileStream)
-				{
-					this.fileStream.Flush();
-					this.fileStream.Dispose();
-					this.fileStream = null;
-				}
-			}
+			if (this.recieveError != null)
+				throw this.recieveError;
 
-			if (this.cancellationToken.IsCancellationRequested)
-			{
-				file.Delete();
-				return;
-			}
+			await Task.Delay(10, this.cancellationToken);
+		}
 
-			// hash verify
-			this.sync.fileCache.GetFileHash(file.FullName, out string gotHash, out long fileSize);
-			if (gotHash != hash)
+		if (this.fileStream != null)
+		{
+			lock (this.fileStream)
 			{
-				Plugin.Log.Warning($"File failed to pass validation. Expected: {hash}, got {gotHash}");
-				file.Delete();
+				this.fileStream.Flush();
+				this.fileStream.Dispose();
+				this.fileStream = null;
 			}
+		}
 
-			file = sync.fileCache.GetFile(hash);
+		if (this.cancellationToken.IsCancellationRequested)
+		{
+			file.Delete();
+			return;
+		}
 
-			if (!file.Exists)
-			{
-				this.BytesReceived = 0;
-				await Task.Delay(1000, this.cancellationToken);
-				this.Retry();
-			}
+		// hash verify
+		this.sync.fileCache.GetFileHash(file.FullName, out string gotHash, out long fileSize);
+		if (gotHash != hash)
+		{
+			Plugin.Log.Warning($"File failed to pass validation. Expected: {hash}, got {gotHash}");
+			file.Delete();
+		}
+
+		file = sync.fileCache.GetFile(hash);
+
+		if (!file.Exists)
+		{
+			this.BytesReceived = 0;
+			this.Retry();
 		}
 	}
 

@@ -70,6 +70,11 @@ public abstract class FileTransfer : IDisposable
 				}
 
 				await this.Transfer();
+
+				if (this.needsRetry)
+				{
+					await Task.Delay(1000, this.cancellationToken);
+				}
 			}
 			while (this.needsRetry && !this.cancellationToken.IsCancellationRequested);
 		}

@@ -658,8 +658,10 @@ public sealed class Plugin : IDalamudPlugin
 				return;
 			}
 
-			sync.SetConnection(connection);
-			connection.Received -= this.OnReceived;
+			if (sync.SetConnection(connection))
+			{
+				connection.Received -= this.OnReceived;
+			}
 		}
 	}
 }

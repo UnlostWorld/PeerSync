@@ -272,21 +272,24 @@ public sealed class Plugin : IDalamudPlugin
 		string world = character.HomeWorld.Value.Name.ToString();
 		Configuration.Pair? pair = Configuration.Current.GetPair(characterName, world);
 
-		args.AddMenuItem(new MenuItem()
-		{
-			Name = SeStringUtils.ToSeString(pair == null ? "Pair" : "Unpair"),
-			OnClicked = (a) => this.TogglePair(character),
-			UseDefaultPrefix = false,
-			PrefixChar = 'S',
-			PrefixColor = 526
-		});
-
-		CharacterSync? sync = this.GetCharacterSync(characterName, world);
-		if (sync != null)
+		if (pair == null)
 		{
 			args.AddMenuItem(new MenuItem()
 			{
-				Name = SeStringUtils.ToSeString("Re-apply"),
+				Name = SeStringUtils.ToSeString("Add as Peer Sync pair"),
+				OnClicked = (a) => this.AddPair(character),
+				UseDefaultPrefix = false,
+				PrefixChar = 'S',
+				PrefixColor = 526
+			});
+		}
+
+		CharacterSync? sync = this.GetCharacterSync(characterName, world);
+		if (sync != null && sync.CurrentStatus == CharacterSync.Status.Connected)
+		{
+			args.AddMenuItem(new MenuItem()
+			{
+				Name = SeStringUtils.ToSeString("Resync with pair"),
 				OnClicked = (a) => sync.Flush(),
 				UseDefaultPrefix = false,
 				PrefixChar = 'S',
@@ -295,7 +298,7 @@ public sealed class Plugin : IDalamudPlugin
 		}
 	}
 
-	private void TogglePair(IPlayerCharacter character)
+	private void AddPair(IPlayerCharacter character)
 	{
 		string characterName = character.Name.ToString();
 		string world = character.HomeWorld.Value.Name.ToString();

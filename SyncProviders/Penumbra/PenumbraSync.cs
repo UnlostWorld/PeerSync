@@ -137,10 +137,16 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		// Get file hashes
 		data.Files = new();
-		Dictionary<string, string>? resources = this.resourceMonitor.GetResources(objectIndex);
-		if (resources != null)
+		Dictionary<string, string>? liveResources = this.resourceMonitor.GetResources(objectIndex);
+		if (liveResources != null)
 		{
-			foreach ((string gamePath, string redirectPath) in resources.AsReadOnly())
+			Dictionary<string, string>? resources;
+			lock (liveResources)
+			{
+				resources = new(liveResources);
+			}
+
+			foreach ((string gamePath, string redirectPath) in resources)
 			{
 				bool isFilePath = Path.IsPathRooted(redirectPath);
 				if (isFilePath)

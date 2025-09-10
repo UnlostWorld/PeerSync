@@ -78,13 +78,16 @@ public class ResourceMonitor : IDisposable
 			objectIndex = pGameObject->ObjectIndex;
 		}
 
-		Dictionary<string, string>? redirects;
-		if (!this.indexToRedirects.TryGetValue(objectIndex, out redirects))
+		Dictionary<string, string>? resources;
+		if (!this.indexToRedirects.TryGetValue(objectIndex, out resources))
 		{
-			redirects = new();
-			this.indexToRedirects[objectIndex] = redirects;
+			resources = new();
+			this.indexToRedirects[objectIndex] = resources;
 		}
 
-		redirects[gamePath] = redirectPath;
+		lock (resources)
+		{
+			resources[gamePath] = redirectPath;
+		}
 	}
 }

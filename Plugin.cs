@@ -498,8 +498,21 @@ public sealed class Plugin : IDalamudPlugin
 		}
 	}
 
+	private int frameDelay = 100;
+
 	private void OnFrameworkUpdate(IFramework framework)
 	{
+		frameDelay--;
+
+		if (frameDelay <= 0)
+		{
+			frameDelay = 100;
+		}
+		else
+		{
+			return;
+		}
+
 		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync - {this.Status.GetMessage()}");
 
 		if (this.Status != PluginStatus.Online)

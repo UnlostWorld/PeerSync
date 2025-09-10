@@ -495,8 +495,6 @@ public class TransferGroup
 
 			ImGui.EndTooltip();
 		}
-
-
 	}
 
 

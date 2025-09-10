@@ -43,7 +43,7 @@ public class ResourceMonitor : IDisposable
 		this.modSettingChanged.Dispose();
 	}
 
-	public ReadOnlyDictionary<string, string>? GetResources(int objectIndex)
+	public Dictionary<string, string>? GetResources(int objectIndex)
 	{
 		Dictionary<string, string>? redirects = null;
 		this.indexToRedirects.TryGetValue(objectIndex, out redirects);
@@ -51,7 +51,7 @@ public class ResourceMonitor : IDisposable
 		if (redirects == null)
 			return null;
 
-		return redirects.AsReadOnly();
+		return redirects;
 	}
 
 	private void OnGameObjectResourcePathResolved(IntPtr ptr, string gamePath, string redirectPath)
@@ -78,13 +78,16 @@ public class ResourceMonitor : IDisposable
 			objectIndex = pGameObject->ObjectIndex;
 		}
 
-		Dictionary<string, string>? redirects;
-		if (!this.indexToRedirects.TryGetValue(objectIndex, out redirects))
+		Dictionary<string, string>? resources;
+		if (!this.indexToRedirects.TryGetValue(objectIndex, out resources))
 		{
-			redirects = new();
-			this.indexToRedirects[objectIndex] = redirects;
+			resources = new();
+			this.indexToRedirects[objectIndex] = resources;
 		}
 
-		redirects[gamePath] = redirectPath;
+		lock (resources)
+		{
+			resources[gamePath] = redirectPath;
+		}
 	}
 }

@@ -42,14 +42,7 @@ public sealed class Plugin : IDalamudPlugin
 {
 	private const string commandName = "/psync";
 
-	public readonly List<SyncProviderBase> SyncProviders = new()
-	{
-		new CustomizePlusSync(),
-		new MoodlesSync(),
-		new HonorificSync(),
-		new GlamourerSync(),
-		new PenumbraSync(),
-	};
+	public readonly List<SyncProviderBase> SyncProviders = new();
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -73,11 +66,10 @@ public sealed class Plugin : IDalamudPlugin
 	public MainWindow MainWindow { get; init; }
 	public PairWindow PairWindow { get; init; }
 
-	private bool connected = false;
-	private bool shuttingDown = false;
+	private CancellationTokenSource tokenSource = new();
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
-	private readonly ConnectionManager network = new();
+	private ConnectionManager? network;
 	private readonly IDtrBarEntry dtrBarEntry;
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
@@ -99,6 +91,13 @@ public sealed class Plugin : IDalamudPlugin
 		this.dtrBarEntry.Text = SeStringUtils.ToSeString("\uE0BC");
 		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync - {this.Status.GetMessage()}");
 		this.dtrBarEntry.OnClick = this.OnDtrClicked;
+
+		Instance = this;
+
+		Framework.Update += this.OnFrameworkUpdate;
+		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
+		PluginInterface.UiBuilder.Draw += this.OnDalamudDrawUI;
+		PluginInterface.UiBuilder.OpenMainUi += this.OnDalamudOpenMainUi;
 
 		this.Start();
 	}
@@ -160,41 +159,23 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		List<SyncProgressBase> progresses = new();
 
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			SyncProgressBase? progress = sync.GetProgress(character);
-			if (progress != null)
+			foreach (SyncProviderBase sync in this.SyncProviders)
 			{
-				progresses.Add(progress);
+				SyncProgressBase? progress = sync.GetProgress(character);
+				if (progress != null)
+				{
+					progresses.Add(progress);
+				}
 			}
 		}
 
 		return progresses;
 	}
 
-	public void Start()
+	public void Stop()
 	{
-		Instance = this;
-
-		Framework.Update += this.OnFrameworkUpdate;
-		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
-		PluginInterface.UiBuilder.Draw += this.OnDalamudDrawUI;
-		PluginInterface.UiBuilder.OpenMainUi += this.OnDalamudOpenMainUi;
-
-		this.shuttingDown = false;
-		Task.Run(this.InitializeAsync);
-
-		foreach (SyncProviderBase provider in this.SyncProviders)
-		{
-			providerLookup.Add(provider.Key, provider);
-		}
-
-		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
-	}
-
-	public void Dispose()
-	{
-		Plugin.Log.Information("Stopping...");
 		if (this.Status != PluginStatus.Shutdown)
 			this.Status = PluginStatus.ShutdownRequested;
 
@@ -202,12 +183,7 @@ public sealed class Plugin : IDalamudPlugin
 		dtrEntryBuilder.AddText($"\uE0BC");
 		this.dtrBarEntry.Text = dtrEntryBuilder.Build();
 
-		this.shuttingDown = true;
-
-		Framework.Update -= this.OnFrameworkUpdate;
-		ContextMenu.OnMenuOpened -= this.OnContextMenuOpened;
-		PluginInterface.UiBuilder.Draw -= this.OnDalamudDrawUI;
-		PluginInterface.UiBuilder.OpenMainUi -= this.OnDalamudOpenMainUi;
+		this.tokenSource.Cancel();
 
 		foreach (CharacterSync sync in checkedCharacters.Values)
 		{
@@ -218,22 +194,64 @@ public sealed class Plugin : IDalamudPlugin
 
 		this.checkedCharacters.Clear();
 
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			sync.Dispose();
+			foreach (SyncProviderBase sync in this.SyncProviders)
+			{
+				sync.Dispose();
+			}
+
+			this.SyncProviders.Clear();
 		}
 
 		this.providerLookup.Clear();
 
-		this.network.IncomingConnected -= this.OnIncomingConnectionConnected;
-		this.network.Dispose();
+		if (this.network != null)
+		{
+			this.network.IncomingConnected -= this.OnIncomingConnectionConnected;
+			this.network.Dispose();
+			this.network = null;
+		}
 
 		this.IndexServersStatus.Clear();
 
 		CommandManager.RemoveHandler(commandName);
+	}
+
+	public void Start()
+	{
+		this.tokenSource = new();
+
+		lock (this.SyncProviders)
+		{
+			this.SyncProviders.Add(new CustomizePlusSync());
+			this.SyncProviders.Add(new MoodlesSync());
+			this.SyncProviders.Add(new HonorificSync());
+			this.SyncProviders.Add(new GlamourerSync());
+			this.SyncProviders.Add(new PenumbraSync());
+		}
+
+		Task.Run(this.InitializeAsync, this.tokenSource.Token);
+
+		foreach (SyncProviderBase provider in this.SyncProviders)
+		{
+			providerLookup.Add(provider.Key, provider);
+		}
+
+		this.network = new();
+		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
+	}
+
+	public void Dispose()
+	{
+		this.Stop();
+
+		Framework.Update -= this.OnFrameworkUpdate;
+		ContextMenu.OnMenuOpened -= this.OnContextMenuOpened;
+		PluginInterface.UiBuilder.Draw -= this.OnDalamudDrawUI;
+		PluginInterface.UiBuilder.OpenMainUi -= this.OnDalamudOpenMainUi;
 
 		Instance = null;
-		Plugin.Log.Information("Stopped");
 	}
 
 	private void OnCommand(string command, string args)
@@ -303,17 +321,15 @@ public sealed class Plugin : IDalamudPlugin
 
 	private async Task InitializeAsync()
 	{
-		this.connected = false;
-
 		try
 		{
-			if (shuttingDown)
+			if (this.tokenSource.IsCancellationRequested)
 				return;
 
-			if (Configuration.Current.IndexServers.Count <= 0)
+			while (Configuration.Current.IndexServers.Count <= 0)
 			{
 				this.Status = PluginStatus.Error_NoIndexServer;
-				return;
+				await Task.Delay(5000);
 			}
 
 			// Open port
@@ -333,6 +349,9 @@ public sealed class Plugin : IDalamudPlugin
 			this.Status = PluginStatus.Init_Listen;
 			try
 			{
+				if (this.network == null)
+					throw new Exception("No network");
+
 				this.network.BeginListen(port);
 				Plugin.Log.Information($"Started listening for connections on port {port}");
 			}
@@ -366,7 +385,7 @@ public sealed class Plugin : IDalamudPlugin
 				while (this.LocalCharacter == null || string.IsNullOrEmpty(this.LocalCharacter?.Password))
 				{
 					await Framework.Delay(500);
-					if (shuttingDown)
+					if (this.tokenSource.IsCancellationRequested)
 						return;
 
 					if (!ClientState.IsLoggedIn)
@@ -416,7 +435,7 @@ public sealed class Plugin : IDalamudPlugin
 				return;
 			}
 
-			if (shuttingDown)
+			if (this.tokenSource.IsCancellationRequested)
 				return;
 
 			// For testing, add any 'Earth' characters as if thy are here.
@@ -434,7 +453,7 @@ public sealed class Plugin : IDalamudPlugin
 			}
 
 			this.Status = PluginStatus.Init_Index;
-			while (!shuttingDown)
+			while (!this.tokenSource.IsCancellationRequested)
 			{
 				try
 				{
@@ -460,13 +479,15 @@ public sealed class Plugin : IDalamudPlugin
 					await this.UpdateData();
 
 					this.Status = PluginStatus.Online;
-					this.connected = true;
-					await Task.Delay(5000);
+					await Task.Delay(5000, this.tokenSource.Token);
+				}
+				catch (TaskCanceledException)
+				{
 				}
 				catch (Exception ex)
 				{
 					this.Status = PluginStatus.Error_Index;
-					Plugin.Log.Error(ex, $"Failed to connect to index server");
+					Plugin.Log.Error(ex, $"Error in update");
 					return;
 				}
 			}
@@ -481,7 +502,7 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync - {this.Status.GetMessage()}");
 
-		if (!this.connected)
+		if (this.Status != PluginStatus.Online)
 			return;
 
 		// Update characters, remove missing characters
@@ -534,6 +555,9 @@ public sealed class Plugin : IDalamudPlugin
 				if (pair == null)
 					continue;
 
+				if (this.network == null)
+					continue;
+
 				CharacterSync sync = new(this.network, pair);
 				sync.ObjectTableIndex = character.ObjectIndex;
 				sync.Connected += this.OnCharacterConnected;
@@ -548,9 +572,12 @@ public sealed class Plugin : IDalamudPlugin
 		if (connectedCount > 0)
 			dtrEntryBuilder.AddText($"{connectedCount}");
 
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			sync.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
+			foreach (SyncProviderBase sync in this.SyncProviders)
+			{
+				sync.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
+			}
 		}
 
 		this.dtrBarEntry.Text = dtrEntryBuilder.ToString();
@@ -559,17 +586,23 @@ public sealed class Plugin : IDalamudPlugin
 
 	private void OnCharacterConnected(CharacterSync character)
 	{
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			sync.OnCharacterConnected(character);
+			foreach (SyncProviderBase sync in this.SyncProviders)
+			{
+				sync.OnCharacterConnected(character);
+			}
 		}
 	}
 
 	private void OnCharacterDisconnected(CharacterSync character)
 	{
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			sync.OnCharacterDisconnected(character);
+			foreach (SyncProviderBase sync in this.SyncProviders)
+			{
+				sync.OnCharacterDisconnected(character);
+			}
 		}
 	}
 
@@ -581,7 +614,7 @@ public sealed class Plugin : IDalamudPlugin
 		LocalCharacterData.Syncs.Clear();
 
 		await Plugin.Framework.RunOnUpdate();
-		if (shuttingDown)
+		if (this.tokenSource.IsCancellationRequested)
 			return;
 
 		IPlayerCharacter? player = ClientState.LocalPlayer;
@@ -590,8 +623,11 @@ public sealed class Plugin : IDalamudPlugin
 
 		LocalCharacterData.Identifier = this.LocalCharacter.GetIdentifier();
 
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
 		{
+			if (this.tokenSource.IsCancellationRequested)
+				return;
+
 			try
 			{
 				string? content = await sync.Serialize(player.ObjectIndex);
@@ -645,8 +681,10 @@ public sealed class Plugin : IDalamudPlugin
 				return;
 			}
 
-			Task.Run(() => sync.SetConnection(connection));
-			connection.Received -= this.OnReceived;
+			if (sync.SetConnection(connection))
+			{
+				connection.Received -= this.OnReceived;
+			}
 		}
 	}
 }

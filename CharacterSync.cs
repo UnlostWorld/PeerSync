@@ -111,10 +111,10 @@ public class CharacterSync : IDisposable
 		Task.Run(this.Connect);
 	}
 
-	public void SetConnection(Connection connection)
+	public bool SetConnection(Connection connection)
 	{
 		if (this.CurrentStatus != Status.Listening)
-			return;
+			return false;
 
 		this.connection = connection;
 
@@ -123,6 +123,7 @@ public class CharacterSync : IDisposable
 		this.Connected?.Invoke(this);
 
 		this.SendIAm();
+		return true;
 	}
 
 	private void SetupConnection()

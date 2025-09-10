@@ -2,8 +2,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
-using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface;
 using PeerSync;
@@ -12,11 +12,12 @@ using PeerSync.UI;
 public abstract class SyncProviderBase : IDisposable
 {
 	private readonly Dictionary<CharacterSync, SyncProgressBase> perCharacterProgress = new();
-
-	public bool IsDisposed { get; private set; }
+	private readonly CancellationTokenSource tokenSource = new();
 
 	public abstract string DisplayName { get; }
 	public abstract string Key { get; }
+
+	protected CancellationToken CancellationToken => this.tokenSource.Token;
 
 	public abstract Task<string?> Serialize(ushort objectIndex);
 	public abstract Task Deserialize(string? lastContent, string? content, CharacterSync character);
@@ -24,7 +25,10 @@ public abstract class SyncProviderBase : IDisposable
 
 	public virtual void Dispose()
 	{
-		this.IsDisposed = true;
+		if (!this.tokenSource.IsCancellationRequested)
+			this.tokenSource.Cancel();
+
+		this.tokenSource.Dispose();
 	}
 
 	public virtual void GetDtrStatus(ref SeStringBuilder dtrEntryBuilder, ref SeStringBuilder dtrTooltipBuilder)

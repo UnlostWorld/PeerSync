@@ -31,8 +31,9 @@ public partial class Configuration : IPluginConfiguration
 	public List<Pair> Pairs { get; init; } = new();
 	public ushort Port { get; set; } = 0;
 	public string? CacheDirectory { get; set; }
-	public int MaxConcurrentUploads { get; set; } = 10;
-	public int MaxConcurrentDownloads { get; set; } = 10;
+
+	public int MaxUploads { get; set; } = 5;
+	public int MaxDownloads { get; set; } = 10;
 
 	// TODO: In production we'll want to have at least one pre-configured
 	// index server here.

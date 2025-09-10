@@ -35,9 +35,78 @@ public class MainWindow : Window, IDisposable
 		if (plugin == null)
 			return;
 
-		ImGuiEx.Icon(plugin.Status.GetIcon());
-		ImGui.SameLine();
-		ImGui.Text(plugin.Status.GetMessage());
+		if (ImGui.BeginTable("StatusTable", 3))
+		{
+			ImGui.TableSetupColumn("Icon", ImGuiTableColumnFlags.WidthFixed, 20);
+			ImGui.TableSetupColumn("Text", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn("Button", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableNextRow();
+
+			ImGui.TableNextColumn();
+			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 5);
+			ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 6);
+			ImGuiEx.Icon(plugin.Status.GetIcon());
+			ImGui.TableNextColumn();
+			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 7);
+			ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 3);
+			ImGui.Text(plugin.Status.GetMessage());
+			ImGui.TableNextColumn();
+
+			if (plugin.Status == PluginStatus.Online)
+			{
+				ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
+				ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
+				ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(12, 6));
+				ImGui.PushStyleColor(ImGuiCol.Border, 0xFF000080);
+				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xFF000080);
+				if (ImGui.Button("Stop"))
+				{
+					plugin.Stop();
+				}
+				ImGui.PopStyleColor();
+				ImGui.PopStyleColor();
+				ImGui.PopStyleVar();
+				ImGui.PopStyleVar();
+				ImGui.PopStyleColor();
+			}
+			else if (plugin.Status == PluginStatus.Shutdown)
+			{
+				ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
+				ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
+				ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(12, 6));
+				ImGui.PushStyleColor(ImGuiCol.Border, 0xFF004000);
+				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xFF004000);
+				if (ImGui.Button("Start"))
+				{
+					plugin.Start();
+				}
+				ImGui.PopStyleColor();
+				ImGui.PopStyleColor();
+				ImGui.PopStyleVar();
+				ImGui.PopStyleVar();
+				ImGui.PopStyleColor();
+			}
+			else
+			{
+				ImGui.BeginDisabled();
+				ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
+				ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
+				ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(12, 6));
+				ImGui.PushStyleColor(ImGuiCol.Border, 0xFF808080);
+				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xFF808080);
+				ImGui.Button("Wait...");
+				ImGui.PopStyleColor();
+				ImGui.PopStyleColor();
+				ImGui.PopStyleVar();
+				ImGui.PopStyleVar();
+				ImGui.PopStyleColor();
+				ImGui.EndDisabled();
+			}
+
+
+
+			ImGui.EndTable();
+		}
 
 		ImGui.Spacing();
 

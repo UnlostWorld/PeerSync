@@ -1,6 +1,7 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,6 +47,12 @@ public class FileUpload : FileTransfer
 		}
 		else // Real
 		{
+			Stopwatch sw = new();
+			sw.Start();
+
+			Plugin.Log.Info($"1: {sw.ElapsedMilliseconds}");
+			sw.Restart();
+
 			FileInfo? fileInfo = sync.fileCache.GetFileInfo(hash);
 			if (fileInfo == null || !fileInfo.Exists)
 			{
@@ -54,7 +61,13 @@ public class FileUpload : FileTransfer
 				return;
 			}
 
+			Plugin.Log.Info($"2: {sw.ElapsedMilliseconds}");
+			sw.Restart();
+
 			this.Name = fileInfo.Name;
+
+			Plugin.Log.Info($"3: {sw.ElapsedMilliseconds}");
+			sw.Restart();
 
 			FileStream? stream = null;
 			int attempts = 5;
@@ -74,13 +87,17 @@ public class FileUpload : FileTransfer
 				}
 			}
 
+			Plugin.Log.Info($"4: {sw.ElapsedMilliseconds}");
+			sw.Restart();
+
 			if (stream == null)
 			{
 				Plugin.Log.Error(lastException, "Error reading file for upload");
 				return;
 			}
 
-			await Task.Delay(10, this.cancellationToken);
+			Plugin.Log.Info($"5: {sw.ElapsedMilliseconds}");
+			sw.Restart();
 
 			this.BytesSent = 0;
 			this.BytesToSend = stream.Length;
@@ -89,8 +106,14 @@ public class FileUpload : FileTransfer
 
 			stream.Position = 0;
 
+			Plugin.Log.Info($"6: {sw.ElapsedMilliseconds}");
+			sw.Restart();
+
 			do
 			{
+				Plugin.Log.Info($"7: {sw.ElapsedMilliseconds}");
+				sw.Restart();
+
 				long bytesLeft = this.BytesToSend - this.BytesSent;
 				int thisChunkSize = (int)Math.Min(PenumbraSync.FileChunkSize, bytesLeft);
 
@@ -105,8 +128,13 @@ public class FileUpload : FileTransfer
 			}
 			while (this.BytesSent < this.BytesToSend && !this.cancellationToken.IsCancellationRequested);
 
+			Plugin.Log.Info($"8: {sw.ElapsedMilliseconds}");
+			sw.Restart();
+
 			// Send the complete flag
 			this.Character.Send(Objects.FileData, [this.clientQueueIndex]);
+
+			Plugin.Log.Info($"9: {sw.ElapsedMilliseconds}");
 		}
 	}
 }

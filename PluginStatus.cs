@@ -41,7 +41,7 @@ public static class PluginStatusExtensions
 			case PluginStatus.Error_NoCharacter:
 			case PluginStatus.Error_Index: return FontAwesomeIcon.ExclamationTriangle;
 			case PluginStatus.Online: return FontAwesomeIcon.Wifi;
-			case PluginStatus.ShutdownRequested:
+			case PluginStatus.ShutdownRequested: return FontAwesomeIcon.Hourglass;
 			case PluginStatus.Shutdown: return FontAwesomeIcon.Bed;
 		}
 
@@ -62,8 +62,8 @@ public static class PluginStatusExtensions
 			case PluginStatus.Error_NoCharacter: return "Failed to get the current character";
 			case PluginStatus.Error_Index: return "Failed to communicate with Index servers";
 			case PluginStatus.Online: return "Online";
-			case PluginStatus.ShutdownRequested: return "Shutting down...";
-			case PluginStatus.Shutdown: return "Shut down";
+			case PluginStatus.ShutdownRequested: return "Stopping...";
+			case PluginStatus.Shutdown: return "Stopped";
 		}
 
 		return string.Empty;

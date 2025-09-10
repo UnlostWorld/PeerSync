@@ -1,13 +1,10 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Dalamud.Bindings.ImGui;
-using Dalamud.Interface;
 using PeerSync.Network;
 
 namespace PeerSync.SyncProviders.Penumbra;
@@ -37,7 +34,6 @@ public class FileDownload : FileTransfer
 	}
 
 	public override float Progress => (float)this.BytesReceived / (float)this.BytesToReceive;
-	public override FontAwesomeIcon Icon => FontAwesomeIcon.FileDownload;
 
 	public override void Dispose()
 	{
@@ -131,14 +127,9 @@ public class FileDownload : FileTransfer
 		{
 			Plugin.Log.Warning($"File failed to pass validation. Expected: {hash}, got {gotHash}");
 			file.Delete();
-		}
-
-		file = sync.fileCache.GetFile(hash);
-
-		if (!file.Exists)
-		{
 			this.BytesReceived = 0;
 			this.Retry();
+			return;
 		}
 	}
 

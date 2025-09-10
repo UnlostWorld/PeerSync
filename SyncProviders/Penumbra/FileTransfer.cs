@@ -23,15 +23,10 @@ public abstract class FileTransfer : IDisposable
 		this.hash = hash;
 		this.cancellationToken = token;
 		this.Character = character;
-
-		Task.Run(this.TransferSafe, this.cancellationToken);
 	}
 
 	public abstract float Progress { get; }
-	public abstract FontAwesomeIcon Icon { get; }
 	public string Name { get; protected set; } = string.Empty;
-	public bool IsWaiting { get; private set; }
-	public bool IsComplete { get; private set; }
 
 	protected abstract Task Transfer();
 
@@ -40,34 +35,13 @@ public abstract class FileTransfer : IDisposable
 		this.needsRetry = true;
 	}
 
-	private async Task TransferSafe()
+	public async Task TransferSafe()
 	{
 		try
 		{
 			do
 			{
 				this.needsRetry = false;
-				this.IsComplete = false;
-				this.sync.transfers.Add(this);
-
-				this.IsWaiting = true;
-				while (this.IsWaiting
-					&& !this.cancellationToken.IsCancellationRequested)
-				{
-					lock (PenumbraSync.QueueLock)
-					{
-						this.IsWaiting = PenumbraSync.ActiveTransfers >= Configuration.Current.MaxTransfers;
-					}
-
-					await Task.Delay(250, this.cancellationToken);
-				}
-
-				this.IsWaiting = false;
-
-				lock (PenumbraSync.QueueLock)
-				{
-					PenumbraSync.ActiveTransfers++;
-				}
 
 				await this.Transfer();
 
@@ -87,20 +61,8 @@ public abstract class FileTransfer : IDisposable
 		}
 		finally
 		{
-			if (!this.sync.transfers.TryRemove(this))
-			{
-				Plugin.Log.Error("Error removing transfer from queue");
-			}
-
-			lock (PenumbraSync.QueueLock)
-			{
-				PenumbraSync.ActiveTransfers--;
-			}
-
 			this.Dispose();
 			GC.Collect();
-
-			this.IsComplete = true;
 		}
 	}
 

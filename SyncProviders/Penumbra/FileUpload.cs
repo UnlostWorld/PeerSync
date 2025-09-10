@@ -4,7 +4,6 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Dalamud.Interface;
 
 namespace PeerSync.SyncProviders.Penumbra;
 
@@ -22,7 +21,6 @@ public class FileUpload : FileTransfer
 	}
 
 	public override float Progress => (float)this.BytesSent / (float)this.BytesToSend;
-	public override FontAwesomeIcon Icon => FontAwesomeIcon.FileUpload;
 
 	protected override async Task Transfer()
 	{

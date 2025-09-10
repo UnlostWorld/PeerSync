@@ -159,12 +159,15 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		List<SyncProgressBase> progresses = new();
 
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			SyncProgressBase? progress = sync.GetProgress(character);
-			if (progress != null)
+			foreach (SyncProviderBase sync in this.SyncProviders)
 			{
-				progresses.Add(progress);
+				SyncProgressBase? progress = sync.GetProgress(character);
+				if (progress != null)
+				{
+					progresses.Add(progress);
+				}
 			}
 		}
 
@@ -191,12 +194,16 @@ public sealed class Plugin : IDalamudPlugin
 
 		this.checkedCharacters.Clear();
 
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			sync.Dispose();
+			foreach (SyncProviderBase sync in this.SyncProviders)
+			{
+				sync.Dispose();
+			}
+
+			this.SyncProviders.Clear();
 		}
 
-		this.SyncProviders.Clear();
 		this.providerLookup.Clear();
 
 		if (this.network != null)
@@ -215,11 +222,14 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		this.tokenSource = new();
 
-		this.SyncProviders.Add(new CustomizePlusSync());
-		this.SyncProviders.Add(new MoodlesSync());
-		this.SyncProviders.Add(new HonorificSync());
-		this.SyncProviders.Add(new GlamourerSync());
-		this.SyncProviders.Add(new PenumbraSync());
+		lock (this.SyncProviders)
+		{
+			this.SyncProviders.Add(new CustomizePlusSync());
+			this.SyncProviders.Add(new MoodlesSync());
+			this.SyncProviders.Add(new HonorificSync());
+			this.SyncProviders.Add(new GlamourerSync());
+			this.SyncProviders.Add(new PenumbraSync());
+		}
 
 		Task.Run(this.InitializeAsync, this.tokenSource.Token);
 
@@ -562,9 +572,12 @@ public sealed class Plugin : IDalamudPlugin
 		if (connectedCount > 0)
 			dtrEntryBuilder.AddText($"{connectedCount}");
 
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			sync.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
+			foreach (SyncProviderBase sync in this.SyncProviders)
+			{
+				sync.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
+			}
 		}
 
 		this.dtrBarEntry.Text = dtrEntryBuilder.ToString();
@@ -573,17 +586,23 @@ public sealed class Plugin : IDalamudPlugin
 
 	private void OnCharacterConnected(CharacterSync character)
 	{
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			sync.OnCharacterConnected(character);
+			foreach (SyncProviderBase sync in this.SyncProviders)
+			{
+				sync.OnCharacterConnected(character);
+			}
 		}
 	}
 
 	private void OnCharacterDisconnected(CharacterSync character)
 	{
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		lock (this.SyncProviders)
 		{
-			sync.OnCharacterDisconnected(character);
+			foreach (SyncProviderBase sync in this.SyncProviders)
+			{
+				sync.OnCharacterDisconnected(character);
+			}
 		}
 	}
 
@@ -604,8 +623,11 @@ public sealed class Plugin : IDalamudPlugin
 
 		LocalCharacterData.Identifier = this.LocalCharacter.GetIdentifier();
 
-		foreach (SyncProviderBase sync in this.SyncProviders)
+		foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
 		{
+			if (this.tokenSource.IsCancellationRequested)
+				return;
+
 			try
 			{
 				string? content = await sync.Serialize(player.ObjectIndex);

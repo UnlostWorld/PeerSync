@@ -32,7 +32,6 @@ public partial class Configuration : IPluginConfiguration
 	public ushort Port { get; set; } = 0;
 	public string? CacheDirectory { get; set; }
 
-	public int MaxTransfers { get; set; } = 10;
 	public int MaxUploads { get; set; } = 5;
 	public int MaxDownloads { get; set; } = 10;
 

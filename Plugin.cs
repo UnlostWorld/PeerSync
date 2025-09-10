@@ -98,6 +98,7 @@ public sealed class Plugin : IDalamudPlugin
 		this.dtrBarEntry = DtrBar.Get("Peer Sync");
 		this.dtrBarEntry.Text = SeStringUtils.ToSeString("\uE0BC");
 		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync - {this.Status.GetMessage()}");
+		this.dtrBarEntry.OnClick = this.OnDtrClicked;
 
 		this.Start();
 	}
@@ -241,6 +242,11 @@ public sealed class Plugin : IDalamudPlugin
 	}
 
 	private void OnDalamudOpenMainUi()
+	{
+		MainWindow.Toggle();
+	}
+
+	private void OnDtrClicked(DtrInteractionEvent @evt)
 	{
 		MainWindow.Toggle();
 	}

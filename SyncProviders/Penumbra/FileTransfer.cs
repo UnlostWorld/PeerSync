@@ -62,7 +62,6 @@ public abstract class FileTransfer : IDisposable
 		finally
 		{
 			this.Dispose();
-			GC.Collect();
 		}
 	}
 

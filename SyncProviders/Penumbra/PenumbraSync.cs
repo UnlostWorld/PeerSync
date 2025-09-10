@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using ConcurrentCollections;
@@ -21,9 +20,11 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	public const int FileTimeout = 240_000;
 	public const int FileChunkSize = 1024 * 128; // 128kb chunks
 
+	public static object QueueLock = new();
+	public static int ActiveTransfers = 0;
+
 	public readonly FileCache fileCache = new();
-	public readonly ConcurrentHashSet<FileDownload> downloads = new();
-	public readonly ConcurrentHashSet<FileUpload> uploads = new();
+	public readonly ConcurrentHashSet<FileTransfer> transfers = new();
 	public byte lastQueueIndex = 0;
 
 	private readonly Penumbra penumbra = new();
@@ -56,8 +57,8 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	{
 		base.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
 
-		int downloads = this.GetActiveDownloadCount();
-		int uploads = this.GetActiveUploadCount();
+		int downloads = this.GetActiveTransfers<FileDownload>();
+		int uploads = this.GetActiveTransfers<FileUpload>();
 
 		if (downloads > 0)
 		{
@@ -117,7 +118,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		if (!this.hasSeenBefore.Contains(objectIndex))
 		{
 			this.penumbra.RedrawObject.Invoke(objectIndex);
-			await Task.Delay(1000);
+			await Task.Delay(1000, this.CancellationToken);
 			await Plugin.Framework.RunOnUpdate();
 			this.hasSeenBefore.Add(objectIndex);
 		}
@@ -155,7 +156,6 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		}
 
 		await Plugin.Framework.RunOnUpdate();
-
 
 		// get meta manipulations
 		data.MetaManipulations = this.penumbra.GetMetaManipulations.Invoke(objectIndex);
@@ -216,7 +216,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				data.FileSizes.TryGetValue(hash, out expectedSize);
 
 				string name = Path.GetFileName(gamePath);
-				new FileDownload(this, name, hash, expectedSize, character);
+				new FileDownload(this, name, hash, expectedSize, character, this.CancellationToken);
 			}
 			else
 			{
@@ -229,16 +229,18 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		while (!done)
 		{
 			done = true;
-			foreach (FileDownload download in this.downloads)
+			foreach (FileTransfer transfer in this.transfers)
 			{
-				if (download.Character == character && !download.IsComplete)
+				if (transfer.Character == character
+					&& transfer is FileDownload
+					&& !transfer.IsComplete)
 				{
 					done = false;
 					break;
 				}
 			}
 
-			await Task.Delay(100);
+			await Task.Delay(100, this.CancellationToken);
 		}
 
 		// Don't actually apply to test pairs.
@@ -247,6 +249,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			this.SetStatus(character, SyncProgressStatus.Applied);
 			return;
 		}
+
+		if (this.CancellationToken.IsCancellationRequested)
+			return;
 
 		Dictionary<string, string> paths = new();
 		foreach ((string gamePath, string hash) in data.Files)
@@ -314,26 +319,16 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		}
 	}
 
-	public int GetActiveDownloadCount()
+	public int GetActiveTransfers<T>()
+		where T : FileTransfer
 	{
 		int count = 0;
-		foreach (FileDownload download in this.downloads)
+		foreach (FileTransfer transfer in this.transfers)
 		{
-			if (download.IsWaiting)
+			if (transfer.IsWaiting)
 				continue;
 
-			count++;
-		}
-
-		return count;
-	}
-
-	public int GetActiveUploadCount()
-	{
-		int count = 0;
-		foreach (FileUpload upload in this.uploads)
-		{
-			if (upload.IsWaiting)
+			if (transfer is not T)
 				continue;
 
 			count++;
@@ -346,39 +341,59 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	{
 		base.DrawStatus();
 
-		if (ImGui.CollapsingHeader($"Downloads ({this.GetActiveDownloadCount()} / {this.downloads.Count})###downloadsSection"))
-		{
-			ImGui.SetNextItemWidth(50);
+		string transferStatus = string.Empty;
+		if (this.transfers.Count > 0)
+			transferStatus = $" (↓{this.GetActiveTransfers<FileDownload>()} ↑{this.GetActiveTransfers<FileUpload>()} / {this.transfers.Count})";
 
-			int maxDownloads = Configuration.Current.MaxConcurrentDownloads;
-			if (ImGui.InputInt("Simultaneous Downloads", ref maxDownloads))
+		if (ImGui.CollapsingHeader($"Transfers{transferStatus}###transfersSection"))
+		{
+			int maxDownloads = Configuration.Current.MaxDownloads;
+			if (ImGui.InputInt("Limit Downloads###Downloads", ref maxDownloads))
 			{
-				Configuration.Current.MaxConcurrentDownloads = maxDownloads;
+				Configuration.Current.MaxDownloads = maxDownloads;
 				Configuration.Current.Save();
 			}
 
-			if (ImGui.BeginTable("DownloadProgressTable", 3))
+			int maxUploads = Configuration.Current.MaxUploads;
+			if (ImGui.InputInt("Limit Uploads###Uploads", ref maxUploads))
 			{
-				ImGui.TableSetupColumn("###DownloadProgressTableName", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("###DownloadProgressTableProgress", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("###DownloadProgressTableHover", ImGuiTableColumnFlags.WidthFixed);
+				Configuration.Current.MaxUploads = maxUploads;
+				Configuration.Current.Save();
+			}
+
+			int maxTransfers = Configuration.Current.MaxTransfers;
+			if (ImGui.InputInt("Limit Total###Total", ref maxTransfers))
+			{
+				Configuration.Current.MaxTransfers = maxTransfers;
+				Configuration.Current.Save();
+			}
+
+			if (ImGui.BeginTable("TransferProgressTable", 4))
+			{
+				ImGui.TableSetupColumn("###TransferProgressTableDirection", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("###TransferProgressTableName", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("###TransferProgressTableProgress", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("###TransferProgressTableHover", ImGuiTableColumnFlags.WidthFixed);
 
 				int downloadIndex = 0;
-				foreach (FileDownload download in this.downloads)
+				foreach (FileTransfer transfer in this.transfers)
 				{
 					downloadIndex++;
 
 					ImGui.TableNextColumn();
-					ImGui.Text(download.Name);
+					ImGuiEx.Icon(transfer.Icon);
+
+					ImGui.TableNextColumn();
+					ImGui.Text(transfer.Name);
 
 					ImGui.TableNextColumn();
 
-					if (!download.IsWaiting)
-						ImGuiEx.ThinProgressBar(download.Progress);
+					if (!transfer.IsWaiting)
+						ImGuiEx.ThinProgressBar(transfer.Progress);
 
 					ImGui.TableNextColumn();
 					ImGui.Selectable(
-						$"##DownloadProgressRowSelector{downloadIndex}",
+						$"##TransferProgressRowSelector{downloadIndex}",
 						false,
 						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
 
@@ -386,64 +401,10 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 					{
 						ImGui.BeginTooltip();
 
-						ImGui.Text(download.Name);
+						ImGui.Text(transfer.Name);
 
-						ImGui.Text($"{(download.Progress * 100).ToString("F0")}% ({download.BytesReceived / 1024} kb / {download.BytesToReceive / 1024} kb)");
-						ImGui.Text($"{download.Character.Pair.CharacterName} @ {download.Character.Pair.World}");
-
-						ImGui.EndTooltip();
-					}
-
-					ImGui.TableNextRow();
-				}
-
-				ImGui.EndTable();
-			}
-		}
-
-		if (ImGui.CollapsingHeader($"Uploads ({this.GetActiveUploadCount()} / {this.uploads.Count})###uploadsSection"))
-		{
-			ImGui.SetNextItemWidth(50);
-			int maxUploads = Configuration.Current.MaxConcurrentUploads;
-			if (ImGui.InputInt("Simultaneous Uploads", ref maxUploads))
-			{
-				Configuration.Current.MaxConcurrentUploads = maxUploads;
-				Configuration.Current.Save();
-			}
-
-			if (ImGui.BeginTable("UploadProgressTable", 3))
-			{
-				ImGui.TableSetupColumn("###UploadProgressTableName", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("###UploadProgressTableProgress", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("###UploadProgressTableHover", ImGuiTableColumnFlags.WidthFixed);
-
-				int uploadIndex = 0;
-				foreach (FileUpload upload in this.uploads)
-				{
-					uploadIndex++;
-
-					ImGui.TableNextColumn();
-					ImGui.Text(upload.Name);
-
-					ImGui.TableNextColumn();
-
-					if (!upload.IsWaiting)
-						ImGuiEx.ThinProgressBar(upload.Progress);
-
-					ImGui.TableNextColumn();
-					ImGui.Selectable(
-						$"##UploadProgressRowSelector{uploadIndex}",
-						false,
-						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
-
-					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-					{
-						ImGui.BeginTooltip();
-
-						ImGui.Text(upload.Name);
-
-						ImGui.Text($"{(upload.Progress * 100).ToString("F0")}% ({upload.BytesSent / 1024} kb / {upload.BytesToSend / 1024} kb)");
-						ImGui.Text($"{upload.Character.Pair.CharacterName} @ {upload.Character.Pair.World}");
+						ImGui.Text($"{(transfer.Progress * 100).ToString("F0")}%");
+						ImGui.Text($"{transfer.Character.Pair.CharacterName} @ {transfer.Character.Pair.World}");
 
 						ImGui.EndTooltip();
 					}
@@ -467,7 +428,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			return;
 		}
 
-		new FileUpload(this, clientQueueIndex, hash, character);
+		new FileUpload(this, clientQueueIndex, hash, character, this.CancellationToken);
 	}
 
 	public override void Dispose()
@@ -491,18 +452,11 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		this.resourceMonitor.Dispose();
 
-		foreach (FileDownload download in this.downloads)
+		foreach (FileTransfer transfer in this.transfers)
 		{
-			download.Dispose();
+			transfer.Dispose();
 		}
 
-		this.downloads.Clear();
-
-		foreach (FileUpload upload in this.uploads)
-		{
-			upload.Dispose();
-		}
-
-		this.uploads.Clear();
+		this.transfers.Clear();
 	}
 }

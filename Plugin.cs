@@ -310,10 +310,10 @@ public sealed class Plugin : IDalamudPlugin
 			if (shuttingDown)
 				return;
 
-			if (Configuration.Current.IndexServers.Count <= 0)
+			while (Configuration.Current.IndexServers.Count <= 0)
 			{
 				this.Status = PluginStatus.Error_NoIndexServer;
-				return;
+				await Task.Delay(5000);
 			}
 
 			// Open port

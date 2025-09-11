@@ -6,7 +6,7 @@ namespace PeerSync;
 
 public class CharacterData()
 {
-	public string? Identifier { get; set; }
+	public string? Fingerprint { get; set; }
 	public Dictionary<string, string?> Syncs { get; init; } = new();
 	public Dictionary<string, string?> MountOrMinionSyncs { get; init; } = new();
 }

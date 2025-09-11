@@ -134,11 +134,11 @@ public sealed class Plugin : IDalamudPlugin
 		return null;
 	}
 
-	public CharacterSync? GetCharacterSync(string identifier)
+	public CharacterSync? GetCharacterSync(string fingerprint)
 	{
 		foreach (CharacterSync sync in this.checkedCharacters.Values)
 		{
-			if (sync.Pair.GetIdentifier() == identifier)
+			if (sync.Pair.GetFingerprint() == fingerprint)
 			{
 				return sync;
 			}
@@ -457,7 +457,7 @@ public sealed class Plugin : IDalamudPlugin
 				try
 				{
 					SyncHeartbeat heartbeat = new();
-					heartbeat.Identifier = this.LocalCharacter.GetIdentifier();
+					heartbeat.Fingerprint = this.LocalCharacter.GetFingerprint();
 					heartbeat.Port = port;
 					heartbeat.LocalAddress = localIp?.ToString();
 
@@ -510,12 +510,12 @@ public sealed class Plugin : IDalamudPlugin
 		dtrTooltipBuilder.AddText($"Peer Sync - {this.Status.GetMessage()}");
 
 		int connectedCount = 0;
-		foreach ((string identifier, CharacterSync character) in this.checkedCharacters)
+		foreach ((string fingerprint, CharacterSync character) in this.checkedCharacters)
 		{
 			bool isValid = character.Update();
 			if (!isValid)
 			{
-				toRemove.Add(identifier);
+				toRemove.Add(fingerprint);
 				character.Connected -= this.OnCharacterConnected;
 				character.Disconnected -= this.OnCharacterDisconnected;
 				character.Dispose();
@@ -530,9 +530,9 @@ public sealed class Plugin : IDalamudPlugin
 			}
 		}
 
-		foreach (string identifier in toRemove)
+		foreach (string fingerprint in toRemove)
 		{
-			this.checkedCharacters.Remove(identifier);
+			this.checkedCharacters.Remove(fingerprint);
 		}
 
 		// Find new characters
@@ -621,7 +621,7 @@ public sealed class Plugin : IDalamudPlugin
 			return;
 
 		IGameObject? mountOrMinion = Plugin.ObjectTable[player.ObjectIndex + 1];
-		LocalCharacterData.Identifier = this.LocalCharacter.GetIdentifier();
+		LocalCharacterData.Fingerprint = this.LocalCharacter.GetFingerprint();
 
 		foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
 		{
@@ -676,14 +676,14 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		if (typeId == Objects.IAm)
 		{
-			string identifier = Encoding.UTF8.GetString(data);
+			string fingerprint = Encoding.UTF8.GetString(data);
 
-			Plugin.Log.Information($"Received IAm: {identifier}");
+			Plugin.Log.Information($"Received IAm: {fingerprint}");
 
-			CharacterSync? sync = this.GetCharacterSync(identifier);
+			CharacterSync? sync = this.GetCharacterSync(fingerprint);
 			if (sync == null)
 			{
-				Plugin.Log.Warning($"Invalid I am identifier: {identifier}");
+				Plugin.Log.Warning($"Invalid I am fingerprint: {fingerprint}");
 				return;
 			}
 

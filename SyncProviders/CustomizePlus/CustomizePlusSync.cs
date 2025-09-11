@@ -35,10 +35,10 @@ public class CustomizePlusSync : SyncProviderBase
 
 		if (content == null)
 		{
-			if (this.appliedProfiles.TryGetValue(character.Pair.GetIdentifier(), out Guid guid))
+			if (this.appliedProfiles.TryGetValue(character.Pair.GetFingerprint(), out Guid guid))
 			{
 				this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
-				this.appliedProfiles.Remove(character.Pair.GetIdentifier());
+				this.appliedProfiles.Remove(character.Pair.GetFingerprint());
 			}
 
 			this.SetStatus(character, SyncProgressStatus.Empty);
@@ -49,7 +49,7 @@ public class CustomizePlusSync : SyncProviderBase
 			if (guid == null)
 				return;
 
-			this.appliedProfiles[character.Pair.GetIdentifier()] = guid.Value;
+			this.appliedProfiles[character.Pair.GetFingerprint()] = guid.Value;
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}

@@ -7,7 +7,7 @@ using System.Text.Json;
 
 public class SyncHeartbeat
 {
-	public string? Identifier { get; set; }
+	public string? Fingerprint { get; set; }
 	public ushort Port { get; set; }
 	public string? LocalAddress { get; set; }
 

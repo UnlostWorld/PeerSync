@@ -7,7 +7,7 @@ using System.Text.Json;
 
 public class SyncStatus
 {
-	public string? Identifier { get; set; }
+	public string? Fingerprint { get; set; }
 	public string? Address { get; set; }
 	public string? LocalAddress { get; set; }
 	public ushort Port { get; set; }

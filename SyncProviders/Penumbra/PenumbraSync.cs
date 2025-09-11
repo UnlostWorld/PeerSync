@@ -200,7 +200,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		{
 			await Plugin.Framework.RunOnUpdate();
 
-			if (this.appliedCollections.TryGetValue(character.Pair.GetIdentifier(), out Guid existingCollectionId))
+			if (this.appliedCollections.TryGetValue(character.Pair.GetFingerprint(), out Guid existingCollectionId))
 			{
 				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
 			}
@@ -286,18 +286,18 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		await Plugin.Framework.RunOnUpdate();
 
 		Guid collectionId;
-		if (!this.appliedCollections.ContainsKey(character.Pair.GetIdentifier()))
+		if (!this.appliedCollections.ContainsKey(character.Pair.GetFingerprint()))
 		{
 			this.penumbra.CreateTemporaryCollection.Invoke(
 				"PeerSync",
-				character.Pair.GetIdentifier(),
+				character.Pair.GetFingerprint(),
 				out collectionId).ThrowOnFailure();
 
-			this.appliedCollections.Add(character.Pair.GetIdentifier(), collectionId);
+			this.appliedCollections.Add(character.Pair.GetFingerprint(), collectionId);
 		}
 		else
 		{
-			collectionId = this.appliedCollections[character.Pair.GetIdentifier()];
+			collectionId = this.appliedCollections[character.Pair.GetFingerprint()];
 		}
 
 		try
@@ -374,7 +374,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		this.fileCache.Dispose();
 
-		foreach ((string identifier, Guid guid) in this.appliedCollections)
+		foreach ((string fingerprint, Guid guid) in this.appliedCollections)
 		{
 			try
 			{

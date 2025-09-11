@@ -65,15 +65,15 @@ public partial class Configuration : IPluginConfiguration
 
 		public bool IsTestPair => this.World == "Earth";
 
-		private string? identifier;
+		private string? fingerprint;
 
-		public string GetIdentifier()
+		public string GetFingerprint()
 		{
-			if (string.IsNullOrEmpty(this.identifier))
+			if (string.IsNullOrEmpty(this.fingerprint))
 			{
 				const int iterations = 1000;
 
-				// The Identifier is sent to the index servers, and it contains the character name and world, so
+				// The Fingerprint is sent to the index servers, and it contains the character name and world, so
 				// ensure its cryptographically secure in case of bad actors controlling servers.
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 
@@ -90,21 +90,21 @@ public partial class Configuration : IPluginConfiguration
 					input = input.Replace("-", string.Empty, StringComparison.Ordinal);
 				}
 
-				this.identifier = input;
+				this.fingerprint = input;
 			}
 
-			return this.identifier;
+			return this.fingerprint;
 		}
 
-		public void ClearIdentifier()
+		public void ClearFingerprint()
 		{
-			this.identifier = null;
+			this.fingerprint = null;
 		}
 
 		public int CompareTo(Pair other)
 		{
-			string a = this.GetIdentifier();
-			string b = other.GetIdentifier();
+			string a = this.GetFingerprint();
+			string b = other.GetFingerprint();
 
 			return a.CompareTo(b);
 		}
@@ -112,9 +112,9 @@ public partial class Configuration : IPluginConfiguration
 		public override string ToString()
 		{
 #if DEBUG
-			return $"{this.CharacterName} @ {this.World} -> {this.GetIdentifier()}";
+			return $"{this.CharacterName} @ {this.World} -> {this.GetFingerprint()}";
 #else
-			return this.GetIdentifier();
+			return this.GetFingerprint();
 #endif
 
 		}

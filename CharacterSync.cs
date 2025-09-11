@@ -74,11 +74,11 @@ public class CharacterSync : IDisposable
 
 	public void SendIAm()
 	{
-		string? identifier = Plugin.Instance?.LocalCharacter?.GetIdentifier();
-		if (identifier == null)
+		string? fingerprint = Plugin.Instance?.LocalCharacter?.GetFingerprint();
+		if (fingerprint == null)
 			return;
 
-		byte[] data = Encoding.UTF8.GetBytes(identifier);
+		byte[] data = Encoding.UTF8.GetBytes(fingerprint);
 		this.Send(Objects.IAm, data);
 	}
 
@@ -140,8 +140,8 @@ public class CharacterSync : IDisposable
 	{
 		if (typeId == Objects.IAm)
 		{
-			string identifier = Encoding.UTF8.GetString(data);
-			this.OnIAm(connection, identifier);
+			string fingerprint = Encoding.UTF8.GetString(data);
+			this.OnIAm(connection, fingerprint);
 		}
 		else if (typeId == Objects.CharacterData)
 		{
@@ -231,7 +231,7 @@ public class CharacterSync : IDisposable
 			// We're the client.
 			this.CurrentStatus = Status.Searching;
 			SyncStatus request = new();
-			request.Identifier = this.Pair.GetIdentifier();
+			request.Fingerprint = this.Pair.GetFingerprint();
 
 			SyncStatus? response = null;
 			foreach (string indexServer in Configuration.Current.IndexServers)
@@ -347,10 +347,10 @@ public class CharacterSync : IDisposable
 		this.Reconnect();
 	}
 
-	private void OnIAm(Connection connection, string identifier)
+	private void OnIAm(Connection connection, string fingerprint)
 	{
 		// Sanity check
-		if (connection != this.connection || identifier != this.Pair.GetIdentifier())
+		if (connection != this.connection || fingerprint != this.Pair.GetFingerprint())
 			return;
 
 		if (this.CurrentStatus == Status.Handshake)

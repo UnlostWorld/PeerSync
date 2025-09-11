@@ -239,10 +239,10 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		}
 
 		// Wait for all downloads from the target character to complete...
-		bool done = false;
-		while (!done)
+		bool pending = true;
+		while (pending)
 		{
-			done = this.downloadGroup.IsCharacterPending(character);
+			pending = this.downloadGroup.IsCharacterPending(character);
 			await Task.Delay(100, this.CancellationToken);
 		}
 

@@ -207,7 +207,7 @@ public class CharacterSync : IDisposable
 			// We're the client.
 			this.CurrentStatus = Status.Searching;
 			SyncStatus request = new();
-			request.Fingerprint = this.Peer.GetFingerprint();
+			request.Identifier = this.Peer.GetFingerprint();
 
 			SyncStatus? response = null;
 			foreach (string indexServer in Configuration.Current.IndexServers)
@@ -218,7 +218,7 @@ public class CharacterSync : IDisposable
 				}
 				catch (Exception ex)
 				{
-					Plugin.Log.Warning(ex, $"Error requesting peer from index server: {indexServer}");
+					Plugin.Log.Error(ex, $"Error requesting peer from index server: {indexServer}");
 				}
 
 				if (this.tokenSource.IsCancellationRequested)

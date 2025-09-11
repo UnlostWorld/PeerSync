@@ -10,10 +10,11 @@ namespace PeerSync.Online;
 
 using System.Threading.Tasks;
 using System.Text.Json;
+using System;
 
 public class SyncStatus
 {
-	public string? Fingerprint { get; set; }
+	public string? Identifier { get; set; }
 	public string? Address { get; set; }
 	public string? LocalAddress { get; set; }
 	public ushort Port { get; set; }
@@ -22,6 +23,14 @@ public class SyncStatus
 	{
 		string json = JsonSerializer.Serialize(this);
 		string str = await ServerApi.PostAsync($"{indexServer}/Status", json, "application/json");
-		return JsonSerializer.Deserialize<SyncStatus>(str);
+
+		try
+		{
+			return JsonSerializer.Deserialize<SyncStatus>(str);
+		}
+		catch (Exception ex)
+		{
+			throw new Exception($"Error deserializing peer status: {str}", ex);
+		}
 	}
 }

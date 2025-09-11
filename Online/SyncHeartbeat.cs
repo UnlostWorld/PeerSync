@@ -13,7 +13,7 @@ using System.Text.Json;
 
 public class SyncHeartbeat
 {
-	public string? Fingerprint { get; set; }
+	public string? Identifier { get; set; }
 	public ushort Port { get; set; }
 	public string? LocalAddress { get; set; }
 

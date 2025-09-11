@@ -437,7 +437,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				try
 				{
 					SyncHeartbeat heartbeat = new();
-					heartbeat.Fingerprint = this.LocalCharacter.GetFingerprint();
+					heartbeat.Identifier = this.LocalCharacter.GetFingerprint();
 					heartbeat.Port = port;
 					heartbeat.LocalAddress = localIp?.ToString();
 

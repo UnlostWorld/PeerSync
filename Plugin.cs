@@ -37,6 +37,7 @@ using Dalamud.Game.Command;
 using Dalamud.Game.Gui.Dtr;
 using PeerSync.SyncProviders;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using Dalamud.Game.ClientState.Conditions;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
@@ -97,6 +98,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	[PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
 	[PluginService] public static IContextMenu ContextMenu { get; private set; } = null!;
 	[PluginService] public static IDtrBar DtrBar { get; private set; } = null!;
+	[PluginService] public static ICondition Condition { get; private set; } = null!;
 
 	public static Plugin? Instance { get; private set; } = null;
 	public MainWindow MainWindow { get; init; }
@@ -595,6 +597,14 @@ public sealed partial class Plugin : IDalamudPlugin
 		await Plugin.Framework.RunOnUpdate();
 		if (this.tokenSource.IsCancellationRequested)
 			return;
+
+		// Do not sync character if we are in combat is loading
+		if (Plugin.Condition[ConditionFlag.InCombat]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
+		{
+			return;
+		}
 
 		IPlayerCharacter? player = ClientState.LocalPlayer;
 		if (this.LocalCharacter == null || player == null)

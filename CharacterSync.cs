@@ -14,6 +14,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
@@ -190,6 +191,13 @@ public class CharacterSync : IDisposable
 	{
 		// Sanity check
 		if (connection != this.connection)
+			return;
+
+		// Do not sync characters if the local player is in combat
+		// or is loading areas.
+		if (Plugin.Condition[ConditionFlag.InCombat]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
 			return;
 
 		if (this.isApplyingData)

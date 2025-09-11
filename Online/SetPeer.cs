@@ -11,15 +11,24 @@ namespace PeerSync.Online;
 using System.Threading.Tasks;
 using System.Text.Json;
 
-public class SyncHeartbeat
+public class SetPeer
 {
-	public string? Identifier { get; set; }
+	public string? Fingerprint { get; set; }
 	public ushort Port { get; set; }
 	public string? LocalAddress { get; set; }
 
-	public Task Send(string indexServer)
+	public async Task<int> Send(string indexServer)
 	{
 		string json = JsonSerializer.Serialize(this);
-		return ServerApi.PostAsync($"{indexServer}/Heartbeat", json, "application/json");
+		string msg = await ServerApi.PostAsync($"{indexServer}/Peer/Set", json, "application/json");
+
+		try
+		{
+			return int.Parse(msg);
+		}
+		catch
+		{
+			return 0;
+		}
 	}
 }

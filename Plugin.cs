@@ -42,7 +42,7 @@ using Dalamud.Game.ClientState.Conditions;
 public sealed partial class Plugin : IDalamudPlugin
 {
 	public readonly List<SyncProviderBase> SyncProviders = new();
-	public readonly Dictionary<string, IndexServerStatus> IndexServersStatus = new();
+	public readonly Dictionary<string, int> IndexServersStatus = new();
 
 	public CharacterData? LocalCharacterData;
 	public Configuration.Character? LocalCharacter;
@@ -439,22 +439,23 @@ public sealed partial class Plugin : IDalamudPlugin
 			{
 				try
 				{
-					SyncHeartbeat heartbeat = new();
-					heartbeat.Identifier = this.LocalCharacter.GetFingerprint();
-					heartbeat.Port = port;
-					heartbeat.LocalAddress = localIp?.ToString();
+					SetPeer setPeerRequest = new();
+					setPeerRequest.Fingerprint = this.LocalCharacter.GetFingerprint();
+					setPeerRequest.Port = port;
+					setPeerRequest.LocalAddress = localIp?.ToString();
 
 					foreach (string indexServer in Configuration.Current.IndexServers.ToArray())
 					{
 						try
 						{
-							await heartbeat.Send(indexServer);
-							this.IndexServersStatus[indexServer] = IndexServerStatus.Online;
+							this.IndexServersStatus[indexServer] = await setPeerRequest.Send(indexServer);
 						}
 						catch (Exception ex)
 						{
-							this.IndexServersStatus[indexServer] = IndexServerStatus.Offline;
+							this.IndexServersStatus[indexServer] = 0;
 							Plugin.Log.Warning(ex, $"Failed to connect to index server: {indexServer}");
+							await Task.Delay(20000, this.tokenSource.Token);
+							continue;
 						}
 					}
 

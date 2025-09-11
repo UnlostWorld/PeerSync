@@ -215,10 +215,10 @@ public class CharacterSync : IDisposable
 
 			// We're the client.
 			this.CurrentStatus = Status.Searching;
-			SyncStatus request = new();
-			request.Identifier = this.Peer.GetFingerprint();
+			GetPeer request = new();
+			request.Fingerprint = this.Peer.GetFingerprint();
 
-			SyncStatus? response = null;
+			GetPeer? response = null;
 			foreach (string indexServer in Configuration.Current.IndexServers)
 			{
 				try

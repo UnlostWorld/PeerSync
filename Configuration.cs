@@ -41,8 +41,6 @@ public partial class Configuration : IPluginConfiguration
 	public int MaxUploads { get; set; } = 5;
 	public int MaxDownloads { get; set; } = 10;
 
-	// TODO: In production we'll want to have at least one pre-configured
-	// index server here.
 	public List<string> IndexServers { get; init; } = new();
 
 	public void Save()

@@ -45,6 +45,14 @@ public static class ServerApi
 
 		using HttpResponseMessage response = await Client.SendAsync(requestMessage);
 
-		return await response.Content.ReadAsStringAsync();
+		try
+		{
+			response.EnsureSuccessStatusCode();
+			return await response.Content.ReadAsStringAsync();
+		}
+		catch (Exception ex)
+		{
+			throw new Exception($"Error posting message to {uri}\n{data}", ex);
+		}
 	}
 }

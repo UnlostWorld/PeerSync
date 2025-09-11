@@ -373,14 +373,24 @@ public class CharacterSync : IDisposable
 
 		this.isApplyingData = true;
 
-		await this.ApplySyncData(characterData.Syncs, this.objectIndex);
-		await this.ApplySyncData(characterData.MountOrMinionSyncs, (ushort)(this.objectIndex + 1));
+		await this.ApplySyncData(
+			characterData.Syncs,
+			this.lastData?.Syncs,
+			this.objectIndex);
+
+		await this.ApplySyncData(
+			characterData.MountOrMinionSyncs,
+			this.lastData?.MountOrMinionSyncs,
+			(ushort)(this.objectIndex + 1));
 
 		this.isApplyingData = false;
 		this.lastData = characterData;
 	}
 
-	private async Task ApplySyncData(Dictionary<string, string?> sync, ushort objectIndex)
+	private async Task ApplySyncData(
+		Dictionary<string, string?> sync,
+		Dictionary<string, string?>? lastSync,
+		ushort objectIndex)
 	{
 		foreach ((string key, string? content) in sync)
 		{
@@ -397,7 +407,8 @@ public class CharacterSync : IDisposable
 					continue;
 
 				string? lastContent = null;
-				this.lastData?.Syncs.TryGetValue(key, out lastContent);
+				lastSync?.TryGetValue(key, out lastContent);
+
 				await provider.Deserialize(lastContent, content, this, objectIndex);
 			}
 			catch (Exception ex)

@@ -384,6 +384,7 @@ public class CharacterSync : IDisposable
 			this.lastData?.MountOrMinion,
 			(ushort)(this.objectIndex + 1));
 
+		await Plugin.Framework.RunOnUpdate();
 		IGameObject? pet = null;
 		unsafe
 		{
@@ -398,6 +399,7 @@ public class CharacterSync : IDisposable
 			}
 		}
 
+		await Plugin.Framework.RunOutsideUpdate();
 		if (pet != null)
 		{
 			await this.ApplySyncData(

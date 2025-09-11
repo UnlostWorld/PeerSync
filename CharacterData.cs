@@ -9,10 +9,26 @@
 namespace PeerSync;
 
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 public class CharacterData()
 {
+	[JsonProperty("F")]
 	public string? Fingerprint { get; set; }
-	public Dictionary<string, string?> Syncs { get; init; } = new();
-	public Dictionary<string, string?> MountOrMinionSyncs { get; init; } = new();
+
+	[JsonProperty("C")]
+	public Dictionary<string, string?> Character { get; init; } = new();
+
+	[JsonProperty("M")]
+	public Dictionary<string, string?> MountOrMinion { get; init; } = new();
+
+	[JsonProperty("P")]
+	public Dictionary<string, string?> Pet { get; init; } = new();
+
+	public void Clear()
+	{
+		this.Character.Clear();
+		this.MountOrMinion.Clear();
+		this.Pet.Clear();
+	}
 }

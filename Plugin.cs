@@ -36,6 +36,7 @@ using PeerSync.SyncProviders.Honorific;
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui.Dtr;
 using PeerSync.SyncProviders;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
@@ -589,8 +590,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		if (this.LocalCharacterData == null)
 			return;
 
-		this.LocalCharacterData.Syncs.Clear();
-		this.LocalCharacterData.MountOrMinionSyncs.Clear();
+		this.LocalCharacterData.Clear();
 
 		await Plugin.Framework.RunOnUpdate();
 		if (this.tokenSource.IsCancellationRequested)
@@ -603,6 +603,16 @@ public sealed partial class Plugin : IDalamudPlugin
 		IGameObject? mountOrMinion = Plugin.ObjectTable[player.ObjectIndex + 1];
 		this.LocalCharacterData.Fingerprint = this.LocalCharacter.GetFingerprint();
 
+		IGameObject? pet = null;
+		unsafe
+		{
+			BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)player.Address);
+			if (pPet != null)
+			{
+				pet = Plugin.ObjectTable[pPet->ObjectIndex];
+			}
+		}
+
 		foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
 		{
 			if (this.tokenSource.IsCancellationRequested)
@@ -611,12 +621,18 @@ public sealed partial class Plugin : IDalamudPlugin
 			try
 			{
 				string? content = await sync.Serialize(player.ObjectIndex);
-				this.LocalCharacterData.Syncs.Add(sync.Key, content);
+				this.LocalCharacterData.Character.Add(sync.Key, content);
 
 				if (mountOrMinion != null)
 				{
 					content = await sync.Serialize(mountOrMinion.ObjectIndex);
-					this.LocalCharacterData.MountOrMinionSyncs.Add(sync.Key, content);
+					this.LocalCharacterData.MountOrMinion.Add(sync.Key, content);
+				}
+
+				if (pet != null)
+				{
+					content = await sync.Serialize(pet.ObjectIndex);
+					this.LocalCharacterData.Pet.Add(sync.Key, content);
 				}
 			}
 			catch (Exception ex)

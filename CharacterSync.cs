@@ -16,6 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Newtonsoft.Json;
 using PeerSync.Network;
 using PeerSync.Online;
@@ -374,14 +375,36 @@ public class CharacterSync : IDisposable
 		this.isApplyingData = true;
 
 		await this.ApplySyncData(
-			characterData.Syncs,
-			this.lastData?.Syncs,
+			characterData.Character,
+			this.lastData?.Character,
 			this.objectIndex);
 
 		await this.ApplySyncData(
-			characterData.MountOrMinionSyncs,
-			this.lastData?.MountOrMinionSyncs,
+			characterData.MountOrMinion,
+			this.lastData?.MountOrMinion,
 			(ushort)(this.objectIndex + 1));
+
+		IGameObject? pet = null;
+		unsafe
+		{
+			IGameObject? character = Plugin.ObjectTable[this.objectIndex];
+			if (character != null)
+			{
+				BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)character.Address);
+				if (pPet != null)
+				{
+					pet = Plugin.ObjectTable[pPet->ObjectIndex];
+				}
+			}
+		}
+
+		if (pet != null)
+		{
+			await this.ApplySyncData(
+				characterData.Pet,
+				this.lastData?.Pet,
+				pet.ObjectIndex);
+		}
 
 		this.isApplyingData = false;
 		this.lastData = characterData;

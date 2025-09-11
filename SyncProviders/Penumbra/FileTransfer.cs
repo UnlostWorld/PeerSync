@@ -1,11 +1,10 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.SyncProviders.Penumbra;
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Dalamud.Interface;
-
-namespace PeerSync.SyncProviders.Penumbra;
 
 public abstract class FileTransfer : IDisposable
 {
@@ -27,13 +26,6 @@ public abstract class FileTransfer : IDisposable
 
 	public abstract float Progress { get; }
 	public string Name { get; protected set; } = string.Empty;
-
-	protected abstract Task Transfer();
-
-	protected void Retry()
-	{
-		this.needsRetry = true;
-	}
 
 	public async Task TransferSafe()
 	{
@@ -67,5 +59,12 @@ public abstract class FileTransfer : IDisposable
 
 	public virtual void Dispose()
 	{
+	}
+
+	protected abstract Task Transfer();
+
+	protected void Retry()
+	{
+		this.needsRetry = true;
 	}
 }

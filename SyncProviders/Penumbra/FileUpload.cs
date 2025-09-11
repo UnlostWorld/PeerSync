@@ -1,11 +1,11 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.SyncProviders.Penumbra;
+
 using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-
-namespace PeerSync.SyncProviders.Penumbra;
 
 public class FileUpload : FileTransfer
 {
@@ -17,96 +17,73 @@ public class FileUpload : FileTransfer
 		: base(sync, hash, character, token)
 	{
 		this.clientQueueIndex = clientQueueIndex;
-		this.Name = sync.fileCache.GetFileName(hash);
+		this.Name = sync.FileCache.GetFileName(hash);
 	}
 
 	public override float Progress => (float)this.BytesSent / (float)this.BytesToSend;
 
 	protected override async Task Transfer()
 	{
-		// Simulate
-		if (this.Character.Peer.IsTestPeer)
+		FileInfo? fileInfo = this.sync.FileCache.GetFileInfo(this.hash);
+		if (fileInfo == null || !fileInfo.Exists)
 		{
-			this.BytesToSend = 1024 * 1024 * 32;
-			this.Name += " (fake)";
-			while (this.BytesSent < this.BytesToSend)
-			{
-				long chunk = 1024 * 512;
-
-				if (this.BytesSent + chunk >= this.BytesToSend)
-					chunk = this.BytesToSend - this.BytesSent;
-
-				this.BytesSent += chunk;
-				sync.GetProgress(this.Character)?.AddCurrentUpload(chunk);
-
-				await Task.Delay(100);
-			}
-
+			Plugin.Log.Warning($"File: {this.hash} missing!");
+			this.Character.Send(PacketTypes.FileData, [this.clientQueueIndex]);
 			return;
 		}
-		else // Real
+
+		this.Name = fileInfo.Name;
+
+		FileStream? stream = null;
+		int attempts = 5;
+		Exception? lastException = null;
+		while (stream == null && attempts > 0)
 		{
-			FileInfo? fileInfo = sync.fileCache.GetFileInfo(hash);
-			if (fileInfo == null || !fileInfo.Exists)
+			try
 			{
-				Plugin.Log.Warning($"File: {hash} missing!");
-				this.Character.Send(Objects.FileData, [this.clientQueueIndex]);
-				return;
+				stream = new(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
 			}
-
-			this.Name = fileInfo.Name;
-
-			FileStream? stream = null;
-			int attempts = 5;
-			Exception? lastException = null;
-			while (stream == null && attempts > 0)
+			catch (IOException ex)
 			{
-				try
-				{
-					stream = new(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
-				}
-				catch (IOException ex)
-				{
-					lastException = ex;
-					stream?.Dispose();
-					stream = null;
-					await Task.Delay(100, this.cancellationToken);
-				}
+				lastException = ex;
+				stream?.Dispose();
+				stream = null;
+				await Task.Delay(100, this.cancellationToken);
 			}
-
-			if (stream == null)
-			{
-				Plugin.Log.Error(lastException, "Error reading file for upload");
-				return;
-			}
-
-			await Task.Delay(10, this.cancellationToken);
-
-			this.BytesSent = 0;
-			this.BytesToSend = stream.Length;
-
-			sync.GetProgress(this.Character)?.AddTotalUpload(BytesToSend);
-
-			stream.Position = 0;
-
-			do
-			{
-				long bytesLeft = this.BytesToSend - this.BytesSent;
-				int thisChunkSize = (int)Math.Min(PenumbraSync.FileChunkSize, bytesLeft);
-
-				byte[] bytes = new byte[thisChunkSize + 1];
-				bytes[0] = this.clientQueueIndex;
-				stream.ReadExactly(bytes, 1, thisChunkSize);
-
-				this.Character.Send(Objects.FileData, bytes);
-				this.BytesSent += thisChunkSize;
-				sync.GetProgress(this.Character)?.AddCurrentUpload(thisChunkSize);
-				await Task.Delay(10, this.cancellationToken);
-			}
-			while (this.BytesSent < this.BytesToSend && !this.cancellationToken.IsCancellationRequested);
-
-			// Send the complete flag
-			this.Character.Send(Objects.FileData, [this.clientQueueIndex]);
 		}
+
+		if (stream == null)
+		{
+			Plugin.Log.Error(lastException, "Error reading file for upload");
+			return;
+		}
+
+		await Task.Delay(10, this.cancellationToken);
+
+		this.BytesSent = 0;
+		this.BytesToSend = stream.Length;
+
+		this.sync.GetProgress(this.Character)?.AddTotalUpload(this.BytesToSend);
+
+		stream.Position = 0;
+
+		do
+		{
+			long bytesLeft = this.BytesToSend - this.BytesSent;
+			int thisChunkSize = (int)Math.Min(PenumbraSync.FileChunkSize, bytesLeft);
+
+			byte[] bytes = new byte[thisChunkSize + 1];
+			bytes[0] = this.clientQueueIndex;
+			stream.ReadExactly(bytes, 1, thisChunkSize);
+
+			this.Character.Send(PacketTypes.FileData, bytes);
+			this.BytesSent += thisChunkSize;
+			this.sync.GetProgress(this.Character)?.AddCurrentUpload(thisChunkSize);
+			await Task.Delay(10, this.cancellationToken);
+		}
+		while (this.BytesSent < this.BytesToSend && !this.cancellationToken.IsCancellationRequested);
+
+		// Send the complete flag
+		this.Character.Send(PacketTypes.FileData, [this.clientQueueIndex]);
 	}
 }

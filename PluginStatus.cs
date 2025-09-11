@@ -1,8 +1,8 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-using Dalamud.Interface;
-
 namespace PeerSync;
+
+using Dalamud.Interface;
 
 public enum PluginStatus
 {

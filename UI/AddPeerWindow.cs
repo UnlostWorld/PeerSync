@@ -14,11 +14,12 @@ public class AddPeerWindow : Window, IDisposable
 	private string world = string.Empty;
 	private string password = string.Empty;
 
-	public AddPeerWindow() : base(
+	public AddPeerWindow()
+		: base(
 		"Add peer##PeerWindow",
 		ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize)
 	{
-		SizeConstraints = new WindowSizeConstraints
+		this.SizeConstraints = new WindowSizeConstraints
 		{
 			MinimumSize = new Vector2(450, -1),
 			MaximumSize = new Vector2(450, -1),
@@ -32,7 +33,9 @@ public class AddPeerWindow : Window, IDisposable
 		this.IsOpen = true;
 	}
 
-	public void Dispose() { }
+	public void Dispose()
+	{
+	}
 
 	public override void Draw()
 	{
@@ -47,7 +50,6 @@ public class AddPeerWindow : Window, IDisposable
 		ImGui.TextColoredWrapped(0xFF0080FF, "You should add people you trust as peers.");
 		ImGui.TextColoredWrapped(0xFF0080FF, "Malicious users could sync inappropriate or unstable mods with you, causing distress or crashes.");
 
-
 		bool valid = !string.IsNullOrEmpty(this.characterName)
 			&& !string.IsNullOrEmpty(this.world)
 			&& !string.IsNullOrEmpty(this.password);
@@ -55,7 +57,7 @@ public class AddPeerWindow : Window, IDisposable
 		if (!valid)
 			ImGui.BeginDisabled();
 
-		ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (ImGui.GetContentRegionAvail().X - (200 + ImGui.GetStyle().ItemSpacing.X * 2)));
+		ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (ImGui.GetContentRegionAvail().X - (200 + (ImGui.GetStyle().ItemSpacing.X * 2))));
 
 		if (ImGui.Button("Add Peer", new(100, 0)))
 		{

@@ -1,9 +1,9 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.SyncProviders.Moodles;
+
 using System;
 using Dalamud.Game.ClientState.Objects.SubKinds;
-
-namespace PeerSync.SyncProviders.Moodles;
 
 public class MoodlesCommunicator : PluginCommunicatorBase
 {

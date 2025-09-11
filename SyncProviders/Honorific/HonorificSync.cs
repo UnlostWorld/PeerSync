@@ -1,15 +1,15 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-using System.Threading.Tasks;
-
 namespace PeerSync.SyncProviders.Honorific;
+
+using System.Threading.Tasks;
 
 public class HonorificSync : SyncProviderBase
 {
+	private readonly HonorificCommunicator honorific = new();
+
 	public override string DisplayName => "Honorific";
 	public override string Key => "h";
-
-	private readonly HonorificCommunicator honorific = new();
 
 	public override async Task Deserialize(
 		string? lastContent,

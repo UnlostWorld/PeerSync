@@ -22,7 +22,8 @@ public enum FileDeletionReasons
 
 public class FileCache : IDisposable
 {
-	private const int scanDelay = 10 * 60 * 1000; // every 10 minutes after boot.
+	private const int ScanDelay = 10 * 60 * 1000; // every 10 minutes after boot.
+
 	private readonly CancellationTokenSource tokenSource = new();
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
 	private readonly Dictionary<FileInfo, FileDeletionReasons> deletedFiles = new();
@@ -204,8 +205,8 @@ public class FileCache : IDisposable
 					if (this.tokenSource.IsCancellationRequested)
 						return;
 
-					scanCount++;
-					GetFileHash(file.FullName, out string hash, out long size);
+					this.scanCount++;
+					this.GetFileHash(file.FullName, out string hash, out long size);
 
 					if (file.Name != hash)
 					{
@@ -239,7 +240,7 @@ public class FileCache : IDisposable
 				this.totalCacheSizeGb = totalCacheSize / 1024.0f / 1024.0f / 1024.0f;
 			}
 
-			await Task.Delay(scanDelay);
+			await Task.Delay(ScanDelay);
 		}
 	}
 }

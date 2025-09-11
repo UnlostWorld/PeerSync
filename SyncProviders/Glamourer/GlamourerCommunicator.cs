@@ -1,16 +1,13 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.SyncProviders.Glamourer;
+
 using System;
 using System.Threading.Tasks;
 
-namespace PeerSync.SyncProviders.Glamourer;
-
 public class GlamourerCommunicator : PluginCommunicatorBase
 {
-	protected override string InternalName => "Glamourer";
-	protected override Version Version => new Version(1, 3, 0, 10);
-
-	private readonly uint LockCode = 0x3C38C2b1;
+	private const uint LockCode = 0x3C38C2b1;
 
 	/// <summary>
 	/// Return codes for API functions.
@@ -87,7 +84,7 @@ public class GlamourerCommunicator : PluginCommunicatorBase
 		Customization = 0x04,
 
 		/// <summary>
-		/// Lock the state with the given key after applying the selected manipulation
+		/// Lock the state with the given key after applying the selected manipulation.
 		/// </summary>
 		Lock = 0x08,
 
@@ -106,6 +103,9 @@ public class GlamourerCommunicator : PluginCommunicatorBase
 		/// </summary>
 		RevertDefault = ApplyFlag.Equipment | ApplyFlag.Customization,
 	}
+
+	protected override string InternalName => "Glamourer";
+	protected override Version Version => new Version(1, 3, 0, 10);
 
 	public async Task<string?> GetState(ushort objectIndex)
 	{

@@ -5,6 +5,7 @@ namespace PeerSync.UI;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
+using PeerSync.SyncProviders;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -21,14 +22,16 @@ public class MainWindow : Window, IDisposable
 		: base($"Peer Sync - v{Plugin.PluginInterface.Manifest.AssemblyVersion}##PeerSyncMainWindow")
 #endif
 	{
-		SizeConstraints = new WindowSizeConstraints
+		this.SizeConstraints = new WindowSizeConstraints
 		{
 			MinimumSize = new Vector2(350, 450),
-			MaximumSize = new Vector2(350, float.MaxValue)
+			MaximumSize = new Vector2(350, float.MaxValue),
 		};
 	}
 
-	public void Dispose() { }
+	public void Dispose()
+	{
+	}
 
 	public override void Draw()
 	{
@@ -64,6 +67,7 @@ public class MainWindow : Window, IDisposable
 				{
 					plugin.Stop();
 				}
+
 				ImGui.PopStyleColor();
 				ImGui.PopStyleColor();
 				ImGui.PopStyleVar();
@@ -81,6 +85,7 @@ public class MainWindow : Window, IDisposable
 				{
 					plugin.Start();
 				}
+
 				ImGui.PopStyleColor();
 				ImGui.PopStyleColor();
 				ImGui.PopStyleVar();
@@ -103,8 +108,6 @@ public class MainWindow : Window, IDisposable
 				ImGui.PopStyleColor();
 				ImGui.EndDisabled();
 			}
-
-
 
 			ImGui.EndTable();
 		}
@@ -201,10 +204,10 @@ public class MainWindow : Window, IDisposable
 
 					// Status
 					ImGui.TableNextColumn();
-					Plugin.IndexServerStatus status = Plugin.IndexServerStatus.None;
+					IndexServerStatus status = IndexServerStatus.None;
 					Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out status);
 
-					if (status == Plugin.IndexServerStatus.Online)
+					if (status == IndexServerStatus.Online)
 					{
 						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 
@@ -215,7 +218,7 @@ public class MainWindow : Window, IDisposable
 							ImGui.EndTooltip();
 						}
 					}
-					else if (status == Plugin.IndexServerStatus.Offline)
+					else if (status == IndexServerStatus.Offline)
 					{
 						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
 
@@ -410,9 +413,9 @@ public class MainWindow : Window, IDisposable
 				ImGui.EndTable();
 			}
 
-			if (peerToRemove != null)
+			if (this.peerToRemove != null)
 			{
-				Configuration.Current.Pairs.Remove(peerToRemove);
+				Configuration.Current.Pairs.Remove(this.peerToRemove);
 				Configuration.Current.Save();
 			}
 		}
@@ -444,7 +447,7 @@ public class MainWindow : Window, IDisposable
 		{
 			ImGui.PushID($"peer_{peer}_contextMenu");
 			if (ImGui.MenuItem("Remove"))
-				peerToRemove = peer;
+				this.peerToRemove = peer;
 
 			ImGui.PopID();
 			ImGui.EndPopup();
@@ -501,8 +504,6 @@ public class MainWindow : Window, IDisposable
 
 				ImGui.Spacing();
 			}
-
-
 
 			ImGui.Spacing();
 

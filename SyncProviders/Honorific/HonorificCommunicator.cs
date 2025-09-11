@@ -1,8 +1,8 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-using System;
-
 namespace PeerSync.SyncProviders.Honorific;
+
+using System;
 
 public class HonorificCommunicator : PluginCommunicatorBase
 {

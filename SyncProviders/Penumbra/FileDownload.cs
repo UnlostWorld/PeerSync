@@ -1,13 +1,13 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.SyncProviders.Penumbra;
+
 using System;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using PeerSync.Network;
-
-namespace PeerSync.SyncProviders.Penumbra;
 
 public class FileDownload : FileTransfer
 {
@@ -16,7 +16,7 @@ public class FileDownload : FileTransfer
 
 	private FileStream? fileStream;
 	private byte queueIndex;
-	private Exception? recieveError;
+	private Exception? receiveError;
 
 	public FileDownload(
 		PenumbraSync sync,
@@ -47,32 +47,7 @@ public class FileDownload : FileTransfer
 
 	protected override async Task Transfer()
 	{
-		// Simulate
-		if (this.Character.Peer.IsTestPeer)
-		{
-			this.Name += " (fake)";
-			while (this.BytesReceived < this.BytesToReceive)
-			{
-				PenumbraProgress? prog = sync.GetProgress(this.Character);
-				if (prog == null)
-					return;
-
-				long chunk = 1024 * 32;
-
-				if (this.BytesReceived + chunk >= this.BytesToReceive)
-					chunk = this.BytesToReceive - this.BytesReceived;
-
-				this.BytesReceived += chunk;
-				prog.AddCurrentDownload(chunk);
-
-				await Task.Delay(100);
-			}
-
-			return;
-		}
-
-
-		FileInfo? file = sync.fileCache.GetFile(hash);
+		FileInfo? file = this.sync.FileCache.GetFile(this.hash);
 
 		if (file == null)
 			return;
@@ -81,15 +56,19 @@ public class FileDownload : FileTransfer
 			|| this.Character.Connection == null)
 			return;
 
-		this.queueIndex = this.sync.lastQueueIndex++;
+		lock (this.sync)
+		{
+			this.queueIndex = this.sync.LastQueueIndex++;
+		}
+
 		this.Character.Connection.Received += this.OnReceived;
 
-		byte[] hashBytes = Encoding.UTF8.GetBytes(hash);
+		byte[] hashBytes = Encoding.UTF8.GetBytes(this.hash);
 		byte[] objectBytes = new byte[hashBytes.Length + 1];
 		objectBytes[0] = this.queueIndex;
 		Array.Copy(hashBytes, 0, objectBytes, 1, hashBytes.Length);
 
-		this.Character.Send(Objects.FileRequest, objectBytes);
+		this.Character.Send(PacketTypes.FileRequest, objectBytes);
 
 		bool gotAllData = false;
 		while (!gotAllData && !this.cancellationToken.IsCancellationRequested)
@@ -99,8 +78,8 @@ public class FileDownload : FileTransfer
 				gotAllData = this.BytesReceived >= this.BytesToReceive;
 			}
 
-			if (this.recieveError != null)
-				throw this.recieveError;
+			if (this.receiveError != null)
+				throw this.receiveError;
 
 			await Task.Delay(10, this.cancellationToken);
 		}
@@ -122,10 +101,10 @@ public class FileDownload : FileTransfer
 		}
 
 		// hash verify
-		this.sync.fileCache.GetFileHash(file.FullName, out string gotHash, out long fileSize);
-		if (gotHash != hash)
+		this.sync.FileCache.GetFileHash(file.FullName, out string gotHash, out long fileSize);
+		if (gotHash != this.hash)
 		{
-			Plugin.Log.Warning($"File failed to pass validation. Expected: {hash}, got {gotHash}");
+			Plugin.Log.Warning($"File failed to pass validation. Expected: {this.hash}, got {gotHash}");
 			file.Delete();
 			this.BytesReceived = 0;
 			this.Retry();
@@ -133,9 +112,9 @@ public class FileDownload : FileTransfer
 		}
 	}
 
-	private void OnReceived(Connection connection, byte typeId, byte[] data)
+	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
 	{
-		if (typeId == Objects.FileData)
+		if (type == PacketTypes.FileData)
 		{
 			byte clientQueueIndex = data[0];
 
@@ -162,22 +141,22 @@ public class FileDownload : FileTransfer
 			{
 				if (this.fileStream == null)
 				{
-					FileInfo? file = sync.fileCache.GetFile(hash);
+					FileInfo? file = this.sync.FileCache.GetFile(this.hash);
 					this.fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.None);
 				}
 
 				lock (this)
 				{
 					this.fileStream.Write(data);
-					BytesReceived += data.Length;
+					this.BytesReceived += data.Length;
 				}
 
-				sync.GetProgress(this.Character)?.AddCurrentDownload(data.Length);
+				this.sync.GetProgress(this.Character)?.AddCurrentDownload(data.Length);
 			}
 		}
 		catch (Exception ex)
 		{
-			this.recieveError = new Exception("Error receiving file data", ex);
+			this.receiveError = new Exception("Error receiving file data", ex);
 		}
 	}
 }

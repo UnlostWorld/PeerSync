@@ -59,13 +59,11 @@ public partial class Configuration : IPluginConfiguration
 
 	public class Peer
 	{
+		private string? fingerprint;
+
 		public string? CharacterName { get; set; }
 		public string? World { get; set; }
 		public string? Password { get; set; }
-
-		public bool IsTestPeer => this.World == "Earth";
-
-		private string? fingerprint;
 
 		public string GetFingerprint()
 		{

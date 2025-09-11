@@ -1,11 +1,11 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.SyncProviders;
+
 using System;
 using System.Threading.Tasks;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Ipc;
-
-namespace PeerSync.SyncProviders;
 
 public abstract class PluginCommunicatorBase
 {
@@ -47,7 +47,6 @@ public abstract class PluginCommunicatorBase
 
 	protected void InvokeAction<T1, T2>(string name, T1 arg1, T2 arg2)
 		=> Plugin.PluginInterface.GetIpcSubscriber<T1, T2, object?>(name).InvokeAction(arg1, arg2);
-
 
 	protected void InvokeAction<T1>(string name, T1 arg1)
 		=> Plugin.PluginInterface.GetIpcSubscriber<T1, object?>(name).InvokeAction(arg1);

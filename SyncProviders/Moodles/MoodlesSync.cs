@@ -1,17 +1,17 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.SyncProviders.Moodles;
+
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 
-namespace PeerSync.SyncProviders.Moodles;
-
 public class MoodlesSync : SyncProviderBase
 {
+	private readonly MoodlesCommunicator moodles = new();
+
 	public override string DisplayName => "Moodles";
 	public override string Key => "m";
-
-	private readonly MoodlesCommunicator moodles = new();
 
 	public override async Task Deserialize(
 		string? lastContent,

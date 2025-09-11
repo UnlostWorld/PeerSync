@@ -1,14 +1,13 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.SyncProviders.Penumbra;
+
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using Penumbra.Api.Enums;
-using Penumbra.Api.Helpers;
-using Penumbra.Api.IpcSubscribers;
-
-namespace PeerSync.SyncProviders.Penumbra;
+using global::Penumbra.Api.Enums;
+using global::Penumbra.Api.Helpers;
+using global::Penumbra.Api.IpcSubscribers;
 
 public class ResourceMonitor : IDisposable
 {
@@ -26,15 +25,6 @@ public class ResourceMonitor : IDisposable
 		this.modSettingChanged = ModSettingChanged.Subscriber(
 			Plugin.PluginInterface,
 			this.OnModSettingsChanged);
-	}
-
-	private void OnModSettingsChanged(ModSettingChange change, Guid guid, string a, bool b)
-	{
-		if (change == ModSettingChange.TemporaryMod)
-			return;
-
-		Plugin.Log.Information("Settings changed");
-		indexToRedirects.Clear();
 	}
 
 	public void Dispose()
@@ -89,5 +79,14 @@ public class ResourceMonitor : IDisposable
 		{
 			resources[gamePath] = redirectPath;
 		}
+	}
+
+	private void OnModSettingsChanged(ModSettingChange change, Guid guid, string a, bool b)
+	{
+		if (change == ModSettingChange.TemporaryMod)
+			return;
+
+		Plugin.Log.Information("Settings changed");
+		this.indexToRedirects.Clear();
 	}
 }

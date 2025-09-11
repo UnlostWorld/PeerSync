@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,12 +13,12 @@ public delegate void ConnectionDelegate(Connection connection);
 
 public class ConnectionManager : IDisposable
 {
-	private int listenPort;
-
-	private TcpListener? listener;
-	private CancellationTokenSource tokenSource = new();
 	private readonly List<Connection> incomingConnections = new();
 	private readonly List<Connection> outgoingConnections = new();
+
+	private int listenPort;
+	private TcpListener? listener;
+	private CancellationTokenSource tokenSource = new();
 
 	public event ConnectionDelegate? IncomingConnected;
 	public event ConnectionDelegate? IncomingDisconnected;
@@ -31,7 +30,7 @@ public class ConnectionManager : IDisposable
 		this.tokenSource = new();
 
 		this.listenPort = port;
-		Task.Run(this.Listen, tokenSource.Token);
+		Task.Run(this.Listen, this.tokenSource.Token);
 	}
 
 	public void Dispose()
@@ -109,11 +108,11 @@ public class ConnectionManager : IDisposable
 			IPEndPoint ipEndPoint = new(IPAddress.Any, this.listenPort);
 			this.listener = new(ipEndPoint);
 
-			listener.Start();
+			this.listener.Start();
 
-			while (!tokenSource.IsCancellationRequested)
+			while (!this.tokenSource.IsCancellationRequested)
 			{
-				TcpClient client = await listener.AcceptTcpClientAsync(tokenSource.Token);
+				TcpClient client = await this.listener.AcceptTcpClientAsync(this.tokenSource.Token);
 				this.OnIncomingConnectionConnected(new(client));
 			}
 		}

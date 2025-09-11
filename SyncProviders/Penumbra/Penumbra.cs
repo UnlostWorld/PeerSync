@@ -1,9 +1,9 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-using System;
-using Penumbra.Api.IpcSubscribers;
-
 namespace PeerSync.SyncProviders.Penumbra;
+
+using System;
+using global::Penumbra.Api.IpcSubscribers;
 
 public class Penumbra
 {
@@ -20,7 +20,7 @@ public class Penumbra
 	{
 		try
 		{
-			return GetEnabledState.Invoke();
+			return this.GetEnabledState.Invoke();
 		}
 		catch (Exception)
 		{

@@ -1,8 +1,8 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-using Dalamud.Game.Text.SeStringHandling;
-
 namespace PeerSync;
+
+using Dalamud.Game.Text.SeStringHandling;
 
 public static class SeStringUtils
 {

@@ -1,8 +1,8 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-using Penumbra.Api.Enums;
-
 namespace PeerSync.SyncProviders.Penumbra;
+
+using global::Penumbra.Api.Enums;
 
 public static class PenumbraExtensions
 {

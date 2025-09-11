@@ -1,10 +1,10 @@
 // This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.SyncProviders.CustomizePlus;
+
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
-namespace PeerSync.SyncProviders.CustomizePlus;
 
 public class CustomizePlusSync : SyncProviderBase
 {

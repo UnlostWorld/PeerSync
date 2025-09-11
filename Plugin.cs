@@ -37,11 +37,12 @@ using Dalamud.Game.Command;
 using Dalamud.Game.Gui.Dtr;
 using PeerSync.SyncProviders;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using Dalamud.Game.ClientState.Conditions;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
 	public readonly List<SyncProviderBase> SyncProviders = new();
-	public readonly Dictionary<string, IndexServerStatus> IndexServersStatus = new();
+	public readonly Dictionary<string, int> IndexServersStatus = new();
 
 	public CharacterData? LocalCharacterData;
 	public Configuration.Character? LocalCharacter;
@@ -97,6 +98,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	[PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
 	[PluginService] public static IContextMenu ContextMenu { get; private set; } = null!;
 	[PluginService] public static IDtrBar DtrBar { get; private set; } = null!;
+	[PluginService] public static ICondition Condition { get; private set; } = null!;
 
 	public static Plugin? Instance { get; private set; } = null;
 	public MainWindow MainWindow { get; init; }
@@ -437,22 +439,23 @@ public sealed partial class Plugin : IDalamudPlugin
 			{
 				try
 				{
-					SyncHeartbeat heartbeat = new();
-					heartbeat.Identifier = this.LocalCharacter.GetFingerprint();
-					heartbeat.Port = port;
-					heartbeat.LocalAddress = localIp?.ToString();
+					SetPeer setPeerRequest = new();
+					setPeerRequest.Fingerprint = this.LocalCharacter.GetFingerprint();
+					setPeerRequest.Port = port;
+					setPeerRequest.LocalAddress = localIp?.ToString();
 
 					foreach (string indexServer in Configuration.Current.IndexServers.ToArray())
 					{
 						try
 						{
-							await heartbeat.Send(indexServer);
-							this.IndexServersStatus[indexServer] = IndexServerStatus.Online;
+							this.IndexServersStatus[indexServer] = await setPeerRequest.Send(indexServer);
 						}
 						catch (Exception ex)
 						{
-							this.IndexServersStatus[indexServer] = IndexServerStatus.Offline;
+							this.IndexServersStatus[indexServer] = 0;
 							Plugin.Log.Warning(ex, $"Failed to connect to index server: {indexServer}");
+							await Task.Delay(20000, this.tokenSource.Token);
+							continue;
 						}
 					}
 
@@ -595,6 +598,14 @@ public sealed partial class Plugin : IDalamudPlugin
 		await Plugin.Framework.RunOnUpdate();
 		if (this.tokenSource.IsCancellationRequested)
 			return;
+
+		// Do not sync character if we are in combat is loading
+		if (Plugin.Condition[ConditionFlag.InCombat]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
+		{
+			return;
+		}
 
 		IPlayerCharacter? player = ClientState.LocalPlayer;
 		if (this.LocalCharacter == null || player == null)

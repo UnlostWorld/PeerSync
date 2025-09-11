@@ -14,6 +14,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
@@ -192,6 +193,13 @@ public class CharacterSync : IDisposable
 		if (connection != this.connection)
 			return;
 
+		// Do not sync characters if the local player is in combat
+		// or is loading areas.
+		if (Plugin.Condition[ConditionFlag.InCombat]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
+			return;
+
 		if (this.isApplyingData)
 			return;
 
@@ -207,10 +215,10 @@ public class CharacterSync : IDisposable
 
 			// We're the client.
 			this.CurrentStatus = Status.Searching;
-			SyncStatus request = new();
-			request.Identifier = this.Peer.GetFingerprint();
+			GetPeer request = new();
+			request.Fingerprint = this.Peer.GetFingerprint();
 
-			SyncStatus? response = null;
+			GetPeer? response = null;
 			foreach (string indexServer in Configuration.Current.IndexServers)
 			{
 				try

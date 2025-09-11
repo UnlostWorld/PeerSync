@@ -135,6 +135,7 @@ public class MainWindow : Window, IDisposable
 			string newIndex = string.Empty;
 			if (ImGui.InputText("Address", ref newIndex, 512, ImGuiInputTextFlags.EnterReturnsTrue))
 			{
+				newIndex = newIndex.TrimEnd('/', '\\');
 				Configuration.Current.IndexServers.Add(newIndex);
 				Configuration.Current.Save();
 				ImGui.CloseCurrentPopup();
@@ -165,6 +166,9 @@ public class MainWindow : Window, IDisposable
 
 				foreach (string indexServer in Configuration.Current.IndexServers.AsReadOnly())
 				{
+					int peerCount = 0;
+					Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out peerCount);
+
 					// Tooltip
 					ImGui.TableNextColumn();
 					ImGui.Selectable(
@@ -198,42 +202,45 @@ public class MainWindow : Window, IDisposable
 						ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
 						ImGui.BeginTooltip();
 
-						ImGui.Text($"{indexServer}");
+						ImGui.TextWrapped($"{indexServer}");
 						ImGui.Separator();
+
+						if (peerCount <= 0)
+						{
+							ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
+							ImGui.SameLine();
+							ImGui.Text("Offline");
+						}
+						else
+						{
+							ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+							ImGui.SameLine();
+							ImGui.Text($"{peerCount} online peers");
+						}
+
 						ImGui.TextDisabled("Right-click for more options");
 						ImGui.EndTooltip();
 					}
 
 					// Url
 					ImGui.TableNextColumn();
-					ImGui.Text(indexServer);
+					string indexServerName = indexServer;
+					indexServerName = indexServerName.Replace("http://", string.Empty);
+					indexServerName = indexServerName.Replace("https://", string.Empty);
+					indexServerName = indexServerName.Replace("www.", string.Empty);
+					indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
+					ImGui.Text(indexServerName);
 
 					// Status
 					ImGui.TableNextColumn();
-					IndexServerStatus status = IndexServerStatus.None;
-					Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out status);
 
-					if (status == IndexServerStatus.Online)
+					if (peerCount > 0)
 					{
 						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-
-						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-						{
-							ImGui.BeginTooltip();
-							ImGui.TextDisabled("Connected to index server");
-							ImGui.EndTooltip();
-						}
 					}
-					else if (status == IndexServerStatus.Offline)
+					else
 					{
 						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
-
-						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-						{
-							ImGui.BeginTooltip();
-							ImGui.TextDisabled("Failed to connect to index server");
-							ImGui.EndTooltip();
-						}
 					}
 
 					ImGui.TableNextRow();

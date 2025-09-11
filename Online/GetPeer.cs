@@ -12,21 +12,24 @@ using System.Threading.Tasks;
 using System.Text.Json;
 using System;
 
-public class SyncStatus
+public class GetPeer
 {
-	public string? Identifier { get; set; }
+	public string? Fingerprint { get; set; }
 	public string? Address { get; set; }
 	public string? LocalAddress { get; set; }
 	public ushort Port { get; set; }
 
-	public async Task<SyncStatus?> Send(string indexServer)
+	public async Task<GetPeer?> Send(string indexServer)
 	{
 		string json = JsonSerializer.Serialize(this);
-		string str = await ServerApi.PostAsync($"{indexServer}/Status", json, "application/json");
+		string str = await ServerApi.PostAsync($"{indexServer}/Peer/Get", json, "application/json");
+
+		if (string.IsNullOrEmpty(str))
+			return null;
 
 		try
 		{
-			return JsonSerializer.Deserialize<SyncStatus>(str);
+			return JsonSerializer.Deserialize<GetPeer>(str);
 		}
 		catch (Exception ex)
 		{

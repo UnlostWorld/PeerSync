@@ -78,7 +78,7 @@ public partial class Configuration : IPluginConfiguration
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 
 #if DEBUG
-				pluginVersion = "1.0.0.34";
+				pluginVersion = "debug";
 #endif
 
 				string input = $"{this.CharacterName}{this.World}";

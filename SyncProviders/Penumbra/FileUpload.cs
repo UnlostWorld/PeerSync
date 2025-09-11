@@ -25,7 +25,7 @@ public class FileUpload : FileTransfer
 	protected override async Task Transfer()
 	{
 		// Simulate
-		if (this.Character.Pair.IsTestPair)
+		if (this.Character.Peer.IsTestPeer)
 		{
 			this.BytesToSend = 1024 * 1024 * 32;
 			this.Name += " (fake)";

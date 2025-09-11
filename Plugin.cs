@@ -64,7 +64,7 @@ public sealed class Plugin : IDalamudPlugin
 
 	public readonly WindowSystem WindowSystem = new("StudioSync");
 	public MainWindow MainWindow { get; init; }
-	public PairWindow PairWindow { get; init; }
+	public AddPeerWindow AddPeerWindow { get; init; }
 
 	private CancellationTokenSource tokenSource = new();
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
@@ -75,10 +75,10 @@ public sealed class Plugin : IDalamudPlugin
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
 		MainWindow = new MainWindow();
-		PairWindow = new PairWindow();
+		AddPeerWindow = new AddPeerWindow();
 
 		WindowSystem.AddWindow(MainWindow);
-		WindowSystem.AddWindow(PairWindow);
+		WindowSystem.AddWindow(AddPeerWindow);
 
 		MainWindow.IsOpen = true;
 
@@ -112,6 +112,8 @@ public sealed class Plugin : IDalamudPlugin
 		Offline,
 	}
 
+	public int CharacterSyncCount() => this.checkedCharacters.Count;
+
 	public CharacterSync? GetCharacterSync(string characterName, string world)
 	{
 		string compoundName = $"{characterName}@{world}";
@@ -138,7 +140,7 @@ public sealed class Plugin : IDalamudPlugin
 	{
 		foreach (CharacterSync sync in this.checkedCharacters.Values)
 		{
-			if (sync.Pair.GetFingerprint() == fingerprint)
+			if (sync.Peer.GetFingerprint() == fingerprint)
 			{
 				return sync;
 			}
@@ -284,14 +286,14 @@ public sealed class Plugin : IDalamudPlugin
 
 		string characterName = character.Name.ToString();
 		string world = character.HomeWorld.Value.Name.ToString();
-		Configuration.Pair? pair = Configuration.Current.GetPair(characterName, world);
+		Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
 
-		if (pair == null)
+		if (peer == null)
 		{
 			args.AddMenuItem(new MenuItem()
 			{
-				Name = SeStringUtils.ToSeString("Add as Peer Sync pair"),
-				OnClicked = (a) => this.AddPair(character),
+				Name = SeStringUtils.ToSeString("Add peer"),
+				OnClicked = (a) => this.AddPeer(character),
 				UseDefaultPrefix = false,
 				PrefixChar = 'S',
 				PrefixColor = 526
@@ -303,7 +305,7 @@ public sealed class Plugin : IDalamudPlugin
 		{
 			args.AddMenuItem(new MenuItem()
 			{
-				Name = SeStringUtils.ToSeString("Resync with pair"),
+				Name = SeStringUtils.ToSeString("Resync with peer"),
 				OnClicked = (a) => sync.Flush(),
 				UseDefaultPrefix = false,
 				PrefixChar = 'S',
@@ -312,11 +314,11 @@ public sealed class Plugin : IDalamudPlugin
 		}
 	}
 
-	private void AddPair(IPlayerCharacter character)
+	private void AddPeer(IPlayerCharacter character)
 	{
 		string characterName = character.Name.ToString();
 		string world = character.HomeWorld.Value.Name.ToString();
-		PairWindow.Show(characterName, world);
+		AddPeerWindow.Show(characterName, world);
 	}
 
 	private async Task InitializeAsync()
@@ -439,12 +441,12 @@ public sealed class Plugin : IDalamudPlugin
 				return;
 
 			// For testing, add any 'Earth' characters as if thy are here.
-			foreach (Configuration.Pair pair in Configuration.Current.Pairs)
+			foreach (Configuration.Peer peer in Configuration.Current.Pairs)
 			{
-				if (pair.IsTestPair)
+				if (peer.IsTestPeer)
 				{
-					CharacterSync sync = new(this.network, pair, 0);
-					string compoundName = $"{pair.CharacterName}@{pair.World}";
+					CharacterSync sync = new(this.network, peer, 0);
+					string compoundName = $"{peer.CharacterName}@{peer.World}";
 					this.checkedCharacters[compoundName] = sync;
 
 					this.OnCharacterConnected(sync);
@@ -524,7 +526,7 @@ public sealed class Plugin : IDalamudPlugin
 			{
 				if (character.IsConnected)
 				{
-					dtrTooltipBuilder.AddText($"\n・{character.Pair.CharacterName} @ {character.Pair.World}");
+					dtrTooltipBuilder.AddText($"\n・{character.Peer.CharacterName} @ {character.Peer.World}");
 					connectedCount++;
 				}
 			}
@@ -550,14 +552,14 @@ public sealed class Plugin : IDalamudPlugin
 				if (this.checkedCharacters.ContainsKey(compoundName))
 					continue;
 
-				Configuration.Pair? pair = Configuration.Current.GetPair(characterName, world);
-				if (pair == null)
+				Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
+				if (peer == null)
 					continue;
 
 				if (this.network == null)
 					continue;
 
-				CharacterSync sync = new(this.network, pair, character.ObjectIndex);
+				CharacterSync sync = new(this.network, peer, character.ObjectIndex);
 				sync.Connected += this.OnCharacterConnected;
 				sync.Disconnected += this.OnCharacterDisconnected;
 				this.checkedCharacters.Add(compoundName, sync);
@@ -650,7 +652,7 @@ public sealed class Plugin : IDalamudPlugin
 			if (!sync.IsConnected)
 				continue;
 
-			if (sync.Pair.IsTestPair)
+			if (sync.Peer.IsTestPeer)
 			{
 				await sync.ApplyCharacterData(LocalCharacterData);
 				return;

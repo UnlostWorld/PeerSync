@@ -48,7 +48,7 @@ public class FileDownload : FileTransfer
 	protected override async Task Transfer()
 	{
 		// Simulate
-		if (this.Character.Pair.IsTestPair)
+		if (this.Character.Peer.IsTestPeer)
 		{
 			this.Name += " (fake)";
 			while (this.BytesReceived < this.BytesToReceive)

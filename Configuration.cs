@@ -28,7 +28,7 @@ public partial class Configuration : IPluginConfiguration
 
 	public int Version { get; set; } = 1;
 	public List<Character> Characters { get; init; } = new();
-	public List<Pair> Pairs { get; init; } = new();
+	public List<Peer> Pairs { get; init; } = new();
 	public ushort Port { get; set; } = 0;
 	public string? CacheDirectory { get; set; }
 
@@ -44,9 +44,9 @@ public partial class Configuration : IPluginConfiguration
 		Plugin.PluginInterface.SavePluginConfig(this);
 	}
 
-	public Pair? GetPair(string characterName, string world)
+	public Peer? GetPeer(string characterName, string world)
 	{
-		foreach (Pair pair in this.Pairs)
+		foreach (Peer pair in this.Pairs)
 		{
 			if (pair.CharacterName == characterName && pair.World == world)
 			{
@@ -57,13 +57,13 @@ public partial class Configuration : IPluginConfiguration
 		return null;
 	}
 
-	public class Pair
+	public class Peer
 	{
 		public string? CharacterName { get; set; }
 		public string? World { get; set; }
 		public string? Password { get; set; }
 
-		public bool IsTestPair => this.World == "Earth";
+		public bool IsTestPeer => this.World == "Earth";
 
 		private string? fingerprint;
 
@@ -101,7 +101,7 @@ public partial class Configuration : IPluginConfiguration
 			this.fingerprint = null;
 		}
 
-		public int CompareTo(Pair other)
+		public int CompareTo(Peer other)
 		{
 			string a = this.GetFingerprint();
 			string b = other.GetFingerprint();
@@ -120,7 +120,7 @@ public partial class Configuration : IPluginConfiguration
 		}
 	}
 
-	public class Character : Pair
+	public class Character : Peer
 	{
 		public void GeneratePassword(int length = 10)
 		{

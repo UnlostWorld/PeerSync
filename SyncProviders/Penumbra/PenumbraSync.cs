@@ -200,7 +200,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		{
 			await Plugin.Framework.RunOnUpdate();
 
-			if (this.appliedCollections.TryGetValue(character.Pair.GetFingerprint(), out Guid existingCollectionId))
+			if (this.appliedCollections.TryGetValue(character.Peer.GetFingerprint(), out Guid existingCollectionId))
 			{
 				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
 			}
@@ -250,8 +250,8 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			await Task.Delay(100, this.CancellationToken);
 		}
 
-		// Don't actually apply to test pairs.
-		if (character.Pair.IsTestPair)
+		// Don't actually apply to test peers.
+		if (character.Peer.IsTestPeer)
 		{
 			this.SetStatus(character, SyncProgressStatus.Applied);
 			return;
@@ -286,18 +286,18 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		await Plugin.Framework.RunOnUpdate();
 
 		Guid collectionId;
-		if (!this.appliedCollections.ContainsKey(character.Pair.GetFingerprint()))
+		if (!this.appliedCollections.ContainsKey(character.Peer.GetFingerprint()))
 		{
 			this.penumbra.CreateTemporaryCollection.Invoke(
 				"PeerSync",
-				character.Pair.GetFingerprint(),
+				character.Peer.GetFingerprint(),
 				out collectionId).ThrowOnFailure();
 
-			this.appliedCollections.Add(character.Pair.GetFingerprint(), collectionId);
+			this.appliedCollections.Add(character.Peer.GetFingerprint(), collectionId);
 		}
 		else
 		{
-			collectionId = this.appliedCollections[character.Pair.GetFingerprint()];
+			collectionId = this.appliedCollections[character.Peer.GetFingerprint()];
 		}
 
 		try
@@ -510,7 +510,7 @@ public class TransferGroup
 			ImGui.Text(transfer.Name);
 
 			ImGui.Text($"{(transfer.Progress * 100).ToString("F0")}%");
-			ImGui.Text($"{transfer.Character.Pair.CharacterName} @ {transfer.Character.Pair.World}");
+			ImGui.Text($"{transfer.Character.Peer.CharacterName} @ {transfer.Character.Peer.World}");
 
 			ImGui.EndTooltip();
 		}

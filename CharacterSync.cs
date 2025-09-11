@@ -16,7 +16,7 @@ using PeerSync.Online;
 
 public class CharacterSync : IDisposable
 {
-	public readonly Configuration.Pair Pair;
+	public readonly Configuration.Peer Peer;
 
 	public Status CurrentStatus { get; private set; } = Status.None;
 	private readonly CancellationTokenSource tokenSource = new();
@@ -31,11 +31,11 @@ public class CharacterSync : IDisposable
 	public event CharacterSyncDelegate? Connected;
 	public event CharacterSyncDelegate? Disconnected;
 
-	public CharacterSync(ConnectionManager network, Configuration.Pair pair, ushort objectIndex)
+	public CharacterSync(ConnectionManager network, Configuration.Peer peer, ushort objectIndex)
 	{
 		this.objectIndex = objectIndex;
 		this.network = network;
-		this.Pair = pair;
+		this.Peer = peer;
 
 		Task.Run(this.Connect, tokenSource.Token);
 	}
@@ -173,7 +173,7 @@ public class CharacterSync : IDisposable
 
 	public bool Update()
 	{
-		if (this.Pair.IsTestPair)
+		if (this.Peer.IsTestPeer)
 			return true;
 
 		IGameObject? obj = Plugin.ObjectTable[this.objectIndex];
@@ -183,8 +183,8 @@ public class CharacterSync : IDisposable
 		if (obj is not IPlayerCharacter character)
 			return false;
 
-		if (character.Name.ToString() != this.Pair.CharacterName
-			|| character.HomeWorld.Value.Name != this.Pair.World)
+		if (character.Name.ToString() != this.Peer.CharacterName
+			|| character.HomeWorld.Value.Name != this.Peer.World)
 			return false;
 
 		return true;
@@ -222,7 +222,7 @@ public class CharacterSync : IDisposable
 			if (Plugin.Instance == null || Plugin.Instance.LocalCharacter == null)
 				return;
 
-			if (this.Pair.IsTestPair)
+			if (this.Peer.IsTestPeer)
 			{
 				this.CurrentStatus = Status.Connected;
 				return;
@@ -231,7 +231,7 @@ public class CharacterSync : IDisposable
 			// We're the client.
 			this.CurrentStatus = Status.Searching;
 			SyncStatus request = new();
-			request.Fingerprint = this.Pair.GetFingerprint();
+			request.Fingerprint = this.Peer.GetFingerprint();
 
 			SyncStatus? response = null;
 			foreach (string indexServer in Configuration.Current.IndexServers)
@@ -264,7 +264,7 @@ public class CharacterSync : IDisposable
 				return;
 			}
 
-			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Pair);
+			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Peer);
 			if (sort >= 0)
 			{
 				// We're the host.
@@ -340,7 +340,7 @@ public class CharacterSync : IDisposable
 
 	private void OnDisconnected(Connection connection)
 	{
-		Plugin.Log.Information($"Connection to {this.Pair} was closed.");
+		Plugin.Log.Information($"Connection to {this.Peer} was closed.");
 		this.CurrentStatus = Status.Disconnected;
 		this.Disconnected?.Invoke(this);
 
@@ -350,7 +350,7 @@ public class CharacterSync : IDisposable
 	private void OnIAm(Connection connection, string fingerprint)
 	{
 		// Sanity check
-		if (connection != this.connection || fingerprint != this.Pair.GetFingerprint())
+		if (connection != this.connection || fingerprint != this.Peer.GetFingerprint())
 			return;
 
 		if (this.CurrentStatus == Status.Handshake)
@@ -362,7 +362,7 @@ public class CharacterSync : IDisposable
 			Task.Run(this.SendIAm);
 		}
 
-		Plugin.Log.Info($"Connected to {this.Pair} at {connection.EndPoint}");
+		Plugin.Log.Info($"Connected to {this.Peer} at {connection.EndPoint}");
 		this.CurrentStatus = Status.Connected;
 		this.Connected?.Invoke(this);
 	}

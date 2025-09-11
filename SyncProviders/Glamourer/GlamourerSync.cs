@@ -43,7 +43,7 @@ public class GlamourerSync : SyncProviderBase
 		}
 		else
 		{
-			if (!character.Pair.IsTestPair)
+			if (!character.Peer.IsTestPeer)
 				await glamourer.SetState(objectIndex, content);
 
 			this.SetStatus(character, SyncProgressStatus.Applied);

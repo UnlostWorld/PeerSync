@@ -210,8 +210,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		}
 
 		this.IndexServersStatus.Clear();
-
-		CommandManager.RemoveHandler(CommandName);
 	}
 
 	public void Start()
@@ -241,6 +239,8 @@ public sealed partial class Plugin : IDalamudPlugin
 	public void Dispose()
 	{
 		this.Stop();
+
+		CommandManager.RemoveHandler(CommandName);
 
 		Framework.Update -= this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened -= this.OnContextMenuOpened;

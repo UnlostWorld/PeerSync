@@ -1,17 +1,23 @@
-// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+
+namespace PeerSync.SyncProviders.Penumbra;
 
 using Dalamud.Bindings.ImGui;
 using PeerSync.UI;
 
-namespace PeerSync.SyncProviders.Penumbra;
-
 public class PenumbraProgress(PenumbraSync provider)
 	: SyncProgressBase(provider)
 {
-	public long totalUpload = 0;
-	public long totalDownload = 0;
-	public long currentUpload = 0;
-	public long currentDownload = 0;
+	private long totalUpload = 0;
+	private long totalDownload = 0;
+	private long currentUpload = 0;
+	private long currentDownload = 0;
 
 	public void AddTotalUpload(long value)
 	{

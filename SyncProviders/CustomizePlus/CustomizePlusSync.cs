@@ -1,10 +1,16 @@
-// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+
+namespace PeerSync.SyncProviders.CustomizePlus;
 
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
-namespace PeerSync.SyncProviders.CustomizePlus;
 
 public class CustomizePlusSync : SyncProviderBase
 {
@@ -14,7 +20,11 @@ public class CustomizePlusSync : SyncProviderBase
 	public override string DisplayName => "Customize+";
 	public override string Key => "c";
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
 		if (!this.customizePlus.GetIsAvailable())
 		{
@@ -31,21 +41,21 @@ public class CustomizePlusSync : SyncProviderBase
 
 		if (content == null)
 		{
-			if (this.appliedProfiles.TryGetValue(character.Pair.GetIdentifier(), out Guid guid))
+			if (this.appliedProfiles.TryGetValue(character.Peer.GetFingerprint(), out Guid guid))
 			{
 				this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
-				this.appliedProfiles.Remove(character.Pair.GetIdentifier());
+				this.appliedProfiles.Remove(character.Peer.GetFingerprint());
 			}
 
 			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
-			Guid? guid = this.customizePlus.SetTemporaryProfileOnCharacter(character.ObjectTableIndex, content);
+			Guid? guid = this.customizePlus.SetTemporaryProfileOnCharacter(objectIndex, content);
 			if (guid == null)
 				return;
 
-			this.appliedProfiles[character.Pair.GetIdentifier()] = guid.Value;
+			this.appliedProfiles[character.Peer.GetFingerprint()] = guid.Value;
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}

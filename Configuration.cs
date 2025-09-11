@@ -1,4 +1,10 @@
-// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 namespace PeerSync;
 
@@ -28,7 +34,7 @@ public partial class Configuration : IPluginConfiguration
 
 	public int Version { get; set; } = 1;
 	public List<Character> Characters { get; init; } = new();
-	public List<Pair> Pairs { get; init; } = new();
+	public List<Peer> Pairs { get; init; } = new();
 	public ushort Port { get; set; } = 0;
 	public string? CacheDirectory { get; set; }
 
@@ -44,9 +50,9 @@ public partial class Configuration : IPluginConfiguration
 		Plugin.PluginInterface.SavePluginConfig(this);
 	}
 
-	public Pair? GetPair(string characterName, string world)
+	public Peer? GetPeer(string characterName, string world)
 	{
-		foreach (Pair pair in this.Pairs)
+		foreach (Peer pair in this.Pairs)
 		{
 			if (pair.CharacterName == characterName && pair.World == world)
 			{
@@ -57,23 +63,21 @@ public partial class Configuration : IPluginConfiguration
 		return null;
 	}
 
-	public class Pair
+	public class Peer
 	{
+		private string? fingerprint;
+
 		public string? CharacterName { get; set; }
 		public string? World { get; set; }
 		public string? Password { get; set; }
 
-		public bool IsTestPair => this.World == "Earth";
-
-		private string? identifier;
-
-		public string GetIdentifier()
+		public string GetFingerprint()
 		{
-			if (string.IsNullOrEmpty(this.identifier))
+			if (string.IsNullOrEmpty(this.fingerprint))
 			{
 				const int iterations = 1000;
 
-				// The Identifier is sent to the index servers, and it contains the character name and world, so
+				// The Fingerprint is sent to the index servers, and it contains the character name and world, so
 				// ensure its cryptographically secure in case of bad actors controlling servers.
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 
@@ -90,21 +94,21 @@ public partial class Configuration : IPluginConfiguration
 					input = input.Replace("-", string.Empty, StringComparison.Ordinal);
 				}
 
-				this.identifier = input;
+				this.fingerprint = input;
 			}
 
-			return this.identifier;
+			return this.fingerprint;
 		}
 
-		public void ClearIdentifier()
+		public void ClearFingerprint()
 		{
-			this.identifier = null;
+			this.fingerprint = null;
 		}
 
-		public int CompareTo(Pair other)
+		public int CompareTo(Peer other)
 		{
-			string a = this.GetIdentifier();
-			string b = other.GetIdentifier();
+			string a = this.GetFingerprint();
+			string b = other.GetFingerprint();
 
 			return a.CompareTo(b);
 		}
@@ -112,15 +116,15 @@ public partial class Configuration : IPluginConfiguration
 		public override string ToString()
 		{
 #if DEBUG
-			return $"{this.CharacterName} @ {this.World} -> {this.GetIdentifier()}";
+			return $"{this.CharacterName} @ {this.World} -> {this.GetFingerprint()}";
 #else
-			return this.GetIdentifier();
+			return this.GetFingerprint();
 #endif
 
 		}
 	}
 
-	public class Character : Pair
+	public class Character : Peer
 	{
 		public void GeneratePassword(int length = 10)
 		{

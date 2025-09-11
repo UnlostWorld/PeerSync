@@ -1,4 +1,10 @@
-// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 namespace PeerSync.Network;
 
@@ -12,17 +18,11 @@ using K4os.Compression.LZ4;
 
 public class Connection : IDisposable
 {
-	private const int readBufferSize = 1024;
+	private const int ReadBufferSize = 1024;
 
 	private readonly CancellationTokenSource tokenSource = new();
 	private readonly TcpClient client;
 	private readonly NetworkStream stream;
-
-	public event ConnectionDelegate? Disconnected;
-
-	public delegate void ObjectDelegate(Connection connection, byte typeId, byte[] data);
-
-	public event ObjectDelegate? Received;
 
 	public Connection(TcpClient client)
 	{
@@ -33,6 +33,11 @@ public class Connection : IDisposable
 
 		Task.Run(this.Receive, this.tokenSource.Token);
 	}
+
+	public delegate void ObjectDelegate(Connection connection, PacketTypes type, byte[] data);
+
+	public event ConnectionDelegate? Disconnected;
+	public event ObjectDelegate? Received;
 
 	public EndPoint? EndPoint { get; private set; }
 	public bool IsConnected => this.client.Connected;
@@ -47,10 +52,10 @@ public class Connection : IDisposable
 		this.client.Dispose();
 	}
 
-	public void Send(byte objectType, byte[] data)
+	public void Send(PacketTypes type, byte[] data)
 	{
 		if (data.Length > 1024 * 1024 * 10)
-			throw new Exception($"chunk {objectType} too large ({data.Length} bytes)");
+			throw new Exception($"chunk {type} too large ({data.Length} bytes)");
 
 		try
 		{
@@ -59,7 +64,7 @@ public class Connection : IDisposable
 			lock (this.stream)
 			{
 				byte[] lengthBytes = BitConverter.GetBytes(data.Length);
-				this.stream.Write((byte[])[objectType]);
+				this.stream.Write((byte[])[(byte)type]);
 				this.stream.Write(lengthBytes);
 				this.stream.Write(data);
 				this.stream.Write(lengthBytes);
@@ -93,10 +98,10 @@ public class Connection : IDisposable
 			try
 			{
 				byte[] typeBytes = new byte[1];
-				await stream.ReadExactlyAsync(typeBytes, 0, 1, this.tokenSource.Token);
+				await this.stream.ReadExactlyAsync(typeBytes, 0, 1, this.tokenSource.Token);
 
 				byte[] chunkLengthBytes = new byte[sizeof(int)];
-				await stream.ReadExactlyAsync(chunkLengthBytes, 0, sizeof(int), this.tokenSource.Token);
+				await this.stream.ReadExactlyAsync(chunkLengthBytes, 0, sizeof(int), this.tokenSource.Token);
 
 				int chunkLength = BitConverter.ToInt32(chunkLengthBytes);
 
@@ -109,15 +114,15 @@ public class Connection : IDisposable
 				int bytesReceived = 0;
 				while (bytesToReceive > 0 && !this.tokenSource.IsCancellationRequested)
 				{
-					int availableBytes = Math.Min(client.Available, Math.Min(readBufferSize, bytesToReceive));
-					await stream.ReadExactlyAsync(data, bytesReceived, availableBytes, this.tokenSource.Token);
+					int availableBytes = Math.Min(this.client.Available, Math.Min(ReadBufferSize, bytesToReceive));
+					await this.stream.ReadExactlyAsync(data, bytesReceived, availableBytes, this.tokenSource.Token);
 
 					bytesReceived += availableBytes;
 					bytesToReceive -= availableBytes;
 				}
 
 				byte[] chunkVerifyLengthBytes = new byte[sizeof(int)];
-				await stream.ReadExactlyAsync(chunkVerifyLengthBytes, 0, sizeof(int), this.tokenSource.Token);
+				await this.stream.ReadExactlyAsync(chunkVerifyLengthBytes, 0, sizeof(int), this.tokenSource.Token);
 				int chunkVerifyLength = BitConverter.ToInt32(chunkVerifyLengthBytes);
 
 				if (chunkVerifyLength != chunkLength)
@@ -128,7 +133,7 @@ public class Connection : IDisposable
 					data = LZ4Pickler.Unpickle(data);
 
 					////Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
-					this.Received?.Invoke(this, typeBytes[0], data);
+					this.Received?.Invoke(this, (PacketTypes)typeBytes[0], data);
 				}
 				catch (Exception ex)
 				{

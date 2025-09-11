@@ -1,9 +1,16 @@
-// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+
+namespace PeerSync.SyncProviders.Penumbra;
 
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -15,26 +22,10 @@ using Newtonsoft.Json;
 using PeerSync.Network;
 using PeerSync.UI;
 
-namespace PeerSync.SyncProviders.Penumbra;
-
 public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 {
 	public const int FileTimeout = 240_000;
 	public const int FileChunkSize = 1024 * 128; // 128kb chunks
-
-	public readonly FileCache fileCache = new();
-	public byte lastQueueIndex = 0;
-
-	private readonly Penumbra penumbra = new();
-	private readonly ResourceMonitor resourceMonitor = new();
-	private readonly Dictionary<string, Guid> appliedCollections = new();
-	private readonly HashSet<int> hasSeenBefore = new();
-
-	private readonly TransferGroup downloadGroup = new();
-	private readonly TransferGroup uploadGroup = new();
-
-	public override string DisplayName => "Penumbra";
-	public override string Key => "p";
 
 	public static readonly HashSet<string> AllowedFileExtensions =
 	[
@@ -54,11 +45,25 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		".shpk"
 	];
 
+	public readonly FileCache FileCache = new();
+	public byte LastQueueIndex = 0;
+
+	private readonly Penumbra penumbra = new();
+	private readonly ResourceMonitor resourceMonitor = new();
+	private readonly Dictionary<string, Guid> appliedCollections = new();
+	private readonly HashSet<int> hasSeenBefore = new();
+
+	private readonly TransferGroup downloadGroup = new();
+	private readonly TransferGroup uploadGroup = new();
+
 	public PenumbraSync()
 	{
 		this.downloadGroup.SetCount(Configuration.Current.MaxDownloads);
 		this.uploadGroup.SetCount(Configuration.Current.MaxUploads);
 	}
+
+	public override string DisplayName => "Penumbra";
+	public override string Key => "p";
 
 	public override void GetDtrStatus(ref SeStringBuilder dtrEntryBuilder, ref SeStringBuilder dtrTooltipBuilder)
 	{
@@ -94,32 +99,11 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		base.OnCharacterDisconnected(character);
 	}
 
-	private void OnReceived(Connection connection, byte typeId, byte[] data)
-	{
-		if (typeId == Objects.FileRequest)
-		{
-			byte clientQueueIndex = data[0];
-
-			byte[] hashData = new byte[data.Length - 1];
-			Array.Copy(data, 1, hashData, 0, data.Length - 1);
-
-			string hash = Encoding.UTF8.GetString(hashData);
-			string? fileExtension = Path.GetExtension(hash);
-			if (fileExtension == null)
-				throw new Exception("Invalid file request");
-
-			if (!AllowedFileExtensions.Contains(fileExtension))
-				throw new Exception("Attempt to request forbidden file extension");
-
-			this.OnFileRequest(connection, clientQueueIndex, hash);
-		}
-	}
-
 	public override async Task<string?> Serialize(ushort objectIndex)
 	{
 		await Plugin.Framework.RunOnUpdate();
 
-		if (!penumbra.GetIsAvailable())
+		if (!this.penumbra.GetIsAvailable())
 			return null;
 
 		if (!this.hasSeenBefore.Contains(objectIndex))
@@ -151,7 +135,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				bool isFilePath = Path.IsPathRooted(redirectPath);
 				if (isFilePath)
 				{
-					bool found = this.fileCache.GetFileHash(redirectPath, out string hash, out long fileSize);
+					bool found = this.FileCache.GetFileHash(redirectPath, out string hash, out long fileSize);
 					if (!found)
 					{
 						Plugin.Log.Warning($"File not found for sync: {redirectPath}");
@@ -176,9 +160,13 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		return JsonConvert.SerializeObject(data);
 	}
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
-		if (!penumbra.GetIsAvailable())
+		if (!this.penumbra.GetIsAvailable())
 		{
 			if (!string.IsNullOrEmpty(content))
 				this.SetStatus(character, SyncProgressStatus.NotApplied);
@@ -186,7 +174,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			return;
 		}
 
-		if (!this.fileCache.IsValid())
+		if (!this.FileCache.IsValid())
 			return;
 
 		if (lastContent == content)
@@ -196,7 +184,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		{
 			await Plugin.Framework.RunOnUpdate();
 
-			if (this.appliedCollections.TryGetValue(character.Pair.GetIdentifier(), out Guid existingCollectionId))
+			if (this.appliedCollections.TryGetValue(character.Peer.GetFingerprint(), out Guid existingCollectionId))
 			{
 				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
 			}
@@ -222,7 +210,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		foreach ((string gamePath, string hash) in data.Files)
 		{
-			FileInfo? file = this.fileCache.GetFile(hash);
+			FileInfo? file = this.FileCache.GetFile(hash);
 			if (file == null || !file.Exists)
 			{
 				long expectedSize = 0;
@@ -246,13 +234,6 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			await Task.Delay(100, this.CancellationToken);
 		}
 
-		// Don't actually apply to test pairs.
-		if (character.Pair.IsTestPair)
-		{
-			this.SetStatus(character, SyncProgressStatus.Applied);
-			return;
-		}
-
 		if (this.CancellationToken.IsCancellationRequested)
 			return;
 
@@ -261,7 +242,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		Dictionary<string, string> paths = new();
 		foreach ((string gamePath, string hash) in data.Files)
 		{
-			FileInfo? file = this.fileCache.GetFile(hash);
+			FileInfo? file = this.FileCache.GetFile(hash);
 
 			// Verify that we did get all the files we need.
 			if (file == null || !file.Exists)
@@ -282,30 +263,31 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		await Plugin.Framework.RunOnUpdate();
 
 		Guid collectionId;
-		if (!this.appliedCollections.ContainsKey(character.Pair.GetIdentifier()))
+		if (!this.appliedCollections.ContainsKey(character.Peer.GetFingerprint()))
 		{
 			this.penumbra.CreateTemporaryCollection.Invoke(
 				"PeerSync",
-				character.Pair.GetIdentifier(),
+				character.Peer.GetFingerprint(),
 				out collectionId).ThrowOnFailure();
 
-			this.appliedCollections.Add(character.Pair.GetIdentifier(), collectionId);
+			this.appliedCollections.Add(character.Peer.GetFingerprint(), collectionId);
 		}
 		else
 		{
-			collectionId = this.appliedCollections[character.Pair.GetIdentifier()];
+			collectionId = this.appliedCollections[character.Peer.GetFingerprint()];
 		}
 
 		try
 		{
 			this.penumbra.AssignTemporaryCollection.Invoke(
 				collectionId,
-				character.ObjectTableIndex,
+				objectIndex,
 				true).ThrowOnFailure();
 
 			this.penumbra.RemoveTemporaryMod.Invoke(
 				"PeerSync",
-				collectionId, 0).ThrowOnFailure();
+				collectionId,
+				0).ThrowOnFailure();
 
 			this.penumbra.AddTemporaryMod.Invoke(
 				"PeerSync",
@@ -314,7 +296,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				data.MetaManipulations ?? string.Empty,
 				0).ThrowOnFailure();
 
-			this.penumbra.RedrawObject.Invoke(character.ObjectTableIndex);
+			this.penumbra.RedrawObject.Invoke(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 		catch (Exception ex)
@@ -358,7 +340,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			this.uploadGroup.DrawStatus("UploadTable");
 		}
 
-		this.fileCache.DrawInfo();
+		this.FileCache.DrawInfo();
 	}
 
 	public override void Dispose()
@@ -368,9 +350,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		this.downloadGroup.Cancel();
 		this.uploadGroup.Cancel();
 
-		this.fileCache.Dispose();
+		this.FileCache.Dispose();
 
-		foreach ((string identifier, Guid guid) in this.appliedCollections)
+		foreach ((string fingerprint, Guid guid) in this.appliedCollections)
 		{
 			try
 			{
@@ -389,6 +371,26 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		this.uploadGroup.Cancel();
 	}
 
+	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
+	{
+		if (type == PacketTypes.FileRequest)
+		{
+			byte clientQueueIndex = data[0];
+
+			byte[] hashData = new byte[data.Length - 1];
+			Array.Copy(data, 1, hashData, 0, data.Length - 1);
+
+			string hash = Encoding.UTF8.GetString(hashData);
+			string? fileExtension = Path.GetExtension(hash);
+			if (fileExtension == null)
+				throw new Exception("Invalid file request");
+
+			if (!AllowedFileExtensions.Contains(fileExtension))
+				throw new Exception("Attempt to request forbidden file extension");
+
+			this.OnFileRequest(connection, clientQueueIndex, hash);
+		}
+	}
 
 	private void OnFileRequest(Connection connection, byte clientQueueIndex, string hash)
 	{
@@ -431,7 +433,7 @@ public class TransferGroup
 		this.transferTaskTokenSource = new();
 		for (int i = 0; i < count; i++)
 		{
-			Task.Run(TransferTask, this.transferTaskTokenSource.Token);
+			Task.Run(this.TransferTask, this.transferTaskTokenSource.Token);
 		}
 	}
 
@@ -506,12 +508,11 @@ public class TransferGroup
 			ImGui.Text(transfer.Name);
 
 			ImGui.Text($"{(transfer.Progress * 100).ToString("F0")}%");
-			ImGui.Text($"{transfer.Character.Pair.CharacterName} @ {transfer.Character.Pair.World}");
+			ImGui.Text($"{transfer.Character.Peer.CharacterName} @ {transfer.Character.Peer.World}");
 
 			ImGui.EndTooltip();
 		}
 	}
-
 
 	private async Task TransferTask()
 	{

@@ -9,11 +9,14 @@
 		"Moodles",
 		"mtrl",
 		"phyb",
+		"Pickler",
+		"psync",
 		"Raii",
 		"Serialise",
 		"shpk",
 		"sklb",
 		"Unlost",
+		"Unpickle",
 		"Upnp"
 	]
 }

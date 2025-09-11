@@ -1,8 +1,14 @@
-// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
-
-using System.Threading.Tasks;
+// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 namespace PeerSync.SyncProviders.Glamourer;
+
+using System.Threading.Tasks;
 
 public class GlamourerSync : SyncProviderBase
 {
@@ -13,15 +19,19 @@ public class GlamourerSync : SyncProviderBase
 
 	public override async Task<string?> Serialize(ushort objectIndex)
 	{
-		if (!glamourer.GetIsAvailable())
+		if (!this.glamourer.GetIsAvailable())
 			return null;
 
 		return await this.glamourer.GetState(objectIndex);
 	}
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
-		if (!glamourer.GetIsAvailable())
+		if (!this.glamourer.GetIsAvailable())
 		{
 			if (!string.IsNullOrEmpty(content))
 				this.SetStatus(character, SyncProgressStatus.NotApplied);
@@ -34,14 +44,12 @@ public class GlamourerSync : SyncProviderBase
 
 		if (content == null)
 		{
-			await glamourer.RevertState(character.ObjectTableIndex);
+			await this.glamourer.RevertState(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
-			if (!character.Pair.IsTestPair)
-				await glamourer.SetState(character.ObjectTableIndex, content);
-
+			await this.glamourer.SetState(objectIndex, content);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}

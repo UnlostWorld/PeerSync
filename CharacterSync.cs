@@ -1,4 +1,10 @@
-// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 namespace PeerSync;
 
@@ -10,33 +16,37 @@ using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Newtonsoft.Json;
 using PeerSync.Network;
 using PeerSync.Online;
+using PeerSync.SyncProviders;
 
 public class CharacterSync : IDisposable
 {
-	public readonly Configuration.Pair Pair;
+	public readonly Configuration.Peer Peer;
 
-	public Status CurrentStatus { get; private set; } = Status.None;
 	private readonly CancellationTokenSource tokenSource = new();
+	private readonly ConnectionManager network;
+	private readonly ushort objectIndex;
+
 	private CharacterData? lastData;
 	private bool isApplyingData = false;
 	private Connection? connection;
-	private readonly ConnectionManager network;
+
+	public CharacterSync(ConnectionManager network, Configuration.Peer peer, ushort objectIndex)
+	{
+		this.objectIndex = objectIndex;
+		this.network = network;
+		this.Peer = peer;
+
+		Task.Run(this.Connect, this.tokenSource.Token);
+	}
 
 	public delegate void CharacterSyncDelegate(CharacterSync character);
 
 	public event CharacterSyncDelegate? Connected;
 	public event CharacterSyncDelegate? Disconnected;
-
-	public CharacterSync(ConnectionManager network, Configuration.Pair pair)
-	{
-		this.network = network;
-		this.Pair = pair;
-
-		Task.Run(this.Connect, tokenSource.Token);
-	}
 
 	public enum Status
 	{
@@ -67,26 +77,26 @@ public class CharacterSync : IDisposable
 		Disconnected,
 	}
 
-	public ushort ObjectTableIndex { get; set; }
+	public Status CurrentStatus { get; private set; } = Status.None;
 	public Connection? Connection => this.connection;
 	public bool IsConnected => this.CurrentStatus == Status.Connected;
 
 	public void SendIAm()
 	{
-		string? identifier = Plugin.Instance?.LocalCharacter?.GetIdentifier();
-		if (identifier == null)
+		string? fingerprint = Plugin.Instance?.LocalCharacter?.GetFingerprint();
+		if (fingerprint == null)
 			return;
 
-		byte[] data = Encoding.UTF8.GetBytes(identifier);
-		this.Send(Objects.IAm, data);
+		byte[] data = Encoding.UTF8.GetBytes(fingerprint);
+		this.Send(PacketTypes.IAm, data);
 	}
 
-	public void Send(byte objectType, byte[] data)
+	public void Send(PacketTypes type, byte[] data)
 	{
 		if (this.connection == null || !this.connection.IsConnected)
 			return;
 
-		this.connection.Send(objectType, data);
+		this.connection.Send(type, data);
 	}
 
 	public void Reconnect()
@@ -105,7 +115,6 @@ public class CharacterSync : IDisposable
 			this.connection.Disconnected -= this.OnDisconnected;
 			this.connection.Dispose();
 		}
-
 
 		this.CurrentStatus = Status.None;
 		Task.Run(this.Connect);
@@ -126,31 +135,9 @@ public class CharacterSync : IDisposable
 		return true;
 	}
 
-	private void SetupConnection()
+	public void Flush()
 	{
-		if (this.connection == null)
-			throw new Exception();
-
-		this.connection.Received += this.OnReceived;
-		this.connection.Disconnected += this.OnDisconnected;
-	}
-
-	private void OnReceived(Connection connection, byte typeId, byte[] data)
-	{
-		if (typeId == Objects.IAm)
-		{
-			string identifier = Encoding.UTF8.GetString(data);
-			this.OnIAm(connection, identifier);
-		}
-		else if (typeId == Objects.CharacterData)
-		{
-			string json = Encoding.UTF8.GetString(data);
-			CharacterData? characterData = JsonConvert.DeserializeObject<CharacterData>(json);
-			if (characterData == null)
-				throw new Exception();
-
-			this.OnCharacterData(connection, characterData);
-		}
+		this.lastData = null;
 	}
 
 	public void Dispose()
@@ -162,28 +149,25 @@ public class CharacterSync : IDisposable
 			this.connection.Dispose();
 		}
 
-		if (!tokenSource.IsCancellationRequested)
-			tokenSource.Cancel();
+		if (!this.tokenSource.IsCancellationRequested)
+			this.tokenSource.Cancel();
 
-		tokenSource.Dispose();
+		this.tokenSource.Dispose();
 
 		this.Disconnected?.Invoke(this);
 	}
 
 	public bool Update()
 	{
-		if (this.Pair.IsTestPair)
-			return true;
-
-		IGameObject? obj = Plugin.ObjectTable[this.ObjectTableIndex];
+		IGameObject? obj = Plugin.ObjectTable[this.objectIndex];
 		if (obj == null)
 			return false;
 
 		if (obj is not IPlayerCharacter character)
 			return false;
 
-		if (character.Name.ToString() != this.Pair.CharacterName
-			|| character.HomeWorld.Value.Name != this.Pair.World)
+		if (character.Name.ToString() != this.Peer.CharacterName
+			|| character.HomeWorld.Value.Name != this.Peer.World)
 			return false;
 
 		return true;
@@ -199,7 +183,7 @@ public class CharacterSync : IDisposable
 
 		string json = JsonConvert.SerializeObject(data);
 		byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
-		this.connection.Send(Objects.CharacterData, jsonBytes);
+		this.connection.Send(PacketTypes.CharacterData, jsonBytes);
 	}
 
 	public void OnCharacterData(Connection? connection, CharacterData characterData)
@@ -211,7 +195,7 @@ public class CharacterSync : IDisposable
 		if (this.isApplyingData)
 			return;
 
-		Task.Run(() => ApplyCharacterData(characterData));
+		Task.Run(() => this.ApplyCharacterData(characterData));
 	}
 
 	private async Task Connect()
@@ -221,16 +205,10 @@ public class CharacterSync : IDisposable
 			if (Plugin.Instance == null || Plugin.Instance.LocalCharacter == null)
 				return;
 
-			if (this.Pair.IsTestPair)
-			{
-				this.CurrentStatus = Status.Connected;
-				return;
-			}
-
 			// We're the client.
 			this.CurrentStatus = Status.Searching;
 			SyncStatus request = new();
-			request.Identifier = this.Pair.GetIdentifier();
+			request.Identifier = this.Peer.GetFingerprint();
 
 			SyncStatus? response = null;
 			foreach (string indexServer in Configuration.Current.IndexServers)
@@ -241,7 +219,7 @@ public class CharacterSync : IDisposable
 				}
 				catch (Exception ex)
 				{
-					Plugin.Log.Warning(ex, $"Error requesting peer from index server: {indexServer}");
+					Plugin.Log.Error(ex, $"Error requesting peer from index server: {indexServer}");
 				}
 
 				if (this.tokenSource.IsCancellationRequested)
@@ -263,7 +241,7 @@ public class CharacterSync : IDisposable
 				return;
 			}
 
-			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Pair);
+			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Peer);
 			if (sort >= 0)
 			{
 				// We're the host.
@@ -280,7 +258,7 @@ public class CharacterSync : IDisposable
 				try
 				{
 					IPEndPoint endPoint = new(localAddress, response.Port);
-					this.connection = await this.network.Connect(endPoint, tokenSource.Token);
+					this.connection = await this.network.Connect(endPoint, this.tokenSource.Token);
 				}
 				catch (Exception)
 				{
@@ -293,7 +271,7 @@ public class CharacterSync : IDisposable
 				if (this.connection == null)
 				{
 					IPEndPoint endPoint = new(address, response.Port);
-					this.connection = await this.network.Connect(endPoint, tokenSource.Token);
+					this.connection = await this.network.Connect(endPoint, this.tokenSource.Token);
 				}
 			}
 			catch (Exception)
@@ -337,43 +315,109 @@ public class CharacterSync : IDisposable
 		}
 	}
 
+	private void SetupConnection()
+	{
+		if (this.connection == null)
+			throw new Exception();
+
+		this.connection.Received += this.OnReceived;
+		this.connection.Disconnected += this.OnDisconnected;
+	}
+
+	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
+	{
+		if (type == PacketTypes.IAm)
+		{
+			string fingerprint = Encoding.UTF8.GetString(data);
+			this.OnIAm(connection, fingerprint);
+		}
+		else if (type == PacketTypes.CharacterData)
+		{
+			string json = Encoding.UTF8.GetString(data);
+			CharacterData? characterData = JsonConvert.DeserializeObject<CharacterData>(json);
+			if (characterData == null)
+				throw new Exception();
+
+			this.OnCharacterData(connection, characterData);
+		}
+	}
+
 	private void OnDisconnected(Connection connection)
 	{
-		Plugin.Log.Information($"Connection to {this.Pair} was closed.");
+		Plugin.Log.Information($"Connection to {this.Peer} was closed.");
 		this.CurrentStatus = Status.Disconnected;
 		this.Disconnected?.Invoke(this);
 
 		this.Reconnect();
 	}
 
-	private void OnIAm(Connection connection, string identifier)
+	private void OnIAm(Connection connection, string fingerprint)
 	{
 		// Sanity check
-		if (connection != this.connection || identifier != this.Pair.GetIdentifier())
+		if (connection != this.connection || fingerprint != this.Peer.GetFingerprint())
 			return;
 
-		if (this.CurrentStatus == Status.Handshake)
-		{
-
-		}
-		else if (this.CurrentStatus == Status.Listening)
+		if (this.CurrentStatus == Status.Listening)
 		{
 			Task.Run(this.SendIAm);
 		}
 
-		Plugin.Log.Info($"Connected to {this.Pair} at {connection.EndPoint}");
+		Plugin.Log.Info($"Connected to {this.Peer} at {connection.EndPoint}");
 		this.CurrentStatus = Status.Connected;
 		this.Connected?.Invoke(this);
 	}
 
-	public async Task ApplyCharacterData(CharacterData characterData)
+	private async Task ApplyCharacterData(CharacterData characterData)
 	{
 		if (this.isApplyingData)
 			return;
 
 		this.isApplyingData = true;
 
-		foreach ((string key, string? content) in characterData.Syncs)
+		await this.ApplySyncData(
+			characterData.Character,
+			this.lastData?.Character,
+			this.objectIndex);
+
+		await this.ApplySyncData(
+			characterData.MountOrMinion,
+			this.lastData?.MountOrMinion,
+			(ushort)(this.objectIndex + 1));
+
+		await Plugin.Framework.RunOnUpdate();
+		IGameObject? pet = null;
+		unsafe
+		{
+			IGameObject? character = Plugin.ObjectTable[this.objectIndex];
+			if (character != null)
+			{
+				BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)character.Address);
+				if (pPet != null)
+				{
+					pet = Plugin.ObjectTable[pPet->ObjectIndex];
+				}
+			}
+		}
+
+		await Plugin.Framework.RunOutsideUpdate();
+		if (pet != null)
+		{
+			await this.ApplySyncData(
+				characterData.Pet,
+				this.lastData?.Pet,
+				pet.ObjectIndex);
+		}
+
+		this.isApplyingData = false;
+		this.lastData = characterData;
+	}
+
+	private async Task ApplySyncData(
+		Dictionary<string, string?> sync,
+		Dictionary<string, string?>? lastSync,
+		ushort objectIndex)
+	{
+		foreach ((string key, string? content) in sync)
 		{
 			try
 			{
@@ -388,21 +432,14 @@ public class CharacterSync : IDisposable
 					continue;
 
 				string? lastContent = null;
-				this.lastData?.Syncs.TryGetValue(key, out lastContent);
-				await provider.Deserialize(lastContent, content, this);
+				lastSync?.TryGetValue(key, out lastContent);
+
+				await provider.Deserialize(lastContent, content, this, objectIndex);
 			}
 			catch (Exception ex)
 			{
 				Plugin.Log.Error(ex, $"Error applying sync data: {key}");
 			}
 		}
-
-		this.isApplyingData = false;
-		this.lastData = characterData;
-	}
-
-	internal void Flush()
-	{
-		this.lastData = null;
 	}
 }

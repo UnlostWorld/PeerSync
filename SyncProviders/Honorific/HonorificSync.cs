@@ -1,17 +1,27 @@
-// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
-
-using System.Threading.Tasks;
+// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 namespace PeerSync.SyncProviders.Honorific;
 
+using System.Threading.Tasks;
+
 public class HonorificSync : SyncProviderBase
 {
+	private readonly HonorificCommunicator honorific = new();
+
 	public override string DisplayName => "Honorific";
 	public override string Key => "h";
 
-	private readonly HonorificCommunicator honorific = new();
-
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
 		if (!this.honorific.GetIsAvailable())
 		{
@@ -28,12 +38,12 @@ public class HonorificSync : SyncProviderBase
 
 		if (content == null)
 		{
-			this.honorific.ClearCharacterTitle(character.ObjectTableIndex);
+			this.honorific.ClearCharacterTitle(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
-			this.honorific.SetCharacterTitle(character.ObjectTableIndex, content);
+			this.honorific.SetCharacterTitle(objectIndex, content);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}

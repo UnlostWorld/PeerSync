@@ -6,22 +6,12 @@
 //  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
 //  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace PeerSync.SyncProviders.Penumbra;
+namespace PeerSync;
 
-using global::Penumbra.Api.Enums;
-
-public static class PenumbraExtensions
+public enum IndexServerStatus
 {
-	public static void ThrowOnFailure(this PenumbraApiEc code)
-	{
-		switch (code)
-		{
-			case PenumbraApiEc.Success:
-			case PenumbraApiEc.NothingChanged:
-				return;
+	None,
 
-			default:
-				throw new System.Exception($"Penumbra error: {code}");
-		}
-	}
+	Online,
+	Offline,
 }

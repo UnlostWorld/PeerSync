@@ -1,4 +1,10 @@
-﻿// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+﻿// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 namespace PeerSync;
 
@@ -29,62 +35,41 @@ using PeerSync.SyncProviders.Moodles;
 using PeerSync.SyncProviders.Honorific;
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui.Dtr;
+using PeerSync.SyncProviders;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 
-public static class Objects
+public sealed partial class Plugin : IDalamudPlugin
 {
-	public const byte IAm = 1;
-	public const byte CharacterData = 2;
-	public const byte FileRequest = 3;
-	public const byte FileData = 4;
-}
-
-public sealed class Plugin : IDalamudPlugin
-{
-	private const string commandName = "/psync";
-
 	public readonly List<SyncProviderBase> SyncProviders = new();
-
-	[PluginService] public static IPluginLog Log { get; private set; } = null!;
-	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
-	[PluginService] public static ICommandManager CommandManager { get; private set; } = null!;
-	[PluginService] public static IDataManager DataManager { get; private set; } = null!;
-	[PluginService] public static IClientState ClientState { get; private set; } = null!;
-	[PluginService] public static ISigScanner SigScanner { get; private set; } = null!;
-	[PluginService] public static IFramework Framework { get; private set; } = null!;
-	[PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
-	[PluginService] public static IContextMenu ContextMenu { get; private set; } = null!;
-	[PluginService] public static IDtrBar DtrBar { get; private set; } = null!;
-
-	public static Plugin? Instance { get; private set; } = null;
+	public readonly Dictionary<string, IndexServerStatus> IndexServersStatus = new();
 
 	public CharacterData? LocalCharacterData;
 	public Configuration.Character? LocalCharacter;
 	public PluginStatus Status;
-	public readonly Dictionary<string, IndexServerStatus> IndexServersStatus = new();
 
-	public readonly WindowSystem WindowSystem = new("StudioSync");
-	public MainWindow MainWindow { get; init; }
-	public PairWindow PairWindow { get; init; }
+	private const string CommandName = "/psync";
 
-	private CancellationTokenSource tokenSource = new();
+	private readonly WindowSystem wWindowSystem = new("PeerSync");
+	private readonly IDtrBarEntry dtrBarEntry;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
+
+	private CancellationTokenSource tokenSource = new();
 	private ConnectionManager? network;
-	private readonly IDtrBarEntry dtrBarEntry;
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
-		MainWindow = new MainWindow();
-		PairWindow = new PairWindow();
+		this.MainWindow = new MainWindow();
+		this.AddPeerWindow = new AddPeerWindow();
 
-		WindowSystem.AddWindow(MainWindow);
-		WindowSystem.AddWindow(PairWindow);
+		this.wWindowSystem.AddWindow(this.MainWindow);
+		this.wWindowSystem.AddWindow(this.AddPeerWindow);
 
-		MainWindow.IsOpen = true;
+		this.MainWindow.IsOpen = true;
 
-		CommandManager.AddHandler(commandName, new CommandInfo(OnCommand)
+		CommandManager.AddHandler(CommandName, new CommandInfo(this.OnCommand)
 		{
-			HelpMessage = "Show the Peer Sync window with /psync"
+			HelpMessage = "Show the Peer Sync window with /psync",
 		});
 
 		this.dtrBarEntry = DtrBar.Get("Peer Sync");
@@ -102,15 +87,24 @@ public sealed class Plugin : IDalamudPlugin
 		this.Start();
 	}
 
+	[PluginService] public static IPluginLog Log { get; private set; } = null!;
+	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
+	[PluginService] public static ICommandManager CommandManager { get; private set; } = null!;
+	[PluginService] public static IDataManager DataManager { get; private set; } = null!;
+	[PluginService] public static IClientState ClientState { get; private set; } = null!;
+	[PluginService] public static ISigScanner SigScanner { get; private set; } = null!;
+	[PluginService] public static IFramework Framework { get; private set; } = null!;
+	[PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
+	[PluginService] public static IContextMenu ContextMenu { get; private set; } = null!;
+	[PluginService] public static IDtrBar DtrBar { get; private set; } = null!;
+
+	public static Plugin? Instance { get; private set; } = null;
+	public MainWindow MainWindow { get; init; }
+	public AddPeerWindow AddPeerWindow { get; init; }
+
 	public string Name => "Peer Sync";
 
-	public enum IndexServerStatus
-	{
-		None,
-
-		Online,
-		Offline,
-	}
+	public int CharacterSyncCount() => this.checkedCharacters.Count;
 
 	public CharacterSync? GetCharacterSync(string characterName, string world)
 	{
@@ -134,11 +128,11 @@ public sealed class Plugin : IDalamudPlugin
 		return null;
 	}
 
-	public CharacterSync? GetCharacterSync(string identifier)
+	public CharacterSync? GetCharacterSync(string fingerprint)
 	{
 		foreach (CharacterSync sync in this.checkedCharacters.Values)
 		{
-			if (sync.Pair.GetIdentifier() == identifier)
+			if (sync.Peer.GetFingerprint() == fingerprint)
 			{
 				return sync;
 			}
@@ -185,7 +179,7 @@ public sealed class Plugin : IDalamudPlugin
 
 		this.tokenSource.Cancel();
 
-		foreach (CharacterSync sync in checkedCharacters.Values)
+		foreach (CharacterSync sync in this.checkedCharacters.Values)
 		{
 			sync.Connected -= this.OnCharacterConnected;
 			sync.Disconnected -= this.OnCharacterDisconnected;
@@ -215,7 +209,7 @@ public sealed class Plugin : IDalamudPlugin
 
 		this.IndexServersStatus.Clear();
 
-		CommandManager.RemoveHandler(commandName);
+		CommandManager.RemoveHandler(CommandName);
 	}
 
 	public void Start()
@@ -235,7 +229,7 @@ public sealed class Plugin : IDalamudPlugin
 
 		foreach (SyncProviderBase provider in this.SyncProviders)
 		{
-			providerLookup.Add(provider.Key, provider);
+			this.providerLookup.Add(provider.Key, provider);
 		}
 
 		this.network = new();
@@ -256,22 +250,22 @@ public sealed class Plugin : IDalamudPlugin
 
 	private void OnCommand(string command, string args)
 	{
-		MainWindow.Toggle();
+		this.MainWindow.Toggle();
 	}
 
 	private void OnDalamudOpenMainUi()
 	{
-		MainWindow.Toggle();
+		this.MainWindow.Toggle();
 	}
 
 	private void OnDtrClicked(DtrInteractionEvent @evt)
 	{
-		MainWindow.Toggle();
+		this.MainWindow.Toggle();
 	}
 
 	private void OnDalamudDrawUI()
 	{
-		WindowSystem.Draw();
+		this.wWindowSystem.Draw();
 	}
 
 	private void OnContextMenuOpened(IMenuOpenedArgs args)
@@ -284,17 +278,17 @@ public sealed class Plugin : IDalamudPlugin
 
 		string characterName = character.Name.ToString();
 		string world = character.HomeWorld.Value.Name.ToString();
-		Configuration.Pair? pair = Configuration.Current.GetPair(characterName, world);
+		Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
 
-		if (pair == null)
+		if (peer == null)
 		{
 			args.AddMenuItem(new MenuItem()
 			{
-				Name = SeStringUtils.ToSeString("Add as Peer Sync pair"),
-				OnClicked = (a) => this.AddPair(character),
+				Name = SeStringUtils.ToSeString("Add peer"),
+				OnClicked = (a) => this.AddPeer(character),
 				UseDefaultPrefix = false,
 				PrefixChar = 'S',
-				PrefixColor = 526
+				PrefixColor = 526,
 			});
 		}
 
@@ -303,20 +297,20 @@ public sealed class Plugin : IDalamudPlugin
 		{
 			args.AddMenuItem(new MenuItem()
 			{
-				Name = SeStringUtils.ToSeString("Resync with pair"),
+				Name = SeStringUtils.ToSeString("Resync with peer"),
 				OnClicked = (a) => sync.Flush(),
 				UseDefaultPrefix = false,
 				PrefixChar = 'S',
-				PrefixColor = 526
+				PrefixColor = 526,
 			});
 		}
 	}
 
-	private void AddPair(IPlayerCharacter character)
+	private void AddPeer(IPlayerCharacter character)
 	{
 		string characterName = character.Name.ToString();
 		string world = character.HomeWorld.Value.Name.ToString();
-		PairWindow.Show(characterName, world);
+		this.AddPeerWindow.Show(characterName, world);
 	}
 
 	private async Task InitializeAsync()
@@ -402,28 +396,28 @@ public sealed class Plugin : IDalamudPlugin
 					{
 						if (character.CharacterName == characterName && character.World == world)
 						{
-							LocalCharacter = character;
+							this.LocalCharacter = character;
 							break;
 						}
 					}
 
-					if (LocalCharacter == null)
+					if (this.LocalCharacter == null)
 					{
-						LocalCharacter = new();
-						LocalCharacter.CharacterName = characterName;
-						LocalCharacter.World = world;
-						LocalCharacter.GeneratePassword();
-						Configuration.Current.Characters.Add(LocalCharacter);
+						this.LocalCharacter = new();
+						this.LocalCharacter.CharacterName = characterName;
+						this.LocalCharacter.World = world;
+						this.LocalCharacter.GeneratePassword();
+						Configuration.Current.Characters.Add(this.LocalCharacter);
 						Configuration.Current.Save();
 					}
 
-					if (string.IsNullOrEmpty(LocalCharacter.Password))
+					if (string.IsNullOrEmpty(this.LocalCharacter.Password))
 					{
 						this.Status = PluginStatus.Error_NoPassword;
 						continue;
 					}
 
-					LocalCharacterData = new();
+					this.LocalCharacterData = new();
 
 					Plugin.Log.Information($"Got local character: {this.LocalCharacter}");
 				}
@@ -438,27 +432,13 @@ public sealed class Plugin : IDalamudPlugin
 			if (this.tokenSource.IsCancellationRequested)
 				return;
 
-			// For testing, add any 'Earth' characters as if thy are here.
-			foreach (Configuration.Pair pair in Configuration.Current.Pairs)
-			{
-				if (pair.IsTestPair)
-				{
-					CharacterSync sync = new(this.network, pair);
-					sync.ObjectTableIndex = 0;
-					string compoundName = $"{pair.CharacterName}@{pair.World}";
-					this.checkedCharacters[compoundName] = sync;
-
-					this.OnCharacterConnected(sync);
-				}
-			}
-
 			this.Status = PluginStatus.Init_Index;
 			while (!this.tokenSource.IsCancellationRequested)
 			{
 				try
 				{
 					SyncHeartbeat heartbeat = new();
-					heartbeat.Identifier = this.LocalCharacter.GetIdentifier();
+					heartbeat.Identifier = this.LocalCharacter.GetFingerprint();
 					heartbeat.Port = port;
 					heartbeat.LocalAddress = localIp?.ToString();
 
@@ -511,12 +491,12 @@ public sealed class Plugin : IDalamudPlugin
 		dtrTooltipBuilder.AddText($"Peer Sync - {this.Status.GetMessage()}");
 
 		int connectedCount = 0;
-		foreach ((string identifier, CharacterSync character) in this.checkedCharacters)
+		foreach ((string fingerprint, CharacterSync character) in this.checkedCharacters)
 		{
 			bool isValid = character.Update();
 			if (!isValid)
 			{
-				toRemove.Add(identifier);
+				toRemove.Add(fingerprint);
 				character.Connected -= this.OnCharacterConnected;
 				character.Disconnected -= this.OnCharacterDisconnected;
 				character.Dispose();
@@ -525,15 +505,15 @@ public sealed class Plugin : IDalamudPlugin
 			{
 				if (character.IsConnected)
 				{
-					dtrTooltipBuilder.AddText($"\n・{character.Pair.CharacterName} @ {character.Pair.World}");
+					dtrTooltipBuilder.AddText($"\n・{character.Peer.CharacterName} @ {character.Peer.World}");
 					connectedCount++;
 				}
 			}
 		}
 
-		foreach (string identifier in toRemove)
+		foreach (string fingerprint in toRemove)
 		{
-			this.checkedCharacters.Remove(identifier);
+			this.checkedCharacters.Remove(fingerprint);
 		}
 
 		// Find new characters
@@ -551,15 +531,14 @@ public sealed class Plugin : IDalamudPlugin
 				if (this.checkedCharacters.ContainsKey(compoundName))
 					continue;
 
-				Configuration.Pair? pair = Configuration.Current.GetPair(characterName, world);
-				if (pair == null)
+				Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
+				if (peer == null)
 					continue;
 
 				if (this.network == null)
 					continue;
 
-				CharacterSync sync = new(this.network, pair);
-				sync.ObjectTableIndex = character.ObjectIndex;
+				CharacterSync sync = new(this.network, peer, character.ObjectIndex);
 				sync.Connected += this.OnCharacterConnected;
 				sync.Disconnected += this.OnCharacterDisconnected;
 				this.checkedCharacters.Add(compoundName, sync);
@@ -608,10 +587,10 @@ public sealed class Plugin : IDalamudPlugin
 
 	private async Task UpdateData()
 	{
-		if (LocalCharacterData == null)
+		if (this.LocalCharacterData == null)
 			return;
 
-		LocalCharacterData.Syncs.Clear();
+		this.LocalCharacterData.Clear();
 
 		await Plugin.Framework.RunOnUpdate();
 		if (this.tokenSource.IsCancellationRequested)
@@ -621,7 +600,18 @@ public sealed class Plugin : IDalamudPlugin
 		if (this.LocalCharacter == null || player == null)
 			return;
 
-		LocalCharacterData.Identifier = this.LocalCharacter.GetIdentifier();
+		IGameObject? mountOrMinion = Plugin.ObjectTable[player.ObjectIndex + 1];
+		this.LocalCharacterData.Fingerprint = this.LocalCharacter.GetFingerprint();
+
+		IGameObject? pet = null;
+		unsafe
+		{
+			BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)player.Address);
+			if (pPet != null)
+			{
+				pet = Plugin.ObjectTable[pPet->ObjectIndex];
+			}
+		}
 
 		foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
 		{
@@ -631,7 +621,19 @@ public sealed class Plugin : IDalamudPlugin
 			try
 			{
 				string? content = await sync.Serialize(player.ObjectIndex);
-				LocalCharacterData.Syncs.Add(sync.Key, content);
+				this.LocalCharacterData.Character.Add(sync.Key, content);
+
+				if (mountOrMinion != null)
+				{
+					content = await sync.Serialize(mountOrMinion.ObjectIndex);
+					this.LocalCharacterData.MountOrMinion.Add(sync.Key, content);
+				}
+
+				if (pet != null)
+				{
+					content = await sync.Serialize(pet.ObjectIndex);
+					this.LocalCharacterData.Pet.Add(sync.Key, content);
+				}
 			}
 			catch (Exception ex)
 			{
@@ -639,20 +641,14 @@ public sealed class Plugin : IDalamudPlugin
 			}
 		}
 
-		foreach (CharacterSync sync in checkedCharacters.Values)
+		foreach (CharacterSync sync in this.checkedCharacters.Values)
 		{
 			if (!sync.IsConnected)
 				continue;
 
-			if (sync.Pair.IsTestPair)
-			{
-				await sync.ApplyCharacterData(LocalCharacterData);
-				return;
-			}
-
 			try
 			{
-				sync.SendData(LocalCharacterData);
+				sync.SendData(this.LocalCharacterData);
 			}
 			catch (Exception ex)
 			{
@@ -666,18 +662,18 @@ public sealed class Plugin : IDalamudPlugin
 		connection.Received += this.OnReceived;
 	}
 
-	private void OnReceived(Connection connection, byte typeId, byte[] data)
+	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
 	{
-		if (typeId == Objects.IAm)
+		if (type == PacketTypes.IAm)
 		{
-			string identifier = Encoding.UTF8.GetString(data);
+			string fingerprint = Encoding.UTF8.GetString(data);
 
-			Plugin.Log.Information($"Received IAm: {identifier}");
+			Plugin.Log.Information($"Received IAm: {fingerprint}");
 
-			CharacterSync? sync = this.GetCharacterSync(identifier);
+			CharacterSync? sync = this.GetCharacterSync(fingerprint);
 			if (sync == null)
 			{
-				Plugin.Log.Warning($"Invalid I am identifier: {identifier}");
+				Plugin.Log.Warning($"Invalid I am fingerprint: {fingerprint}");
 				return;
 			}
 

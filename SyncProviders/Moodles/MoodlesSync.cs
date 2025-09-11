@@ -1,19 +1,29 @@
-// This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+// .______ _____ ___________   _______   ___   _ _____
+//  | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \
+//  | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/
+//  |  __/|  __||  __||    /   `--. \ \ / | . ` | |
+//  | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/
+//  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
+//  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+
+namespace PeerSync.SyncProviders.Moodles;
 
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 
-namespace PeerSync.SyncProviders.Moodles;
-
 public class MoodlesSync : SyncProviderBase
 {
+	private readonly MoodlesCommunicator moodles = new();
+
 	public override string DisplayName => "Moodles";
 	public override string Key => "m";
 
-	private readonly MoodlesCommunicator moodles = new();
-
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
 		if (!this.moodles.GetIsAvailable())
 		{
@@ -28,7 +38,7 @@ public class MoodlesSync : SyncProviderBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		IGameObject? gameObject = Plugin.ObjectTable[character.ObjectTableIndex];
+		IGameObject? gameObject = Plugin.ObjectTable[objectIndex];
 		if (gameObject is not IPlayerCharacter playerCharacter)
 			return;
 

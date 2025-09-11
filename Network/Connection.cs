@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using K4os.Compression.LZ4;
 
 public class Connection : IDisposable
 {
@@ -53,6 +54,8 @@ public class Connection : IDisposable
 
 		try
 		{
+			data = LZ4Pickler.Pickle(data, LZ4Level.L12_MAX);
+
 			lock (this.stream)
 			{
 				byte[] lengthBytes = BitConverter.GetBytes(data.Length);
@@ -122,6 +125,8 @@ public class Connection : IDisposable
 
 				try
 				{
+					data = LZ4Pickler.Unpickle(data);
+
 					////Plugin.Log.Information($"Received object: {typeBytes[0]} of length: {data.Length}");
 					this.Received?.Invoke(this, typeBytes[0], data);
 				}

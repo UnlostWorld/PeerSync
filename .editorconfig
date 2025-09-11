@@ -6,7 +6,7 @@ indent_style = tab
 csharp_style_namespace_declarations = file_scoped:warning
 dotnet_style_collection_initializer = false:suggestion
 
-file_header_template = This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
+file_header_template = .______ _____ ___________   _______   ___   _ _____\n | ___ \  ___|  ___| ___ \ /  ___\ \ / / \ | /  __ \\n | |_/ / |__ | |__ | |_/ / \ `--. \ V /|  \| | /  \/\n |  __/|  __||  __||    /   `--. \ \ / | . ` | |\n | |   | |___| |___| |\ \  /\__/ / | | | |\  | \__/\n \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/\n This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
 dotnet_diagnostic.SA1000.severity = none
 dotnet_diagnostic.SA1027.severity = none

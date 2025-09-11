@@ -5,15 +5,15 @@
         "Punchline": "Where mods",
         "Description": "Where mods",
         "InternalName": "PeerSync",
-        "AssemblyVersion": "1.0.0.34",
-        "TestingAssemblyVersion": "1.0.0.34",
+        "AssemblyVersion": "1.0.0.35",
+        "TestingAssemblyVersion": "1.0.0.35",
         "RepoUrl": "https://github.com/UnlostWorld/PeerSync",
         "ApplicableVersion": "any",
         "DalamudApiLevel": 13,
         "TestingDalamudApiLevel": 13,
-        "DownloadLinkInstall": "https://github.com/UnlostWorld/PeerSync/releases/download/v34/PeerSync.zip",
-        "DownloadLinkTesting": "https://github.com/UnlostWorld/PeerSync/releases/download/v34/PeerSync.zip",
-        "DownloadLinkUpdate": "https://github.com/UnlostWorld/PeerSync/releases/download/v34/PeerSync.zip",
+        "DownloadLinkInstall": "https://github.com/UnlostWorld/PeerSync/releases/download/v35/PeerSync.zip",
+        "DownloadLinkTesting": "https://github.com/UnlostWorld/PeerSync/releases/download/v35/PeerSync.zip",
+        "DownloadLinkUpdate": "https://github.com/UnlostWorld/PeerSync/releases/download/v35/PeerSync.zip",
         "Tags": []
     }
 ]

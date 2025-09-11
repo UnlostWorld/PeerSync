@@ -176,7 +176,11 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		return JsonConvert.SerializeObject(data);
 	}
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
 		if (!penumbra.GetIsAvailable())
 		{
@@ -300,7 +304,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		{
 			this.penumbra.AssignTemporaryCollection.Invoke(
 				collectionId,
-				character.ObjectTableIndex,
+				objectIndex,
 				true).ThrowOnFailure();
 
 			this.penumbra.RemoveTemporaryMod.Invoke(
@@ -314,7 +318,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				data.MetaManipulations ?? string.Empty,
 				0).ThrowOnFailure();
 
-			this.penumbra.RedrawObject.Invoke(character.ObjectTableIndex);
+			this.penumbra.RedrawObject.Invoke(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 		catch (Exception ex)

@@ -443,8 +443,7 @@ public sealed class Plugin : IDalamudPlugin
 			{
 				if (pair.IsTestPair)
 				{
-					CharacterSync sync = new(this.network, pair);
-					sync.ObjectTableIndex = 0;
+					CharacterSync sync = new(this.network, pair, 0);
 					string compoundName = $"{pair.CharacterName}@{pair.World}";
 					this.checkedCharacters[compoundName] = sync;
 
@@ -558,8 +557,7 @@ public sealed class Plugin : IDalamudPlugin
 				if (this.network == null)
 					continue;
 
-				CharacterSync sync = new(this.network, pair);
-				sync.ObjectTableIndex = character.ObjectIndex;
+				CharacterSync sync = new(this.network, pair, character.ObjectIndex);
 				sync.Connected += this.OnCharacterConnected;
 				sync.Disconnected += this.OnCharacterDisconnected;
 				this.checkedCharacters.Add(compoundName, sync);
@@ -612,6 +610,7 @@ public sealed class Plugin : IDalamudPlugin
 			return;
 
 		LocalCharacterData.Syncs.Clear();
+		LocalCharacterData.MountOrMinionSyncs.Clear();
 
 		await Plugin.Framework.RunOnUpdate();
 		if (this.tokenSource.IsCancellationRequested)
@@ -621,6 +620,7 @@ public sealed class Plugin : IDalamudPlugin
 		if (this.LocalCharacter == null || player == null)
 			return;
 
+		IGameObject? mountOrMinion = Plugin.ObjectTable[player.ObjectIndex + 1];
 		LocalCharacterData.Identifier = this.LocalCharacter.GetIdentifier();
 
 		foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
@@ -632,6 +632,12 @@ public sealed class Plugin : IDalamudPlugin
 			{
 				string? content = await sync.Serialize(player.ObjectIndex);
 				LocalCharacterData.Syncs.Add(sync.Key, content);
+
+				if (mountOrMinion != null)
+				{
+					content = await sync.Serialize(mountOrMinion.ObjectIndex);
+					LocalCharacterData.MountOrMinionSyncs.Add(sync.Key, content);
+				}
 			}
 			catch (Exception ex)
 			{

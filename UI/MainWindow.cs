@@ -349,7 +349,7 @@ public class MainWindow : Window, IDisposable
 
 			if (ImGui.BeginTable("PairsTable", 4))
 			{
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 20);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 24);
 				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
 				ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);

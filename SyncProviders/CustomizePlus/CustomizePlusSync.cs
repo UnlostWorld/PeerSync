@@ -14,7 +14,11 @@ public class CustomizePlusSync : SyncProviderBase
 	public override string DisplayName => "Customize+";
 	public override string Key => "c";
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
 		if (!this.customizePlus.GetIsAvailable())
 		{
@@ -41,7 +45,7 @@ public class CustomizePlusSync : SyncProviderBase
 		}
 		else
 		{
-			Guid? guid = this.customizePlus.SetTemporaryProfileOnCharacter(character.ObjectTableIndex, content);
+			Guid? guid = this.customizePlus.SetTemporaryProfileOnCharacter(objectIndex, content);
 			if (guid == null)
 				return;
 

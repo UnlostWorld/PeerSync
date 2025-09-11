@@ -24,14 +24,16 @@ public class CharacterSync : IDisposable
 	private bool isApplyingData = false;
 	private Connection? connection;
 	private readonly ConnectionManager network;
+	private readonly ushort objectIndex;
 
 	public delegate void CharacterSyncDelegate(CharacterSync character);
 
 	public event CharacterSyncDelegate? Connected;
 	public event CharacterSyncDelegate? Disconnected;
 
-	public CharacterSync(ConnectionManager network, Configuration.Pair pair)
+	public CharacterSync(ConnectionManager network, Configuration.Pair pair, ushort objectIndex)
 	{
+		this.objectIndex = objectIndex;
 		this.network = network;
 		this.Pair = pair;
 
@@ -67,7 +69,6 @@ public class CharacterSync : IDisposable
 		Disconnected,
 	}
 
-	public ushort ObjectTableIndex { get; set; }
 	public Connection? Connection => this.connection;
 	public bool IsConnected => this.CurrentStatus == Status.Connected;
 
@@ -175,7 +176,7 @@ public class CharacterSync : IDisposable
 		if (this.Pair.IsTestPair)
 			return true;
 
-		IGameObject? obj = Plugin.ObjectTable[this.ObjectTableIndex];
+		IGameObject? obj = Plugin.ObjectTable[this.objectIndex];
 		if (obj == null)
 			return false;
 
@@ -373,7 +374,16 @@ public class CharacterSync : IDisposable
 
 		this.isApplyingData = true;
 
-		foreach ((string key, string? content) in characterData.Syncs)
+		await ApplySyncData(characterData.Syncs, this.objectIndex);
+		await ApplySyncData(characterData.MountOrMinionSyncs, (ushort)(this.objectIndex + 1));
+
+		this.isApplyingData = false;
+		this.lastData = characterData;
+	}
+
+	private async Task ApplySyncData(Dictionary<string, string?> sync, ushort objectIndex)
+	{
+		foreach ((string key, string? content) in sync)
 		{
 			try
 			{
@@ -389,16 +399,13 @@ public class CharacterSync : IDisposable
 
 				string? lastContent = null;
 				this.lastData?.Syncs.TryGetValue(key, out lastContent);
-				await provider.Deserialize(lastContent, content, this);
+				await provider.Deserialize(lastContent, content, this, objectIndex);
 			}
 			catch (Exception ex)
 			{
 				Plugin.Log.Error(ex, $"Error applying sync data: {key}");
 			}
 		}
-
-		this.isApplyingData = false;
-		this.lastData = characterData;
 	}
 
 	internal void Flush()

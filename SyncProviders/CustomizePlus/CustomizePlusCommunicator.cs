@@ -16,6 +16,9 @@ public class CustomizePlusCommunicator : PluginCommunicatorBase
 			objectIndex);
 
 		ErrorCodes errorCode = (ErrorCodes)ec;
+		if (errorCode == ErrorCodes.ProfileNotFound)
+			return null;
+
 		errorCode.ThrowOnFailure();
 
 		return guid;
@@ -28,6 +31,9 @@ public class CustomizePlusCommunicator : PluginCommunicatorBase
 			guid);
 
 		ErrorCodes errorCode = (ErrorCodes)ec;
+		if (errorCode == ErrorCodes.ProfileNotFound)
+			return null;
+
 		errorCode.ThrowOnFailure();
 
 		return profile;

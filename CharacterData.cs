@@ -8,4 +8,5 @@ public class CharacterData()
 {
 	public string? Identifier { get; set; }
 	public Dictionary<string, string?> Syncs { get; init; } = new();
+	public Dictionary<string, string?> MountOrMinionSyncs { get; init; } = new();
 }

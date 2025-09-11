@@ -11,7 +11,11 @@ public class HonorificSync : SyncProviderBase
 
 	private readonly HonorificCommunicator honorific = new();
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
 		if (!this.honorific.GetIsAvailable())
 		{
@@ -28,12 +32,12 @@ public class HonorificSync : SyncProviderBase
 
 		if (content == null)
 		{
-			this.honorific.ClearCharacterTitle(character.ObjectTableIndex);
+			this.honorific.ClearCharacterTitle(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
-			this.honorific.SetCharacterTitle(character.ObjectTableIndex, content);
+			this.honorific.SetCharacterTitle(objectIndex, content);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}

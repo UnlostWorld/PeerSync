@@ -13,7 +13,11 @@ public class MoodlesSync : SyncProviderBase
 
 	private readonly MoodlesCommunicator moodles = new();
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
 		if (!this.moodles.GetIsAvailable())
 		{
@@ -28,7 +32,7 @@ public class MoodlesSync : SyncProviderBase
 
 		await Plugin.Framework.RunOnUpdate();
 
-		IGameObject? gameObject = Plugin.ObjectTable[character.ObjectTableIndex];
+		IGameObject? gameObject = Plugin.ObjectTable[objectIndex];
 		if (gameObject is not IPlayerCharacter playerCharacter)
 			return;
 

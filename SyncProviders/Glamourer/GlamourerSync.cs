@@ -19,7 +19,11 @@ public class GlamourerSync : SyncProviderBase
 		return await this.glamourer.GetState(objectIndex);
 	}
 
-	public override async Task Deserialize(string? lastContent, string? content, CharacterSync character)
+	public override async Task Deserialize(
+		string? lastContent,
+		string? content,
+		CharacterSync character,
+		ushort objectIndex)
 	{
 		if (!glamourer.GetIsAvailable())
 		{
@@ -34,13 +38,13 @@ public class GlamourerSync : SyncProviderBase
 
 		if (content == null)
 		{
-			await glamourer.RevertState(character.ObjectTableIndex);
+			await glamourer.RevertState(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
 			if (!character.Pair.IsTestPair)
-				await glamourer.SetState(character.ObjectTableIndex, content);
+				await glamourer.SetState(objectIndex, content);
 
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}

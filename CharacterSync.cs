@@ -261,19 +261,6 @@ public class CharacterSync : IDisposable
 
 			this.CurrentStatus = Status.Connecting;
 
-			if (localAddress != null)
-			{
-				try
-				{
-					IPEndPoint endPoint = new(localAddress, response.Port);
-					this.connection = await this.network.Connect(endPoint, this.tokenSource.Token);
-				}
-				catch (Exception)
-				{
-					this.connection = null;
-				}
-			}
-
 			try
 			{
 				if (this.connection == null)
@@ -285,6 +272,19 @@ public class CharacterSync : IDisposable
 			catch (Exception)
 			{
 				this.connection = null;
+			}
+
+			if (this.connection == null && localAddress != null)
+			{
+				try
+				{
+					IPEndPoint endPoint = new(localAddress, response.Port);
+					this.connection = await this.network.Connect(endPoint, this.tokenSource.Token);
+				}
+				catch (Exception)
+				{
+					this.connection = null;
+				}
 			}
 
 			if (this.connection == null)

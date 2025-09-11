@@ -143,19 +143,62 @@ public class MainWindow : Window, IDisposable
 		}
 
 		ImGui.PopStyleColor();
-
 		ImGui.SetCursorPos(startPos);
 
 		if (ImGui.CollapsingHeader($"Index Servers ({Configuration.Current.IndexServers.Count})###IndexServersSection"))
 		{
-			if (ImGui.BeginTable("IndexServersTable", 2))
+			if (ImGui.BeginTable("IndexServersTable", 3))
 			{
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 20);
+				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableNextRow();
 
 				foreach (string indexServer in Configuration.Current.IndexServers.AsReadOnly())
 				{
+					// Tooltip
+					ImGui.TableNextColumn();
+					ImGui.Selectable(
+						$"##RowSelector{indexServer}",
+						false,
+						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					{
+						ImGui.OpenPopup($"index_{indexServer}_contextMenu");
+					}
+
+					if (ImGui.BeginPopup(
+						$"index_{indexServer}_contextMenu",
+						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+					{
+						ImGui.PushID($"index_{indexServer}_contextMenu");
+						if (ImGui.MenuItem("Remove"))
+						{
+							Configuration.Current.IndexServers.Remove(indexServer);
+							Configuration.Current.Save();
+						}
+
+						ImGui.PopID();
+						ImGui.EndPopup();
+					}
+
+					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					{
+						ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
+						ImGui.BeginTooltip();
+
+						ImGui.Text($"{indexServer}");
+						ImGui.Separator();
+						ImGui.TextDisabled("Right-click for more options");
+						ImGui.EndTooltip();
+					}
+
+					// Url
+					ImGui.TableNextColumn();
+					ImGui.Text(indexServer);
+
 					// Status
 					ImGui.TableNextColumn();
 					Plugin.IndexServerStatus status = Plugin.IndexServerStatus.None;
@@ -182,40 +225,6 @@ public class MainWindow : Window, IDisposable
 							ImGui.TextDisabled("Failed to connect to index server");
 							ImGui.EndTooltip();
 						}
-					}
-
-					// Url
-					ImGui.TableNextColumn();
-					ImGui.Text(indexServer);
-
-					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-					{
-						ImGui.SetNextWindowSizeConstraints(new Vector2(400, 0), new Vector2(400, 400));
-						ImGui.BeginTooltip();
-						ImGui.TextWrapped("Index servers are used to track the online status of peers. Your character name, world, and password are never sent to any index server, however your character Fingerprint (which is encrypted by all three), is. It is safe to use any index server you wish, you may also use multiple at the same time.");
-						ImGui.TextDisabled("You can remove index servers in the right-click context menu");
-						ImGui.EndTooltip();
-					}
-
-					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
-						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-					{
-						ImGui.OpenPopup($"index_{indexServer}_contextMenu");
-					}
-
-					if (ImGui.BeginPopup(
-						$"index_{indexServer}_contextMenu",
-						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
-					{
-						ImGui.PushID($"index_{indexServer}_contextMenu");
-						if (ImGui.MenuItem("Remove"))
-						{
-							Configuration.Current.IndexServers.Remove(indexServer);
-							Configuration.Current.Save();
-						}
-
-						ImGui.PopID();
-						ImGui.EndPopup();
 					}
 
 					ImGui.TableNextRow();
@@ -300,7 +309,7 @@ public class MainWindow : Window, IDisposable
 
 						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 						ImGui.SameLine();
-						ImGui.TextColoredWrapped(0xFF0080FF, "Changing this password will break any connections to this character, Peers will be unable to sync with this character until they recieve the updated password.");
+						ImGui.TextColoredWrapped(0xFF0080FF, "Changing this password will break any connections to this character, Peers will be unable to sync with this character until they receive the updated password.");
 
 						ImGui.Spacing();
 

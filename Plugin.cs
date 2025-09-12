@@ -366,6 +366,10 @@ public sealed partial class Plugin : IDalamudPlugin
 				Configuration.Current.Characters.Add(newCharacter);
 				Configuration.Current.Save();
 			}
+			catch (OperationCanceledException)
+			{
+				throw;
+			}
 			catch (Exception ex)
 			{
 				this.Status = PluginStatus.Error_NoCharacter;

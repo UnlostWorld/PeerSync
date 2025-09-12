@@ -329,17 +329,32 @@ public sealed partial class Plugin : IDalamudPlugin
 			}
 
 			// Open port
-			ushort port = Configuration.Current.Port;
+			ushort port = 0;
+			while (!this.tokenSource.IsCancellationRequested && port == 0)
+			{
+				port = Configuration.Current.Port;
 
-			if (port <= 0)
-				port = (ushort)(15400 + Random.Shared.Next(99));
+				if (port <= 0)
+					port = (ushort)(15400 + Random.Shared.Next(99));
 
-			Plugin.Log.Information($"Opening port {port}");
-			this.Status = PluginStatus.Init_OpenPort;
-			using CancellationTokenSource cts = new(10000);
-			INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts.Token);
-			await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
-			Plugin.Log.Information($"Opened port {port}");
+				try
+				{
+					Plugin.Log.Information($"Opening port {port}");
+					this.Status = PluginStatus.Init_OpenPort;
+					using CancellationTokenSource cts = new(10000);
+					INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts.Token);
+					await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
+					Plugin.Log.Information($"Opened port {port}");
+				}
+				catch (Exception ex)
+				{
+					this.Status = PluginStatus.Error_NoPort;
+					Plugin.Log.Error(ex, "Failed to open port");
+					port = 0;
+					await Task.Delay(5000, this.tokenSource.Token);
+					continue;
+				}
+			}
 
 			// Setup TCP listen
 			this.Status = PluginStatus.Init_Listen;

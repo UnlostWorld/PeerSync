@@ -19,6 +19,7 @@ public enum PluginStatus
 	Init_Character,
 	Init_Index,
 
+	Error_NoPort,
 	Error_NoIndexServer,
 	Error_CantListen,
 	Error_NoPassword,
@@ -41,6 +42,7 @@ public static class PluginStatusExtensions
 			case PluginStatus.Init_Listen:
 			case PluginStatus.Init_Character:
 			case PluginStatus.Init_Index: return FontAwesomeIcon.Hourglass;
+			case PluginStatus.Error_NoPort:
 			case PluginStatus.Error_NoIndexServer:
 			case PluginStatus.Error_CantListen:
 			case PluginStatus.Error_NoPassword:
@@ -51,7 +53,7 @@ public static class PluginStatusExtensions
 			case PluginStatus.Shutdown: return FontAwesomeIcon.Bed;
 		}
 
-		return FontAwesomeIcon.None;
+		return FontAwesomeIcon.Question;
 	}
 
 	public static string GetMessage(this PluginStatus self)
@@ -62,6 +64,7 @@ public static class PluginStatusExtensions
 			case PluginStatus.Init_Listen: return "Creating a listen server...";
 			case PluginStatus.Init_Character: return "Waiting for character...";
 			case PluginStatus.Init_Index: return "Connecting to Index servers...";
+			case PluginStatus.Error_NoPort: return "Unable to open port";
 			case PluginStatus.Error_NoIndexServer: return "No Index server configured";
 			case PluginStatus.Error_CantListen: return "Failed to create a listen server";
 			case PluginStatus.Error_NoPassword: return "No password is set for the current character";

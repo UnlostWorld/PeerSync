@@ -506,7 +506,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 					this.Status = PluginStatus.Online;
 					await this.UpdateData();
-					await Task.Delay(5000, this.tokenSource.Token);
+					await Task.Delay(30000, this.tokenSource.Token);
 				}
 				catch (TaskCanceledException)
 				{

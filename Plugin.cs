@@ -316,6 +316,69 @@ public sealed partial class Plugin : IDalamudPlugin
 		this.AddPeerWindow.Show(characterName, world);
 	}
 
+	private async Task<Configuration.Character> GetLocalCharacter(CancellationToken token)
+	{
+		if (this.Status < PluginStatus.Init_Character)
+			this.Status = PluginStatus.Init_Character;
+
+		while (true)
+		{
+			try
+			{
+				await Framework.Delay(500);
+				token.ThrowIfCancellationRequested();
+
+				if (!ClientState.IsLoggedIn)
+				{
+					this.Status = PluginStatus.Init_Character;
+					continue;
+				}
+
+				IPlayerCharacter? player = ClientState.LocalPlayer;
+				if (player == null)
+				{
+					this.Status = PluginStatus.Init_Character;
+					continue;
+				}
+
+				string characterName = player.Name.ToString();
+				string world = player.HomeWorld.Value.Name.ToString();
+
+				foreach (Configuration.Character character in Configuration.Current.Characters)
+				{
+					if (character.CharacterName == characterName && character.World == world)
+					{
+						if (string.IsNullOrEmpty(character.Password))
+						{
+							this.Status = PluginStatus.Error_NoPassword;
+							await Task.Delay(3000);
+							continue;
+						}
+
+						return character;
+					}
+				}
+
+				Configuration.Character newCharacter = new();
+				newCharacter.CharacterName = characterName;
+				newCharacter.World = world;
+				newCharacter.GeneratePassword();
+				Configuration.Current.Characters.Add(newCharacter);
+				Configuration.Current.Save();
+			}
+			catch (OperationCanceledException)
+			{
+				throw;
+			}
+			catch (Exception ex)
+			{
+				this.Status = PluginStatus.Error_NoCharacter;
+				Plugin.Log.Error(ex, $"Failed to get current character");
+				await Task.Delay(3000);
+			}
+		}
+	}
+
 	private async Task InitializeAsync()
 	{
 		try
@@ -334,6 +397,8 @@ public sealed partial class Plugin : IDalamudPlugin
 			bool isCustomPort = Configuration.Current.Port != 0;
 			while (!this.tokenSource.IsCancellationRequested && port == 0)
 			{
+				this.Status = PluginStatus.Init_OpenPort;
+
 				port = Configuration.Current.Port;
 
 				if (port <= 0)
@@ -342,7 +407,6 @@ public sealed partial class Plugin : IDalamudPlugin
 				try
 				{
 					Plugin.Log.Information($"Opening port {port}");
-					this.Status = PluginStatus.Init_OpenPort;
 					using CancellationTokenSource cts = new(10000);
 					INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts.Token);
 					await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
@@ -399,73 +463,27 @@ public sealed partial class Plugin : IDalamudPlugin
 				Plugin.Log.Information($"Got Local Address: {ipAddress}");
 			}
 
-			// Get local character id
-			try
-			{
-				await Framework.RunOnUpdate();
+			await Framework.RunOnUpdate();
 
-				this.Status = PluginStatus.Init_Character;
-				while (this.LocalCharacter == null || string.IsNullOrEmpty(this.LocalCharacter?.Password))
-				{
-					await Framework.Delay(500);
-					if (this.tokenSource.IsCancellationRequested)
-						return;
-
-					if (!ClientState.IsLoggedIn)
-						continue;
-
-					IPlayerCharacter? player = ClientState.LocalPlayer;
-					if (player == null)
-						continue;
-
-					string characterName = player.Name.ToString();
-					string world = player.HomeWorld.Value.Name.ToString();
-
-					foreach (Configuration.Character character in Configuration.Current.Characters)
-					{
-						if (character.CharacterName == characterName && character.World == world)
-						{
-							this.LocalCharacter = character;
-							break;
-						}
-					}
-
-					if (this.LocalCharacter == null)
-					{
-						this.LocalCharacter = new();
-						this.LocalCharacter.CharacterName = characterName;
-						this.LocalCharacter.World = world;
-						this.LocalCharacter.GeneratePassword();
-						Configuration.Current.Characters.Add(this.LocalCharacter);
-						Configuration.Current.Save();
-					}
-
-					if (string.IsNullOrEmpty(this.LocalCharacter.Password))
-					{
-						this.Status = PluginStatus.Error_NoPassword;
-						continue;
-					}
-
-					this.LocalCharacterData = new();
-
-					Plugin.Log.Information($"Got local character: {this.LocalCharacter}");
-				}
-			}
-			catch (Exception ex)
-			{
-				this.Status = PluginStatus.Error_NoCharacter;
-				Plugin.Log.Error(ex, $"Failed to get current character");
-				return;
-			}
-
-			if (this.tokenSource.IsCancellationRequested)
-				return;
-
-			this.Status = PluginStatus.Init_Index;
+			// Main loop
 			while (!this.tokenSource.IsCancellationRequested)
 			{
+				Configuration.Character newCharacter = await this.GetLocalCharacter(this.tokenSource.Token);
+				if (newCharacter != this.LocalCharacter)
+				{
+					this.LocalCharacter = newCharacter;
+					this.LocalCharacterData = new();
+					Plugin.Log.Information($"Got local character: {this.LocalCharacter}");
+				}
+
+				if (this.tokenSource.IsCancellationRequested)
+					return;
+
 				try
 				{
+					if (this.Status < PluginStatus.Init_Index)
+						this.Status = PluginStatus.Init_Index;
+
 					SetPeer setPeerRequest = new();
 					setPeerRequest.Fingerprint = this.LocalCharacter.GetFingerprint();
 					setPeerRequest.Port = port;
@@ -486,9 +504,8 @@ public sealed partial class Plugin : IDalamudPlugin
 						}
 					}
 
-					await this.UpdateData();
-
 					this.Status = PluginStatus.Online;
+					await this.UpdateData();
 					await Task.Delay(5000, this.tokenSource.Token);
 				}
 				catch (TaskCanceledException)

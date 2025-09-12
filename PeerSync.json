@@ -33,8 +33,8 @@
 	"CanUnloadAsync": false,
 	"SupportsProfiles": true,
 	"ImageUrls": null,
-	"IconUrl": "",
 	"AcceptsFeedback": true,
 	"FeedbackMessage": null,
-	"_Dip17Channel": null
+	"_Dip17Channel": null,
+	"IconUrl": "https://raw.githubusercontent.com/UnlostWorld/PeerSync/refs/heads/main/Resources/icon.png"
 }

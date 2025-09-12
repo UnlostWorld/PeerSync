@@ -172,101 +172,103 @@ public class MainWindow : Window, IDisposable
 			{
 				if (Configuration.Current.IndexServers.Count <= 0)
 				{
-					ImGuiEx.BeginCenter("WarningBox");
+					ImGuiEx.BeginCenter("IndexServerWarningBox");
 					ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 					ImGui.SameLine();
 					ImGui.TextColored(0xFF0080FF, $"No index server");
 					ImGuiEx.EndCenter();
 				}
-
-				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableNextRow();
-
-				foreach (string indexServer in Configuration.Current.IndexServers.AsReadOnly())
+				else
 				{
-					int peerCount = 0;
-					Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out peerCount);
+					ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+					ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
+					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+					ImGui.TableNextRow();
 
-					// Tooltip
-					ImGui.TableNextColumn();
-					ImGui.Selectable(
-						$"##RowSelector{indexServer}",
-						false,
-						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
-
-					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
-						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+					foreach (string indexServer in Configuration.Current.IndexServers.AsReadOnly())
 					{
-						ImGui.OpenPopup($"index_{indexServer}_contextMenu");
-					}
+						int peerCount = 0;
+						Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out peerCount);
 
-					if (ImGui.BeginPopup(
-						$"index_{indexServer}_contextMenu",
-						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
-					{
-						ImGui.PushID($"index_{indexServer}_contextMenu");
-						if (ImGui.MenuItem("Remove"))
+						// Tooltip
+						ImGui.TableNextColumn();
+						ImGui.Selectable(
+							$"##RowSelector{indexServer}",
+							false,
+							ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+						if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+							&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 						{
-							Configuration.Current.IndexServers.Remove(indexServer);
-							Configuration.Current.Save();
+							ImGui.OpenPopup($"index_{indexServer}_contextMenu");
 						}
 
-						ImGui.PopID();
-						ImGui.EndPopup();
-					}
-
-					if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-					{
-						ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
-						ImGui.BeginTooltip();
-
-						ImGui.TextWrapped($"{indexServer}");
-						ImGui.Separator();
-
-						if (peerCount <= 0)
+						if (ImGui.BeginPopup(
+							$"index_{indexServer}_contextMenu",
+							ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 						{
-							ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
-							ImGui.SameLine();
-							ImGui.Text("Offline");
+							ImGui.PushID($"index_{indexServer}_contextMenu");
+							if (ImGui.MenuItem("Remove"))
+							{
+								Configuration.Current.IndexServers.Remove(indexServer);
+								Configuration.Current.Save();
+							}
+
+							ImGui.PopID();
+							ImGui.EndPopup();
+						}
+
+						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+						{
+							ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
+							ImGui.BeginTooltip();
+
+							ImGui.TextWrapped($"{indexServer}");
+							ImGui.Separator();
+
+							if (peerCount <= 0)
+							{
+								ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
+								ImGui.SameLine();
+								ImGui.Text("Offline");
+							}
+							else
+							{
+								ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+								ImGui.SameLine();
+								ImGui.Text($"{peerCount} online peers");
+							}
+
+							ImGui.TextDisabled("Right-click for more options");
+							ImGui.EndTooltip();
+						}
+
+						// Url
+						ImGui.TableNextColumn();
+						string indexServerName = indexServer;
+						indexServerName = indexServerName.Replace("http://", string.Empty);
+						indexServerName = indexServerName.Replace("https://", string.Empty);
+						indexServerName = indexServerName.Replace("www.", string.Empty);
+						indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
+						ImGui.Text(indexServerName);
+
+						// Status
+						ImGui.TableNextColumn();
+
+						if (peerCount > 0)
+						{
+							ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 						}
 						else
 						{
-							ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-							ImGui.SameLine();
-							ImGui.Text($"{peerCount} online peers");
+							ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
 						}
 
-						ImGui.TextDisabled("Right-click for more options");
-						ImGui.EndTooltip();
+						ImGui.TableNextRow();
 					}
 
-					// Url
-					ImGui.TableNextColumn();
-					string indexServerName = indexServer;
-					indexServerName = indexServerName.Replace("http://", string.Empty);
-					indexServerName = indexServerName.Replace("https://", string.Empty);
-					indexServerName = indexServerName.Replace("www.", string.Empty);
-					indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
-					ImGui.Text(indexServerName);
-
-					// Status
-					ImGui.TableNextColumn();
-
-					if (peerCount > 0)
-					{
-						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-					}
-					else
-					{
-						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
-					}
-
-					ImGui.TableNextRow();
+					ImGui.EndTable();
 				}
-
-				ImGui.EndTable();
 			}
 		}
 

@@ -128,7 +128,7 @@ public class FileCache : IDisposable
 		{
 			if (!this.IsValid())
 			{
-				ImGuiEx.BeginCenter("WarningBox");
+				ImGuiEx.BeginCenter("FileCacheWarningBox");
 				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 				ImGui.SameLine();
 				ImGui.TextColored(0xFF0080FF, $"Invalid cache directory");

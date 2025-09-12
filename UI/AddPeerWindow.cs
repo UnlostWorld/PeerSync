@@ -45,7 +45,7 @@ public class AddPeerWindow : Window, IDisposable
 
 	public override void Draw()
 	{
-		ImGui.TextWrapped("You only be unable to connect to this peer if they have added your current character as a peer.");
+		ImGui.TextWrapped("You will only be unable to connect to this peer if they have added your current character as a peer.");
 
 		ImGui.InputText("Name", ref this.characterName);
 		ImGui.InputText("World", ref this.world);

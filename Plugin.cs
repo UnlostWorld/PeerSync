@@ -331,6 +331,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 			// Open port
 			ushort port = 0;
+			bool isCustomPort = Configuration.Current.Port != 0;
 			while (!this.tokenSource.IsCancellationRequested && port == 0)
 			{
 				port = Configuration.Current.Port;
@@ -349,11 +350,21 @@ public sealed partial class Plugin : IDalamudPlugin
 				}
 				catch (Exception ex)
 				{
-					this.Status = PluginStatus.Error_NoPort;
-					Plugin.Log.Error(ex, "Failed to open port");
-					port = 0;
-					await Task.Delay(5000, this.tokenSource.Token);
-					continue;
+					// If a custom port is set, and we failed to open the port for
+					// any reason, just continue on as its likely the user has
+					// done th port forwarding themselves.
+					if (!isCustomPort)
+					{
+						this.Status = PluginStatus.Error_NoPort;
+						Plugin.Log.Error(ex, "Failed to open port");
+						port = 0;
+						await Task.Delay(5000, this.tokenSource.Token);
+						continue;
+					}
+					else
+					{
+						Plugin.Log.Warning($"Failed to open custom port: {port}, assuming port forwarding is manual.");
+					}
 				}
 			}
 

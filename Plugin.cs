@@ -218,6 +218,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		lock (this.SyncProviders)
 		{
+			this.SyncProviders.Clear();
 			this.SyncProviders.Add(new CustomizePlusSync());
 			this.SyncProviders.Add(new MoodlesSync());
 			this.SyncProviders.Add(new HonorificSync());

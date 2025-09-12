@@ -15,7 +15,7 @@ public class GlamourerSync : SyncProviderBase
 	private readonly GlamourerCommunicator glamourer = new();
 
 	public override string DisplayName => "Glamourer";
-	public override string Key => "gl";
+	public override string Key => "g";
 
 	public override async Task<string?> Serialize(ushort objectIndex)
 	{

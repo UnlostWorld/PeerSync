@@ -113,8 +113,28 @@ public class FileCache : IDisposable
 		if (p < 1)
 			cacheSizeStr = "Scanning...";
 
-		if (ImGui.CollapsingHeader($"File Cache ({cacheSizeStr})###cacheSection"))
+		bool open = ImGui.CollapsingHeader("###cacheSection");
+		ImGui.SameLine();
+
+		if (!this.IsValid())
 		{
+			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+			ImGui.SameLine();
+		}
+
+		ImGui.Text($"File Cache ({cacheSizeStr})");
+
+		if (open)
+		{
+			if (!this.IsValid())
+			{
+				ImGuiEx.BeginCenter("WarningBox");
+				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+				ImGui.SameLine();
+				ImGui.TextColored(0xFF0080FF, $"Invalid cache directory");
+				ImGuiEx.EndCenter();
+			}
+
 			string cache = Configuration.Current.CacheDirectory ?? string.Empty;
 			if (ImGui.InputText("Directory", ref cache, 512, ImGuiInputTextFlags.EnterReturnsTrue))
 			{

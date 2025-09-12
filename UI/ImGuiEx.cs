@@ -29,12 +29,12 @@ public static class ImGuiEx
 		{
 			ImGui.PushFont(UiBuilder.IconFont);
 			ImGui.SetWindowFontScale(size);
-			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 2);
 
 			ImGui.SetNextItemWidth(ImGui.GetTextLineHeight());
 			ImGui.TextColored(color, icon.ToIconString());
 
-			ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 3);
+			ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 2);
 			ImGui.SetWindowFontScale(1.0f);
 			ImGui.PopFont();
 		}
@@ -49,5 +49,22 @@ public static class ImGuiEx
 		ImGui.ProgressBar(p, new(width, 5), string.Empty);
 		ImGui.SetCursorPos(start + new Vector2(width, 0));
 		ImGui.Text(string.Empty);
+	}
+
+	public static void BeginCenter(string strId)
+	{
+		ImGui.BeginTable(strId, 3);
+		ImGui.TableSetupColumn("#L", ImGuiTableColumnFlags.WidthStretch);
+		ImGui.TableSetupColumn("#C", ImGuiTableColumnFlags.WidthFixed);
+		ImGui.TableSetupColumn("#R", ImGuiTableColumnFlags.WidthStretch);
+		ImGui.TableNextRow();
+		ImGui.TableNextColumn();
+		ImGui.TableNextColumn();
+	}
+
+	public static void EndCenter()
+	{
+		ImGui.TableNextColumn();
+		ImGui.EndTable();
 	}
 }

@@ -155,10 +155,30 @@ public class MainWindow : Window, IDisposable
 		ImGui.PopStyleColor();
 		ImGui.SetCursorPos(startPos);
 
-		if (ImGui.CollapsingHeader($"Index Servers ({Configuration.Current.IndexServers.Count})###IndexServersSection"))
+		bool indexServersSectionOpen = ImGui.CollapsingHeader("###IndexServersSection");
+		ImGui.SameLine();
+
+		if (Configuration.Current.IndexServers.Count <= 0)
+		{
+			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+			ImGui.SameLine();
+		}
+
+		ImGui.Text($"Index Servers ({Configuration.Current.IndexServers.Count})");
+
+		if (indexServersSectionOpen)
 		{
 			if (ImGui.BeginTable("IndexServersTable", 3))
 			{
+				if (Configuration.Current.IndexServers.Count <= 0)
+				{
+					ImGuiEx.BeginCenter("WarningBox");
+					ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+					ImGui.SameLine();
+					ImGui.TextColored(0xFF0080FF, $"No index server");
+					ImGuiEx.EndCenter();
+				}
+
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
 				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);

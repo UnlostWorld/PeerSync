@@ -31,4 +31,70 @@ public class CharacterData()
 		this.MountOrMinion.Clear();
 		this.Pet.Clear();
 	}
+
+	public void CopyTo(CharacterData other)
+	{
+		other.Fingerprint = this.Fingerprint;
+
+		other.Clear();
+
+		foreach ((string key, string? value) in this.Character)
+		{
+			other.Character.Add(key, value);
+		}
+
+		foreach ((string key, string? value) in this.MountOrMinion)
+		{
+			other.MountOrMinion.Add(key, value);
+		}
+
+		foreach ((string key, string? value) in this.Pet)
+		{
+			other.Pet.Add(key, value);
+		}
+	}
+
+	public bool IsSame(CharacterData other)
+	{
+		if (other.Fingerprint != this.Fingerprint)
+			return false;
+
+		if (this.Character.Count != other.Character.Count)
+			return false;
+
+		if (this.MountOrMinion.Count != other.MountOrMinion.Count)
+			return false;
+
+		if (this.Pet.Count != other.Pet.Count)
+			return false;
+
+		foreach ((string key, string? value) in this.Character)
+		{
+			if (!other.Character.TryGetValue(key, out string? otherValue)
+			|| otherValue != value)
+			{
+				return false;
+			}
+		}
+
+		foreach ((string key, string? value) in this.MountOrMinion)
+		{
+			if (!other.MountOrMinion.TryGetValue(key, out string? otherValue)
+			|| otherValue != value)
+			{
+				return false;
+			}
+		}
+
+		foreach ((string key, string? value) in this.Pet)
+		{
+			if (!other.Pet.TryGetValue(key, out string? otherValue)
+			|| otherValue != value)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
 }

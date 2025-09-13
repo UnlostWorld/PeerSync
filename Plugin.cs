@@ -38,17 +38,18 @@ using Dalamud.Game.Gui.Dtr;
 using PeerSync.SyncProviders;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Dalamud.Game.ClientState.Conditions;
+using System.Diagnostics;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
 	public readonly List<SyncProviderBase> SyncProviders = new();
 	public readonly Dictionary<string, int> IndexServersStatus = new();
 
-	public CharacterData? LocalCharacterData;
 	public Configuration.Character? LocalCharacter;
 	public PluginStatus Status;
 
 	private const string CommandName = "/psync";
+	private const long ForceSendDataMs = 10000;
 
 	private readonly WindowSystem wWindowSystem = new("PeerSync");
 	private readonly IDtrBarEntry dtrBarEntry;
@@ -381,148 +382,90 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	private async Task InitializeAsync()
 	{
-		try
+		if (this.tokenSource.IsCancellationRequested)
+			return;
+
+		while (Configuration.Current.IndexServers.Count <= 0)
 		{
-			if (this.tokenSource.IsCancellationRequested)
-				return;
+			this.Status = PluginStatus.Error_NoIndexServer;
+			await Task.Delay(5000);
+		}
 
-			while (Configuration.Current.IndexServers.Count <= 0)
-			{
-				this.Status = PluginStatus.Error_NoIndexServer;
-				await Task.Delay(5000);
-			}
+		// Open port
+		ushort port = 0;
+		bool isCustomPort = Configuration.Current.Port != 0;
+		while (!this.tokenSource.IsCancellationRequested && port == 0)
+		{
+			this.Status = PluginStatus.Init_OpenPort;
 
-			// Open port
-			ushort port = 0;
-			bool isCustomPort = Configuration.Current.Port != 0;
-			while (!this.tokenSource.IsCancellationRequested && port == 0)
-			{
-				this.Status = PluginStatus.Init_OpenPort;
+			port = Configuration.Current.Port;
 
-				port = Configuration.Current.Port;
+			if (port <= 0)
+				port = (ushort)(15400 + Random.Shared.Next(99));
 
-				if (port <= 0)
-					port = (ushort)(15400 + Random.Shared.Next(99));
-
-				try
-				{
-					Plugin.Log.Information($"Opening port {port}");
-					using CancellationTokenSource cts = new(10000);
-					INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(cts.Token);
-					await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
-					Plugin.Log.Information($"Opened port {port} with {device}");
-				}
-				catch (Exception ex)
-				{
-					// If a custom port is set, and we failed to open the port for
-					// any reason, just continue on as its likely the user has
-					// done th port forwarding themselves.
-					if (!isCustomPort)
-					{
-						this.Status = PluginStatus.Error_NoPort;
-						Plugin.Log.Error(ex, "Failed to open port");
-						port = 0;
-						await Task.Delay(5000, this.tokenSource.Token);
-						continue;
-					}
-					else
-					{
-						Plugin.Log.Warning($"Failed to open custom port: {port}, assuming port forwarding is manual.");
-					}
-				}
-			}
-
-			// Setup TCP listen
-			this.Status = PluginStatus.Init_Listen;
 			try
 			{
-				if (this.network == null)
-					throw new Exception("No network");
-
-				this.network.BeginListen(port);
-				Plugin.Log.Information($"Started listening for connections on port {port}");
+				Plugin.Log.Information($"Opening port {port}");
+				using CancellationTokenSource cts = new(10000);
+				INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(cts.Token);
+				await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
+				Plugin.Log.Information($"Opened port {port} with {device}");
 			}
 			catch (Exception ex)
 			{
-				Plugin.Log.Error(ex, "Error listening for connections");
-				this.Status = PluginStatus.Error_CantListen;
-				return;
-			}
-
-			IPAddress? localIp = null;
-			IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
-			foreach (IPAddress ipAddress in host.AddressList)
-			{
-				if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
+				// If a custom port is set, and we failed to open the port for
+				// any reason, just continue on as its likely the user has
+				// done th port forwarding themselves.
+				if (!isCustomPort)
+				{
+					this.Status = PluginStatus.Error_NoPort;
+					Plugin.Log.Error(ex, "Failed to open port");
+					port = 0;
+					await Task.Delay(5000, this.tokenSource.Token);
 					continue;
-
-				if (IPAddress.IsLoopback(ipAddress))
-					continue;
-
-				localIp = ipAddress;
-				Plugin.Log.Information($"Got Local Address: {ipAddress}");
-			}
-
-			await Framework.RunOnUpdate();
-
-			// Main loop
-			while (!this.tokenSource.IsCancellationRequested)
-			{
-				Configuration.Character newCharacter = await this.GetLocalCharacter(this.tokenSource.Token);
-				if (newCharacter != this.LocalCharacter)
-				{
-					this.LocalCharacter = newCharacter;
-					this.LocalCharacterData = new();
-					Plugin.Log.Information($"Got local character: {this.LocalCharacter}");
 				}
-
-				if (this.tokenSource.IsCancellationRequested)
-					return;
-
-				try
+				else
 				{
-					if (this.Status < PluginStatus.Init_Index)
-						this.Status = PluginStatus.Init_Index;
-
-					SetPeer setPeerRequest = new();
-					setPeerRequest.Fingerprint = this.LocalCharacter.GetFingerprint();
-					setPeerRequest.Port = port;
-					setPeerRequest.LocalAddress = localIp?.ToString();
-
-					foreach (string indexServer in Configuration.Current.IndexServers.ToArray())
-					{
-						try
-						{
-							this.IndexServersStatus[indexServer] = await setPeerRequest.Send(indexServer);
-						}
-						catch (Exception ex)
-						{
-							this.IndexServersStatus[indexServer] = 0;
-							Plugin.Log.Warning(ex, $"Failed to connect to index server: {indexServer}");
-							await Task.Delay(20000, this.tokenSource.Token);
-							continue;
-						}
-					}
-
-					this.Status = PluginStatus.Online;
-					await this.UpdateData();
-					await Task.Delay(30000, this.tokenSource.Token);
-				}
-				catch (TaskCanceledException)
-				{
-				}
-				catch (Exception ex)
-				{
-					this.Status = PluginStatus.Error_Index;
-					Plugin.Log.Error(ex, $"Error in update");
-					return;
+					Plugin.Log.Warning($"Failed to open custom port: {port}, assuming port forwarding is manual.");
 				}
 			}
 		}
-		finally
+
+		// Setup TCP listen
+		this.Status = PluginStatus.Init_Listen;
+		try
 		{
-			this.Status = PluginStatus.Shutdown;
+			if (this.network == null)
+				throw new Exception("No network");
+
+			this.network.BeginListen(port);
+			Plugin.Log.Information($"Started listening for connections on port {port}");
 		}
+		catch (Exception ex)
+		{
+			Plugin.Log.Error(ex, "Error listening for connections");
+			this.Status = PluginStatus.Error_CantListen;
+			return;
+		}
+
+		// Get local IpAddress
+		IPAddress? localIp = null;
+		IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+		foreach (IPAddress ipAddress in host.AddressList)
+		{
+			if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
+				continue;
+
+			if (IPAddress.IsLoopback(ipAddress))
+				continue;
+
+			localIp = ipAddress;
+			Plugin.Log.Information($"Got Local Address: {ipAddress}");
+		}
+
+		// Start the main tasks
+		_ = Task.Run(async () => await this.UpdateIndex(port, localIp));
+		_ = Task.Run(this.UpdateData);
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)
@@ -632,82 +575,149 @@ public sealed partial class Plugin : IDalamudPlugin
 		}
 	}
 
-	private async Task UpdateData()
+	private async Task UpdateIndex(ushort port, IPAddress? localIp)
 	{
-		if (this.LocalCharacterData == null)
-			return;
-
-		this.LocalCharacterData.Clear();
-
-		await Plugin.Framework.RunOnUpdate();
-		if (this.tokenSource.IsCancellationRequested)
-			return;
-
-		// Do not sync character if we are in combat is loading
-		if (Plugin.Condition[ConditionFlag.InCombat]
-			|| Plugin.Condition[ConditionFlag.BetweenAreas]
-			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
+		while (!this.tokenSource.IsCancellationRequested)
 		{
-			return;
-		}
-
-		IPlayerCharacter? player = ClientState.LocalPlayer;
-		if (this.LocalCharacter == null || player == null)
-			return;
-
-		IGameObject? mountOrMinion = Plugin.ObjectTable[player.ObjectIndex + 1];
-		this.LocalCharacterData.Fingerprint = this.LocalCharacter.GetFingerprint();
-
-		IGameObject? pet = null;
-		unsafe
-		{
-			BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)player.Address);
-			if (pPet != null)
+			Configuration.Character newCharacter = await this.GetLocalCharacter(this.tokenSource.Token);
+			if (newCharacter != this.LocalCharacter)
 			{
-				pet = Plugin.ObjectTable[pPet->ObjectIndex];
+				this.LocalCharacter = newCharacter;
+				Plugin.Log.Information($"Got local character: {this.LocalCharacter}");
 			}
-		}
 
-		foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
-		{
 			if (this.tokenSource.IsCancellationRequested)
 				return;
 
 			try
 			{
-				string? content = await sync.Serialize(player.ObjectIndex);
-				this.LocalCharacterData.Character.Add(sync.Key, content);
+				if (this.Status < PluginStatus.Init_Index)
+					this.Status = PluginStatus.Init_Index;
 
-				if (mountOrMinion != null)
+				SetPeer setPeerRequest = new();
+				setPeerRequest.Fingerprint = this.LocalCharacter.GetFingerprint();
+				setPeerRequest.Port = port;
+				setPeerRequest.LocalAddress = localIp?.ToString();
+
+				foreach (string indexServer in Configuration.Current.IndexServers.ToArray())
 				{
-					content = await sync.Serialize(mountOrMinion.ObjectIndex);
-					this.LocalCharacterData.MountOrMinion.Add(sync.Key, content);
+					try
+					{
+						this.IndexServersStatus[indexServer] = await setPeerRequest.Send(indexServer);
+					}
+					catch (Exception ex)
+					{
+						this.IndexServersStatus[indexServer] = 0;
+						Plugin.Log.Warning(ex, $"Failed to connect to index server: {indexServer}");
+						await Task.Delay(20000, this.tokenSource.Token);
+						continue;
+					}
 				}
 
-				if (pet != null)
-				{
-					content = await sync.Serialize(pet.ObjectIndex);
-					this.LocalCharacterData.Pet.Add(sync.Key, content);
-				}
+				this.Status = PluginStatus.Online;
+				await Task.Delay(30000, this.tokenSource.Token);
+			}
+			catch (TaskCanceledException)
+			{
 			}
 			catch (Exception ex)
 			{
-				Plugin.Log.Error(ex, "Error collecting character data");
+				this.Status = PluginStatus.Error_Index;
+				Plugin.Log.Error(ex, $"Error updating index server status");
+				return;
 			}
 		}
+	}
 
-		foreach (CharacterSync sync in this.checkedCharacters.Values)
+	private async Task UpdateData()
+	{
+		CharacterData lastSentData = new();
+		CharacterData data = new();
+		Stopwatch timeSinceLastSendTimer = new();
+		timeSinceLastSendTimer.Start();
+
+		while (!this.tokenSource.IsCancellationRequested)
 		{
-			if (!sync.IsConnected)
+			await Task.Delay(500);
+
+			data.Clear();
+
+			await Plugin.Framework.RunOnUpdate();
+			if (this.tokenSource.IsCancellationRequested)
+				return;
+
+			// Do not sync character if we are in combat is loading
+			if (Plugin.Condition[ConditionFlag.InCombat]
+				|| Plugin.Condition[ConditionFlag.BetweenAreas]
+				|| Plugin.Condition[ConditionFlag.BetweenAreas51])
+			{
+				continue;
+			}
+
+			IPlayerCharacter? player = ClientState.LocalPlayer;
+			if (this.LocalCharacter == null || player == null)
 				continue;
 
-			try
+			IGameObject? mountOrMinion = Plugin.ObjectTable[player.ObjectIndex + 1];
+			data.Fingerprint = this.LocalCharacter.GetFingerprint();
+
+			IGameObject? pet = null;
+			unsafe
 			{
-				sync.SendData(this.LocalCharacterData);
+				BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)player.Address);
+				if (pPet != null)
+				{
+					pet = Plugin.ObjectTable[pPet->ObjectIndex];
+				}
 			}
-			catch (Exception ex)
+
+			foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
 			{
-				Plugin.Log.Error(ex, "Error sending character data");
+				if (this.tokenSource.IsCancellationRequested)
+					return;
+
+				try
+				{
+					string? content = await sync.Serialize(player.ObjectIndex);
+					data.Character.Add(sync.Key, content);
+
+					if (mountOrMinion != null)
+					{
+						content = await sync.Serialize(mountOrMinion.ObjectIndex);
+						data.MountOrMinion.Add(sync.Key, content);
+					}
+
+					if (pet != null)
+					{
+						content = await sync.Serialize(pet.ObjectIndex);
+						data.Pet.Add(sync.Key, content);
+					}
+				}
+				catch (Exception ex)
+				{
+					Plugin.Log.Error(ex, "Error collecting character data");
+				}
+			}
+
+			if (lastSentData.IsSame(data) && timeSinceLastSendTimer.ElapsedMilliseconds < ForceSendDataMs)
+				continue;
+
+			timeSinceLastSendTimer.Restart();
+			data.CopyTo(lastSentData);
+
+			foreach (CharacterSync sync in this.checkedCharacters.Values)
+			{
+				if (!sync.IsConnected)
+					continue;
+
+				try
+				{
+					sync.SendData(data);
+				}
+				catch (Exception ex)
+				{
+					Plugin.Log.Error(ex, "Error sending character data");
+				}
 			}
 		}
 	}

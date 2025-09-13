@@ -408,9 +408,9 @@ public sealed partial class Plugin : IDalamudPlugin
 				{
 					Plugin.Log.Information($"Opening port {port}");
 					using CancellationTokenSource cts = new(10000);
-					INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts.Token);
+					INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(cts.Token);
 					await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
-					Plugin.Log.Information($"Opened port {port}");
+					Plugin.Log.Information($"Opened port {port} with {device}");
 				}
 				catch (Exception ex)
 				{

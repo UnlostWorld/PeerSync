@@ -148,6 +148,17 @@ public class FileDownload : FileTransfer
 				if (this.fileStream == null)
 				{
 					FileInfo? file = this.sync.FileCache.GetFile(this.hash);
+
+					// If the file was created at some point between the request being
+					// activated and the download starting, its likely downloading from
+					// another source, so just assume the file is done and let the Transfer
+					// method check its validity.
+					if (file.Exists)
+					{
+						this.BytesReceived = this.BytesToReceive;
+						return;
+					}
+
 					this.fileStream = new(file.FullName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.None);
 				}
 

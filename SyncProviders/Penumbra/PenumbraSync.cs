@@ -187,6 +187,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			if (this.appliedCollections.TryGetValue(character.Peer.GetFingerprint(), out Guid existingCollectionId))
 			{
 				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
+				this.appliedCollections.Remove(character.Peer.GetFingerprint());
 			}
 
 			this.SetStatus(character, SyncProgressStatus.Empty);
@@ -296,6 +297,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				data.MetaManipulations ?? string.Empty,
 				0).ThrowOnFailure();
 
+			await Task.Delay(100);
 			this.penumbra.RedrawObject.Invoke(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
@@ -304,6 +306,25 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			Plugin.Log.Error(ex, "Error applying penumbra collection");
 			this.SetStatus(character, SyncProgressStatus.Error);
 		}
+	}
+
+	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	{
+		await base.Reset(character, objectIndex);
+		await Plugin.Framework.RunOnUpdate();
+
+		if (this.appliedCollections.TryGetValue(character.Peer.GetFingerprint(), out Guid existingCollectionId))
+		{
+			this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
+			this.appliedCollections.Remove(character.Peer.GetFingerprint());
+		}
+
+		if (objectIndex != null)
+		{
+			this.penumbra.RedrawObject.Invoke(objectIndex.Value);
+		}
+
+		this.SetStatus(character, SyncProgressStatus.Empty);
 	}
 
 	public override void DrawStatus()

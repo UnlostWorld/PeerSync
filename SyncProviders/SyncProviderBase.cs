@@ -74,6 +74,11 @@ public abstract class SyncProviderBase : IDisposable
 		}
 	}
 
+	public virtual Task Reset(CharacterSync character, ushort? objectIndex)
+	{
+		return Task.CompletedTask;
+	}
+
 	protected virtual SyncProgressBase CreateProgress(CharacterSync character)
 	{
 		return new SyncProgressBase(this, character);

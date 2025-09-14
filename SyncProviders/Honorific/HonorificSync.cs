@@ -56,4 +56,14 @@ public class HonorificSync : SyncProviderBase
 		await Plugin.Framework.RunOnUpdate();
 		return this.honorific.GetCharacterTitle(objectIndex);
 	}
+
+	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	{
+		await base.Reset(character, objectIndex);
+
+		if (objectIndex != null)
+			this.honorific.ClearCharacterTitle(objectIndex.Value);
+
+		this.SetStatus(character, SyncProgressStatus.Empty);
+	}
 }

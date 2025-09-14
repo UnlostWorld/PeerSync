@@ -73,4 +73,18 @@ public class CustomizePlusSync : SyncProviderBase
 
 		return this.customizePlus.GetProfileByUniqueId(guid.Value);
 	}
+
+	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	{
+		await base.Reset(character, objectIndex);
+		await Plugin.Framework.RunOnUpdate();
+
+		if (this.appliedProfiles.TryGetValue(character.Peer.GetFingerprint(), out Guid guid))
+		{
+			this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
+			this.appliedProfiles.Remove(character.Peer.GetFingerprint());
+		}
+
+		this.SetStatus(character, SyncProgressStatus.Empty);
+	}
 }

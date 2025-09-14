@@ -53,4 +53,13 @@ public class GlamourerSync : SyncProviderBase
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}
+
+	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	{
+		if (objectIndex != null)
+			await this.glamourer.RevertState(objectIndex.Value);
+
+		this.SetStatus(character, SyncProgressStatus.Empty);
+		await base.Reset(character, objectIndex);
+	}
 }

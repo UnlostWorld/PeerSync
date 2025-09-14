@@ -26,7 +26,8 @@ public class FileUpload : FileTransfer
 		this.Name = sync.FileCache.GetFileName(hash);
 	}
 
-	public override float Progress => (float)this.BytesSent / (float)this.BytesToSend;
+	public override long Current => this.BytesSent;
+	public override long Total => this.BytesToSend;
 
 	protected override async Task Transfer()
 	{
@@ -69,8 +70,6 @@ public class FileUpload : FileTransfer
 		this.BytesSent = 0;
 		this.BytesToSend = stream.Length;
 
-		this.sync.GetProgress(this.Character)?.AddTotalUpload(this.BytesToSend);
-
 		stream.Position = 0;
 
 		do
@@ -84,7 +83,6 @@ public class FileUpload : FileTransfer
 
 			this.Character.Send(PacketTypes.FileData, bytes);
 			this.BytesSent += thisChunkSize;
-			this.sync.GetProgress(this.Character)?.AddCurrentUpload(thisChunkSize);
 			await Task.Delay(10, this.cancellationToken);
 		}
 		while (this.BytesSent < this.BytesToSend && !this.cancellationToken.IsCancellationRequested);

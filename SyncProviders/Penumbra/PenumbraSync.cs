@@ -45,6 +45,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		".shpk"
 	];
 
+	public readonly TransferGroup DownloadGroup = new();
+	public readonly TransferGroup UploadGroup = new();
+
 	public readonly FileCache FileCache = new();
 	public byte LastQueueIndex = 0;
 
@@ -53,13 +56,10 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	private readonly Dictionary<string, Guid> appliedCollections = new();
 	private readonly HashSet<int> hasSeenBefore = new();
 
-	private readonly TransferGroup downloadGroup = new();
-	private readonly TransferGroup uploadGroup = new();
-
 	public PenumbraSync()
 	{
-		this.downloadGroup.SetCount(Configuration.Current.MaxDownloads);
-		this.uploadGroup.SetCount(Configuration.Current.MaxUploads);
+		this.DownloadGroup.SetCount(Configuration.Current.MaxDownloads);
+		this.UploadGroup.SetCount(Configuration.Current.MaxUploads);
 	}
 
 	public override string DisplayName => "Penumbra";
@@ -69,8 +69,8 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	{
 		base.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
 
-		int downloads = this.downloadGroup.ActiveCount;
-		int uploads = this.uploadGroup.ActiveCount;
+		int downloads = this.DownloadGroup.ActiveCount;
+		int uploads = this.UploadGroup.ActiveCount;
 
 		if (downloads > 0)
 		{
@@ -187,6 +187,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			if (this.appliedCollections.TryGetValue(character.Peer.GetFingerprint(), out Guid existingCollectionId))
 			{
 				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
+				this.appliedCollections.Remove(character.Peer.GetFingerprint());
 			}
 
 			this.SetStatus(character, SyncProgressStatus.Empty);
@@ -218,7 +219,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 				string name = Path.GetFileName(gamePath);
 				FileDownload download = new(this, name, hash, expectedSize, character, this.CancellationToken);
-				this.downloadGroup.Enqueue(download);
+				this.DownloadGroup.Enqueue(download);
 			}
 			else
 			{
@@ -230,7 +231,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		bool pending = true;
 		while (pending)
 		{
-			pending = this.downloadGroup.IsCharacterPending(character);
+			pending = this.DownloadGroup.IsCharacterPending(character);
 			await Task.Delay(100, this.CancellationToken);
 		}
 
@@ -296,6 +297,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				data.MetaManipulations ?? string.Empty,
 				0).ThrowOnFailure();
 
+			await Task.Delay(100);
 			this.penumbra.RedrawObject.Invoke(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
@@ -306,11 +308,30 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		}
 	}
 
+	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	{
+		await base.Reset(character, objectIndex);
+		await Plugin.Framework.RunOnUpdate();
+
+		if (this.appliedCollections.TryGetValue(character.Peer.GetFingerprint(), out Guid existingCollectionId))
+		{
+			this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
+			this.appliedCollections.Remove(character.Peer.GetFingerprint());
+		}
+
+		if (objectIndex != null)
+		{
+			this.penumbra.RedrawObject.Invoke(objectIndex.Value);
+		}
+
+		this.SetStatus(character, SyncProgressStatus.Empty);
+	}
+
 	public override void DrawStatus()
 	{
 		base.DrawStatus();
 
-		if (ImGui.CollapsingHeader($"Downloads ({this.downloadGroup.ActiveCount} / {this.downloadGroup.QueueCount})###DownloadsSection"))
+		if (ImGui.CollapsingHeader($"Downloads ({this.DownloadGroup.ActiveCount} / {this.DownloadGroup.QueueCount})###DownloadsSection"))
 		{
 			int maxDownloads = Configuration.Current.MaxDownloads;
 			if (ImGui.InputInt("Limit###LimitDownloads", ref maxDownloads))
@@ -318,14 +339,14 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				Configuration.Current.MaxDownloads = maxDownloads;
 				Configuration.Current.Save();
 
-				this.downloadGroup.Cancel();
-				this.downloadGroup.SetCount(maxDownloads);
+				this.DownloadGroup.Cancel();
+				this.DownloadGroup.SetCount(maxDownloads);
 			}
 
-			this.downloadGroup.DrawStatus("DownloadTable");
+			this.DownloadGroup.DrawStatus("DownloadTable");
 		}
 
-		if (ImGui.CollapsingHeader($"Uploads ({this.uploadGroup.ActiveCount} / {this.uploadGroup.QueueCount})###UploadsSection"))
+		if (ImGui.CollapsingHeader($"Uploads ({this.UploadGroup.ActiveCount} / {this.UploadGroup.QueueCount})###UploadsSection"))
 		{
 			int maxUploads = Configuration.Current.MaxUploads;
 			if (ImGui.InputInt("Limit###LimitUploads", ref maxUploads))
@@ -333,11 +354,11 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				Configuration.Current.MaxUploads = maxUploads;
 				Configuration.Current.Save();
 
-				this.uploadGroup.Cancel();
-				this.uploadGroup.SetCount(maxUploads);
+				this.UploadGroup.Cancel();
+				this.UploadGroup.SetCount(maxUploads);
 			}
 
-			this.uploadGroup.DrawStatus("UploadTable");
+			this.UploadGroup.DrawStatus("UploadTable");
 		}
 
 		this.FileCache.DrawInfo();
@@ -347,8 +368,8 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	{
 		base.Dispose();
 
-		this.downloadGroup.Cancel();
-		this.uploadGroup.Cancel();
+		this.DownloadGroup.Cancel();
+		this.UploadGroup.Cancel();
 
 		this.FileCache.Dispose();
 
@@ -367,8 +388,8 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		this.resourceMonitor.Dispose();
 
-		this.downloadGroup.Cancel();
-		this.uploadGroup.Cancel();
+		this.DownloadGroup.Cancel();
+		this.UploadGroup.Cancel();
 	}
 
 	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
@@ -402,7 +423,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		}
 
 		FileUpload upload = new(this, clientQueueIndex, hash, character, this.CancellationToken);
-		this.uploadGroup.Enqueue(upload);
+		this.UploadGroup.Enqueue(upload);
 	}
 }
 
@@ -434,6 +455,18 @@ public class TransferGroup
 		for (int i = 0; i < count; i++)
 		{
 			Task.Run(this.TransferTask, this.transferTaskTokenSource.Token);
+		}
+	}
+
+	public void GetCharacterProgress(CharacterSync character, out long current, out long total)
+	{
+		total = 0;
+		current = 0;
+
+		foreach (FileTransfer transfer in this.active)
+		{
+			total += transfer.Total;
+			current += transfer.Current;
 		}
 	}
 

@@ -30,7 +30,10 @@ public abstract class FileTransfer : IDisposable
 		this.Character = character;
 	}
 
-	public abstract float Progress { get; }
+	public abstract long Total { get; }
+	public abstract long Current { get; }
+
+	public float Progress => (float)this.Current / (float)this.Total;
 	public string Name { get; protected set; } = string.Empty;
 
 	public async Task TransferSafe()

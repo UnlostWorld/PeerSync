@@ -67,4 +67,22 @@ public class MoodlesSync : SyncProviderBase
 
 		return this.moodles.GetStatusManagerByPC(playerCharacter);
 	}
+
+	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	{
+		await base.Reset(character, objectIndex);
+
+		if (objectIndex != null)
+		{
+			await Plugin.Framework.RunOnUpdate();
+
+			IGameObject? gameObject = Plugin.ObjectTable[objectIndex.Value];
+			if (gameObject is not IPlayerCharacter playerCharacter)
+				return;
+
+			this.moodles.ClearStatusManager(playerCharacter);
+		}
+
+		this.SetStatus(character, SyncProgressStatus.Empty);
+	}
 }

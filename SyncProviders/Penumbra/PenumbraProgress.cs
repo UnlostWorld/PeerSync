@@ -8,81 +8,48 @@
 
 namespace PeerSync.SyncProviders.Penumbra;
 
+using System.Collections.Generic;
 using Dalamud.Bindings.ImGui;
 using PeerSync.UI;
 
-public class PenumbraProgress(PenumbraSync provider)
-	: SyncProgressBase(provider)
+public class PenumbraProgress(PenumbraSync provider, CharacterSync character)
+	: SyncProgressBase(provider, character)
 {
-	private long totalUpload = 0;
-	private long totalDownload = 0;
-	private long currentUpload = 0;
-	private long currentDownload = 0;
-
-	public void AddTotalUpload(long value)
-	{
-		lock (this)
-		{
-			this.totalUpload += value;
-			this.Total += value;
-		}
-	}
-
-	public void AddCurrentUpload(long value)
-	{
-		lock (this)
-		{
-			this.currentUpload += value;
-			this.Current += value;
-		}
-	}
-
-	public void AddTotalDownload(long value)
-	{
-		lock (this)
-		{
-			this.totalDownload += value;
-			this.Total += value;
-		}
-	}
-
-	public void AddCurrentDownload(long value)
-	{
-		lock (this)
-		{
-			this.currentDownload += value;
-			this.Current += value;
-		}
-	}
-
 	public override void DrawInfo()
 	{
-		bool hasDownload = this.totalDownload > 0 && this.currentDownload < this.totalDownload;
-		bool hasUpload = this.totalUpload > 0 && this.currentUpload < this.totalUpload;
+		provider.DownloadGroup.GetCharacterProgress(
+			this.Character,
+			out long downloadCurrent,
+			out long downloadTotal);
 
-		if (hasUpload && hasDownload)
+		provider.UploadGroup.GetCharacterProgress(
+			this.Character,
+			out long uploadCurrent,
+			out long uploadTotal);
+
+		if (uploadTotal > 0 && downloadTotal > 0)
 		{
-			float p = (float)this.currentUpload / (float)this.totalUpload;
+			float p = (float)uploadCurrent / (float)uploadTotal;
 			ImGui.Text("↑");
 			ImGui.SameLine();
 			ImGuiEx.ThinProgressBar(p, 32);
 			ImGui.SameLine();
 
-			p = (float)this.currentDownload / (float)this.totalDownload;
+			p = (float)downloadCurrent / (float)downloadTotal;
 			ImGui.Text("↓");
 			ImGui.SameLine();
 			ImGuiEx.ThinProgressBar(p, 32);
 		}
-		else if (hasUpload)
+		else if (uploadTotal > 0)
 		{
-			float p = (float)this.currentUpload / (float)this.totalUpload;
+			float p = (float)uploadCurrent / (float)uploadTotal;
 			ImGui.Text("↑");
 			ImGui.SameLine();
 			ImGuiEx.ThinProgressBar(p, -1);
 		}
-		else if (hasDownload)
+		else if (downloadTotal > 0)
 		{
-			float p = (float)this.currentDownload / (float)this.totalDownload;
+			float p = (float)downloadCurrent / (float)downloadTotal;
 			ImGui.Text("↓");
 			ImGui.SameLine();
 			ImGuiEx.ThinProgressBar(p, -1);

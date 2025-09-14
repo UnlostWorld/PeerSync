@@ -35,11 +35,10 @@ public class FileDownload : FileTransfer
 	{
 		this.Name = name;
 		this.BytesToReceive = expectedSize;
-
-		sync.GetProgress(this.Character)?.AddTotalDownload(expectedSize);
 	}
 
-	public override float Progress => (float)this.BytesReceived / (float)this.BytesToReceive;
+	public override long Current => this.BytesReceived;
+	public override long Total => this.BytesToReceive;
 
 	public override void Dispose()
 	{
@@ -167,8 +166,6 @@ public class FileDownload : FileTransfer
 					this.fileStream.Write(data);
 					this.BytesReceived += data.Length;
 				}
-
-				this.sync.GetProgress(this.Character)?.AddCurrentDownload(data.Length);
 			}
 		}
 		catch (Exception ex)

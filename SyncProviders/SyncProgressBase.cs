@@ -10,9 +10,10 @@ namespace PeerSync.SyncProviders;
 
 using PeerSync.UI;
 
-public class SyncProgressBase(SyncProviderBase provider)
+public class SyncProgressBase(SyncProviderBase provider, CharacterSync character)
 {
 	public SyncProviderBase Provider = provider;
+	public CharacterSync Character = character;
 
 	public SyncProgressStatus Status { get; set; }
 	public long Current { get; set; }

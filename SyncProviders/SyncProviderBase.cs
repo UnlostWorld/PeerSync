@@ -76,7 +76,7 @@ public abstract class SyncProviderBase : IDisposable
 
 	protected virtual SyncProgressBase CreateProgress(CharacterSync character)
 	{
-		return new SyncProgressBase(this);
+		return new SyncProgressBase(this, character);
 	}
 }
 

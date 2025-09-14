@@ -464,8 +464,13 @@ public sealed partial class Plugin : IDalamudPlugin
 		}
 
 		// Start the main tasks
-		_ = Task.Run(async () => await this.UpdateIndex(port, localIp));
-		_ = Task.Run(this.UpdateData);
+		Task updateIndexTask = Task.Run(async () => await this.UpdateIndex(port, localIp));
+		Task updateDataTask = Task.Run(this.UpdateData);
+
+		await updateDataTask;
+		await updateIndexTask;
+
+		this.Status = PluginStatus.Shutdown;
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)
@@ -614,11 +619,14 @@ public sealed partial class Plugin : IDalamudPlugin
 					}
 				}
 
-				this.Status = PluginStatus.Online;
+				if (this.Status < PluginStatus.Online)
+					this.Status = PluginStatus.Online;
+
 				await Task.Delay(30000, this.tokenSource.Token);
 			}
 			catch (TaskCanceledException)
 			{
+				return;
 			}
 			catch (Exception ex)
 			{

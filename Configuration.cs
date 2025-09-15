@@ -36,6 +36,7 @@ public partial class Configuration : IPluginConfiguration
 	public List<Character> Characters { get; init; } = new();
 	public List<Peer> Pairs { get; init; } = new();
 	public ushort Port { get; set; } = 0;
+	public ushort LastPort { get; set; } = 0;
 	public string? CacheDirectory { get; set; }
 
 	public int MaxUploads { get; set; } = 5;

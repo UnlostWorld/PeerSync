@@ -410,15 +410,31 @@ public sealed partial class Plugin : IDalamudPlugin
 			port = Configuration.Current.Port;
 
 			if (port <= 0)
+				port = Configuration.Current.LastPort;
+
+			if (port <= 0)
 				port = (ushort)(15400 + Random.Shared.Next(99));
 
 			try
 			{
+				OpenNat.TraceSource.Switch.Level = SourceLevels.Off;
+				OpenNat.TraceSource.Listeners.Add(new NatTraceListener());
+
 				Plugin.Log.Information($"Opening port {port}");
 				using CancellationTokenSource cts = new(10000);
 				INatDevice device = await OpenNat.Discoverer.DiscoverDeviceAsync(cts.Token);
 				await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port, "Sync port"));
 				Plugin.Log.Information($"Opened port {port} with {device}");
+			}
+			catch (NatDeviceNotFoundException)
+			{
+				if (!isCustomPort)
+				{
+					this.Status = PluginStatus.Error_NoPort;
+					Plugin.Log.Error("Failed to open port, no NAT device found");
+					await Task.Delay(30000, this.tokenSource.Token);
+					continue;
+				}
 			}
 			catch (Exception ex)
 			{
@@ -430,6 +446,7 @@ public sealed partial class Plugin : IDalamudPlugin
 					this.Status = PluginStatus.Error_NoPort;
 					Plugin.Log.Error(ex, "Failed to open port");
 					port = 0;
+					Configuration.Current.LastPort = 0;
 					await Task.Delay(5000, this.tokenSource.Token);
 					continue;
 				}
@@ -438,6 +455,12 @@ public sealed partial class Plugin : IDalamudPlugin
 					Plugin.Log.Warning($"Failed to open custom port: {port}, assuming port forwarding is manual.");
 				}
 			}
+		}
+
+		if (Configuration.Current.LastPort != port)
+		{
+			Configuration.Current.LastPort = port;
+			Configuration.Current.Save();
 		}
 
 		// Setup TCP listen
@@ -770,5 +793,24 @@ public sealed partial class Plugin : IDalamudPlugin
 				connection.Received -= this.OnReceived;
 			}
 		}
+	}
+}
+
+public class NatTraceListener : TraceListener
+{
+	public override void Write(string? message)
+	{
+		if (message == null)
+			return;
+
+		Plugin.Log.Info(message);
+	}
+
+	public override void WriteLine(string? message)
+	{
+		if (message == null)
+			return;
+
+		Plugin.Log.Info(message);
 	}
 }

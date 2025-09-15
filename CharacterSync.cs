@@ -193,6 +193,9 @@ public class CharacterSync : IDisposable
 		if (connection != this.connection)
 			return;
 
+		if (!this.IsConnected)
+			return;
+
 		// Do not sync characters if the local player is in combat
 		// or is loading areas.
 		if (Plugin.Condition[ConditionFlag.InCombat]
@@ -213,7 +216,6 @@ public class CharacterSync : IDisposable
 			if (Plugin.Instance == null || Plugin.Instance.LocalCharacter == null)
 				return;
 
-			// We're the client.
 			this.CurrentStatus = Status.Searching;
 			GetPeer request = new();
 			request.Fingerprint = this.Peer.GetFingerprint();
@@ -257,8 +259,8 @@ public class CharacterSync : IDisposable
 				return;
 			}
 
+			// We're the client.
 			IPAddress.TryParse(response.LocalAddress, out var localAddress);
-
 			this.CurrentStatus = Status.Connecting;
 
 			try
@@ -367,7 +369,7 @@ public class CharacterSync : IDisposable
 
 		if (this.CurrentStatus == Status.Listening)
 		{
-			Task.Run(this.SendIAm);
+			this.SendIAm();
 		}
 
 		Plugin.Log.Info($"Connected to {this.Peer} at {connection.EndPoint}");

@@ -95,7 +95,7 @@ public abstract class SyncProviderBase<T> : SyncProviderBase
 
 	protected sealed override SyncProgressBase CreateProgress(CharacterSync character)
 	{
-		SyncProgressBase? progress = Activator.CreateInstance(typeof(T), [this]) as SyncProgressBase;
+		SyncProgressBase? progress = Activator.CreateInstance(typeof(T), [this, character]) as SyncProgressBase;
 		if (progress == null)
 			throw new Exception("Failed to create progress type");
 

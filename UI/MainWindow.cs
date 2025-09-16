@@ -128,6 +128,8 @@ public class MainWindow : Window, IDisposable
 				Configuration.Current.Port = (ushort)port;
 				Configuration.Current.Save();
 			}
+
+			ImGui.LabelText("Current Port", Configuration.Current.LastPort.ToString());
 		}
 
 		if (ImGui.BeginPopup("AddIndexPopup"))
@@ -334,7 +336,7 @@ public class MainWindow : Window, IDisposable
 						ImGui.Text($"{character.CharacterName} @ {character.World}");
 						ImGui.Separator();
 
-						ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.25f);
+						ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
 						ImGui.SameLine();
 						ImGui.SetWindowFontScale(0.75f);
 						ImGui.TextColoredWrapped(0x80FFFFFF, $"{character.GetFingerprint()}");
@@ -496,7 +498,7 @@ public class MainWindow : Window, IDisposable
 			ImGui.Text($"{peer.CharacterName} @ {peer.World}");
 			ImGui.Separator();
 
-			ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.25f);
+			ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
 			ImGui.SameLine();
 			ImGui.SetWindowFontScale(0.75f);
 			ImGui.TextColoredWrapped(0x80FFFFFF, $"{peer.GetFingerprint()}");

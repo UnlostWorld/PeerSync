@@ -14,9 +14,25 @@ using Dalamud.Interface;
 
 public static class ImGuiEx
 {
-	public static void Icon(FontAwesomeIcon icon)
+	public static void Icon(FontAwesomeIcon icon, float size = 0.75f)
 	{
-		ImGuiEx.Icon(0xFFFFFFFF, icon);
+		if (icon == FontAwesomeIcon.None)
+		{
+			ImGui.Text("   ");
+		}
+		else
+		{
+			ImGui.PushFont(UiBuilder.IconFont);
+			ImGui.SetWindowFontScale(size);
+			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 2);
+
+			ImGui.SetNextItemWidth(ImGui.GetTextLineHeight());
+			ImGui.Text(icon.ToIconString());
+
+			ImGui.SetCursorPosY(ImGui.GetCursorPosY() - 2);
+			ImGui.SetWindowFontScale(1.0f);
+			ImGui.PopFont();
+		}
 	}
 
 	public static void Icon(uint color, FontAwesomeIcon icon, float size = 0.75f)

@@ -51,7 +51,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	private const string CommandName = "/psync";
 	private const long ForceSendDataMs = 10000;
 
-	private readonly WindowSystem wWindowSystem = new("PeerSync");
+	private readonly WindowSystem windowSystem = new("PeerSync");
 	private readonly IDtrBarEntry dtrBarEntry;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
@@ -63,11 +63,15 @@ public sealed partial class Plugin : IDalamudPlugin
 	{
 		this.MainWindow = new MainWindow();
 		this.AddPeerWindow = new AddPeerWindow();
+		this.DialogBox = new DialogBoxWindow();
 
-		this.wWindowSystem.AddWindow(this.MainWindow);
-		this.wWindowSystem.AddWindow(this.AddPeerWindow);
+		this.windowSystem.AddWindow(this.MainWindow);
+		this.windowSystem.AddWindow(this.AddPeerWindow);
+		this.windowSystem.AddWindow(this.DialogBox);
 
+#if DEBUG
 		this.MainWindow.IsOpen = true;
+#endif
 
 		CommandManager.AddHandler(CommandName, new CommandInfo(this.OnCommand)
 		{
@@ -104,6 +108,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static Plugin? Instance { get; private set; } = null;
 	public MainWindow MainWindow { get; init; }
 	public AddPeerWindow AddPeerWindow { get; init; }
+	public DialogBoxWindow DialogBox { get; init; }
 
 	public string Name => "Peer Sync";
 
@@ -269,7 +274,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	private void OnDalamudDrawUI()
 	{
-		this.wWindowSystem.Draw();
+		this.windowSystem.Draw();
 	}
 
 	private void OnContextMenuOpened(IMenuOpenedArgs args)

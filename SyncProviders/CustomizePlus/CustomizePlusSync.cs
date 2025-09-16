@@ -11,6 +11,9 @@ namespace PeerSync.SyncProviders.CustomizePlus;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Dalamud.Bindings.ImGui;
+using Newtonsoft.Json;
+using PeerSync.UI;
 
 public class CustomizePlusSync : SyncProviderBase
 {
@@ -86,5 +89,13 @@ public class CustomizePlusSync : SyncProviderBase
 		}
 
 		this.SetStatus(character, SyncProgressStatus.Empty);
+	}
+
+	public override void DrawInspect(CharacterSync? character, string content)
+	{
+		if (ImGui.CollapsingHeader(this.DisplayName))
+		{
+			ImGuiEx.JsonViewer("c+Inspector", content);
+		}
 	}
 }

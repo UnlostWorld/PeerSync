@@ -44,6 +44,7 @@ public sealed partial class Plugin : IDalamudPlugin
 {
 	public readonly List<SyncProviderBase> SyncProviders = new();
 	public readonly Dictionary<string, int> IndexServersStatus = new();
+	public readonly CharacterData LocalCharacterData = new();
 
 	public Configuration.Character? LocalCharacter;
 	public PluginStatus Status;
@@ -64,10 +65,12 @@ public sealed partial class Plugin : IDalamudPlugin
 		this.MainWindow = new MainWindow();
 		this.AddPeerWindow = new AddPeerWindow();
 		this.DialogBox = new DialogBoxWindow();
+		this.InspectWindow = new InspectWindow();
 
 		this.windowSystem.AddWindow(this.MainWindow);
 		this.windowSystem.AddWindow(this.AddPeerWindow);
 		this.windowSystem.AddWindow(this.DialogBox);
+		this.windowSystem.AddWindow(this.InspectWindow);
 
 #if DEBUG
 		this.MainWindow.IsOpen = true;
@@ -109,6 +112,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public MainWindow MainWindow { get; init; }
 	public AddPeerWindow AddPeerWindow { get; init; }
 	public DialogBoxWindow DialogBox { get; init; }
+	public InspectWindow InspectWindow { get; init; }
 
 	public string Name => "Peer Sync";
 
@@ -681,7 +685,6 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	private async Task UpdateData()
 	{
-		CharacterData lastSentData = new();
 		CharacterData data = new();
 		Stopwatch timeSinceLastSendTimer = new();
 		timeSinceLastSendTimer.Start();
@@ -755,11 +758,11 @@ public sealed partial class Plugin : IDalamudPlugin
 				}
 			}
 
-			if (lastSentData.IsSame(data) && timeSinceLastSendTimer.ElapsedMilliseconds < ForceSendDataMs)
+			if (this.LocalCharacterData.IsSame(data) && timeSinceLastSendTimer.ElapsedMilliseconds < ForceSendDataMs)
 				continue;
 
 			timeSinceLastSendTimer.Restart();
-			data.CopyTo(lastSentData);
+			data.CopyTo(this.LocalCharacterData);
 
 			foreach (CharacterSync sync in this.checkedCharacters.Values)
 			{

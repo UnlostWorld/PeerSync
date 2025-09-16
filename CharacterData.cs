@@ -9,7 +9,10 @@
 namespace PeerSync;
 
 using System.Collections.Generic;
+using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Newtonsoft.Json;
+using PeerSync.SyncProviders;
 
 public class CharacterData()
 {
@@ -96,5 +99,62 @@ public class CharacterData()
 		}
 
 		return true;
+	}
+
+	public void DrawInspect()
+	{
+		if (ImGui.BeginTabBar("###InspectorDataTabs"))
+		{
+			if (this.Character != null)
+			{
+				if (ImGui.BeginTabItem("Character Data"))
+				{
+					this.DrawData(this.Character);
+					ImGui.EndTabItem();
+				}
+			}
+
+			if (this.MountOrMinion != null && this.MountOrMinion.Count > 0)
+			{
+				if (ImGui.BeginTabItem("Mount Or Minion Data"))
+				{
+					this.DrawData(this.MountOrMinion);
+					ImGui.EndTabItem();
+				}
+			}
+
+			if (this.Pet != null && this.Pet.Count > 0)
+			{
+				if (ImGui.BeginTabItem("Pet Data"))
+				{
+					this.DrawData(this.Pet);
+					ImGui.EndTabItem();
+				}
+			}
+		}
+	}
+
+	private void DrawData(Dictionary<string, string?> data)
+	{
+		foreach ((string key, string? content) in data)
+		{
+			if (content == null)
+				continue;
+
+			SyncProviderBase? provider = Plugin.Instance?.GetSyncProvider(key);
+			if (provider == null)
+			{
+				if (ImGui.CollapsingHeader(key))
+				{
+					ImGui.PushFont(UiBuilder.MonoFont);
+					ImGui.TextWrapped(content);
+					ImGui.PopFont();
+				}
+			}
+			else
+			{
+				provider.DrawInspect(null, content);
+			}
+		}
 	}
 }

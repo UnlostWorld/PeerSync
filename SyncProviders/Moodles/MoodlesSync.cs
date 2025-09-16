@@ -8,6 +8,8 @@
 
 namespace PeerSync.SyncProviders.Moodles;
 
+using System;
+using System.Buffers.Text;
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;

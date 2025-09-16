@@ -312,6 +312,17 @@ public class MainWindow : Window, IDisposable
 						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 					{
 						ImGui.PushID($"character_{character}_contextMenu");
+
+						if (plugin.LocalCharacter == character)
+						{
+							if (ImGui.MenuItem("Inspect"))
+							{
+								Plugin.Instance?.InspectWindow.Show();
+							}
+
+							ImGui.Separator();
+						}
+
 						if (ImGui.MenuItem("Remove"))
 						{
 							DialogBox.Show(
@@ -497,6 +508,17 @@ public class MainWindow : Window, IDisposable
 			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 		{
 			ImGui.PushID($"peer_{peer}_contextMenu");
+
+			if (sync != null)
+			{
+				if (ImGui.MenuItem("Inspect"))
+				{
+					Plugin.Instance?.InspectWindow.Show(sync);
+				}
+
+				ImGui.Separator();
+			}
+
 			if (ImGui.MenuItem("Remove"))
 			{
 				DialogBox.Show(

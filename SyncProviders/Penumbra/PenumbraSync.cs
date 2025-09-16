@@ -391,6 +391,12 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		this.UploadGroup.Cancel();
 	}
 
+	public override void DrawInspect(CharacterSync? character, string content)
+	{
+		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(content);
+		data?.DrawInspect(this);
+	}
+
 	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
 	{
 		if (type == PacketTypes.FileRequest)

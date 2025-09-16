@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface;
 using PeerSync;
@@ -35,6 +36,16 @@ public abstract class SyncProviderBase : IDisposable
 
 	public virtual void DrawStatus()
 	{
+	}
+
+	public virtual void DrawInspect(CharacterSync? character, string content)
+	{
+		if (ImGui.CollapsingHeader(this.DisplayName))
+		{
+			ImGui.PushFont(UiBuilder.MonoFont);
+			ImGui.TextWrapped(content);
+			ImGui.PopFont();
+		}
 	}
 
 	public virtual void Dispose()

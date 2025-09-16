@@ -180,14 +180,16 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		if (lastContent == content)
 			return;
 
+		string collectionIdent = this.GetTemporaryCollectionIdentifier(character, objectIndex);
+
 		if (content == null)
 		{
 			await Plugin.Framework.RunOnUpdate();
 
-			if (this.appliedCollections.TryGetValue(character.Peer.GetFingerprint(), out Guid existingCollectionId))
+			if (this.appliedCollections.TryGetValue(collectionIdent, out Guid existingCollectionId))
 			{
 				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
-				this.appliedCollections.Remove(character.Peer.GetFingerprint());
+				this.appliedCollections.Remove(collectionIdent);
 			}
 
 			this.SetStatus(character, SyncProgressStatus.Empty);
@@ -264,11 +266,11 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		await Plugin.Framework.RunOnUpdate();
 
 		Guid collectionId;
-		if (!this.appliedCollections.ContainsKey(character.Peer.GetFingerprint()))
+		if (!this.appliedCollections.ContainsKey(collectionIdent))
 		{
 			this.penumbra.CreateTemporaryCollection.Invoke(
 				"PeerSync",
-				character.Peer.GetFingerprint(),
+				collectionIdent,
 				out collectionId).ThrowOnFailure();
 
 			this.penumbra.AssignTemporaryCollection.Invoke(
@@ -276,11 +278,11 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				objectIndex,
 				true).ThrowOnFailure();
 
-			this.appliedCollections.Add(character.Peer.GetFingerprint(), collectionId);
+			this.appliedCollections.Add(collectionIdent, collectionId);
 		}
 		else
 		{
-			collectionId = this.appliedCollections[character.Peer.GetFingerprint()];
+			collectionId = this.appliedCollections[collectionIdent];
 
 			this.penumbra.RemoveTemporaryMod.Invoke(
 				"PeerSync",
@@ -312,14 +314,15 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		await base.Reset(character, objectIndex);
 		await Plugin.Framework.RunOnUpdate();
 
-		if (this.appliedCollections.TryGetValue(character.Peer.GetFingerprint(), out Guid existingCollectionId))
-		{
-			this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
-			this.appliedCollections.Remove(character.Peer.GetFingerprint());
-		}
-
 		if (objectIndex != null)
 		{
+			string collectionIdent = this.GetTemporaryCollectionIdentifier(character, objectIndex.Value);
+			if (this.appliedCollections.TryGetValue(collectionIdent, out Guid existingCollectionId))
+			{
+				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
+				this.appliedCollections.Remove(collectionIdent);
+			}
+
 			this.penumbra.RedrawObject.Invoke(objectIndex.Value);
 		}
 
@@ -429,6 +432,11 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		FileUpload upload = new(this, clientQueueIndex, hash, character, this.CancellationToken);
 		this.UploadGroup.Enqueue(upload);
+	}
+
+	private string GetTemporaryCollectionIdentifier(CharacterSync character, ushort objectId)
+	{
+		return $"{character.Peer.GetFingerprint()}_{objectId}";
 	}
 }
 

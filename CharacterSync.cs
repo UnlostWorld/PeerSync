@@ -115,6 +115,7 @@ public class CharacterSync : IDisposable
 			this.connection.Received -= this.OnReceived;
 			this.connection.Disconnected -= this.OnDisconnected;
 			this.connection.Dispose();
+			this.connection = null;
 		}
 
 		this.CurrentStatus = Status.None;
@@ -268,39 +269,57 @@ public class CharacterSync : IDisposable
 			}
 
 			// We're the client.
-			IPAddress.TryParse(response.LocalAddress, out var localAddress);
 			this.CurrentStatus = Status.Connecting;
 
+			CancellationTokenSource localCancel = new();
+			CancellationTokenSource wideCancel = new();
+
+			Task<Connection?>? localConnectTask = null;
+			IPAddress.TryParse(response.LocalAddress, out IPAddress? localAddress);
+			if (localAddress != null)
+			{
+				localConnectTask = this.network.Connect(new(localAddress, response.Port), localCancel.Token);
+			}
+
+			Task<Connection?> wideConnectTask = this.network.Connect(new(address, response.Port), wideCancel.Token);
+
+			Connection? localConnection = null;
 			try
 			{
-				if (this.connection == null)
+				if (localConnectTask != null)
 				{
-					IPEndPoint endPoint = new(address, response.Port);
-					this.connection = await this.network.Connect(endPoint, this.tokenSource.Token);
+					localConnection = await localConnectTask;
+
+					if (localConnection != null)
+					{
+						wideCancel.Cancel();
+					}
 				}
 			}
 			catch (Exception)
 			{
-				this.connection = null;
 			}
 
-			if (this.connection == null && localAddress != null)
+			Connection? wideConnection = null;
+			try
 			{
-				try
+				wideConnection = await wideConnectTask;
+
+				if (wideConnection != null)
 				{
-					IPEndPoint endPoint = new(localAddress, response.Port);
-					this.connection = await this.network.Connect(endPoint, this.tokenSource.Token);
-				}
-				catch (Exception)
-				{
-					this.connection = null;
+					localCancel.Cancel();
 				}
 			}
+			catch (Exception)
+			{
+			}
+
+			this.connection = localConnection ?? wideConnection;
 
 			if (this.connection == null)
 			{
 				this.CurrentStatus = Status.ConnectionFailed;
-				await Task.Delay(10000);
+				await Task.Delay(60000, this.tokenSource.Token);
 				this.Reconnect();
 				return;
 			}

@@ -110,11 +110,14 @@ public class CharacterSync : IDisposable
 		if (this.tokenSource.IsCancellationRequested)
 			return;
 
+		Plugin.Log.Information($"Reconncting to peer: {this.Peer}");
+
 		if (this.connection != null)
 		{
 			this.connection.Received -= this.OnReceived;
 			this.connection.Disconnected -= this.OnDisconnected;
 			this.connection.Dispose();
+			this.connection = null;
 		}
 
 		this.CurrentStatus = Status.None;
@@ -300,7 +303,7 @@ public class CharacterSync : IDisposable
 			if (this.connection == null)
 			{
 				this.CurrentStatus = Status.ConnectionFailed;
-				await Task.Delay(10000);
+				await Task.Delay(10000, this.tokenSource.Token);
 				this.Reconnect();
 				return;
 			}

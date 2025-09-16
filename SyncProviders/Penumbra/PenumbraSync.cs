@@ -325,6 +325,22 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 			this.penumbra.RedrawObject.Invoke(objectIndex.Value);
 		}
+		else
+		{
+			// Clear all applied collections for safety
+			foreach ((string fingerprint, Guid guid) in this.appliedCollections)
+			{
+				try
+				{
+					this.penumbra.DeleteTemporaryCollection.Invoke(guid);
+				}
+				catch (Exception)
+				{
+				}
+			}
+
+			this.appliedCollections.Clear();
+		}
 
 		this.SetStatus(character, SyncProgressStatus.Empty);
 	}

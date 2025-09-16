@@ -319,11 +319,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	private void ResyncPeer(CharacterSync sync, IPlayerCharacter character)
 	{
-		sync.Flush();
-		foreach (SyncProviderBase provider in this.SyncProviders)
-		{
-			provider.Reset(sync, character.ObjectIndex);
-		}
+		sync.Reset();
 	}
 
 	private async Task<Configuration.Character> GetLocalCharacter(CancellationToken token)
@@ -527,9 +523,12 @@ public sealed partial class Plugin : IDalamudPlugin
 				character.Connected -= this.OnCharacterConnected;
 				character.Disconnected -= this.OnCharacterDisconnected;
 
-				foreach (SyncProviderBase provider in this.SyncProviders)
+				lock (this.SyncProviders)
 				{
-					provider.Reset(character, null);
+					foreach (SyncProviderBase provider in this.SyncProviders)
+					{
+						provider.Reset(character, null);
+					}
 				}
 
 				character.Dispose();
@@ -717,7 +716,13 @@ public sealed partial class Plugin : IDalamudPlugin
 				}
 			}
 
-			foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
+			List<SyncProviderBase> providers;
+			lock (this.SyncProviders)
+			{
+				providers = new(this.SyncProviders);
+			}
+
+			foreach (SyncProviderBase sync in providers)
 			{
 				if (this.tokenSource.IsCancellationRequested)
 					return;

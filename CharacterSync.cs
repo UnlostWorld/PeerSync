@@ -136,9 +136,17 @@ public class CharacterSync : IDisposable
 		return true;
 	}
 
-	public void Flush()
+	public void Reset()
 	{
 		this.lastData = null;
+
+		if (Plugin.Instance == null)
+			return;
+
+		foreach (SyncProviderBase provider in Plugin.Instance.SyncProviders)
+		{
+			provider.Reset(this, this.objectIndex);
+		}
 	}
 
 	public void Dispose()
@@ -356,6 +364,9 @@ public class CharacterSync : IDisposable
 	{
 		Plugin.Log.Information($"Connection to {this.Peer} was closed.");
 		this.CurrentStatus = Status.Disconnected;
+
+		this.Reset();
+
 		this.Disconnected?.Invoke(this);
 
 		this.Reconnect();

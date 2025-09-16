@@ -61,6 +61,8 @@ public class HonorificSync : SyncProviderBase
 	{
 		await base.Reset(character, objectIndex);
 
+		await Plugin.Framework.RunOnUpdate();
+
 		if (objectIndex != null)
 			this.honorific.ClearCharacterTitle(objectIndex.Value);
 

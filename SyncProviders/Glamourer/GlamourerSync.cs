@@ -8,7 +8,13 @@
 
 namespace PeerSync.SyncProviders.Glamourer;
 
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Text;
 using System.Threading.Tasks;
+using Dalamud.Bindings.ImGui;
+using PeerSync.UI;
 
 public class GlamourerSync : SyncProviderBase
 {
@@ -61,5 +67,23 @@ public class GlamourerSync : SyncProviderBase
 
 		this.SetStatus(character, SyncProgressStatus.Empty);
 		await base.Reset(character, objectIndex);
+	}
+
+	public override void DrawInspect(CharacterSync? character, string content)
+	{
+		if (ImGui.CollapsingHeader(this.DisplayName))
+		{
+			// https://github.com/Ottermandias/Glamourer/blob/0a9693daea99f79c44b2a69e1bfb006573a721a0/Glamourer/Utility/CompressExtensions.cs#L33
+			byte[] compressed = Convert.FromBase64String(content);
+			byte ret = compressed[0];
+			using MemoryStream compressedStream = new(compressed, 1, compressed.Length - 1);
+			using GZipStream zipStream = new(compressedStream, CompressionMode.Decompress);
+			using MemoryStream resultStream = new();
+			zipStream.CopyTo(resultStream);
+			byte[] decompressed = resultStream.ToArray();
+			content = Encoding.UTF8.GetString(decompressed);
+
+			ImGuiEx.JsonViewer("glamourerInspector", content);
+		}
 	}
 }

@@ -9,6 +9,8 @@
 namespace PeerSync.SyncProviders.Honorific;
 
 using System.Threading.Tasks;
+using Dalamud.Bindings.ImGui;
+using PeerSync.UI;
 
 public class HonorificSync : SyncProviderBase
 {
@@ -61,9 +63,19 @@ public class HonorificSync : SyncProviderBase
 	{
 		await base.Reset(character, objectIndex);
 
+		await Plugin.Framework.RunOnUpdate();
+
 		if (objectIndex != null)
 			this.honorific.ClearCharacterTitle(objectIndex.Value);
 
 		this.SetStatus(character, SyncProgressStatus.Empty);
+	}
+
+	public override void DrawInspect(CharacterSync? character, string content)
+	{
+		if (ImGui.CollapsingHeader(this.DisplayName))
+		{
+			ImGuiEx.JsonViewer("honorificInspector", content);
+		}
 	}
 }

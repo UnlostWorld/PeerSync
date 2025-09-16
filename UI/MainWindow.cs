@@ -19,7 +19,6 @@ using System.Numerics;
 public class MainWindow : Window, IDisposable
 {
 	private Configuration.Character? editingCharacterPassword = null;
-	private Configuration.Peer? peerToRemove = null;
 
 	public MainWindow()
 #if DEBUG
@@ -128,6 +127,8 @@ public class MainWindow : Window, IDisposable
 				Configuration.Current.Port = (ushort)port;
 				Configuration.Current.Save();
 			}
+
+			ImGui.LabelText("Current Port", Configuration.Current.LastPort.ToString());
 		}
 
 		if (ImGui.BeginPopup("AddIndexPopup"))
@@ -210,8 +211,18 @@ public class MainWindow : Window, IDisposable
 							ImGui.PushID($"index_{indexServer}_contextMenu");
 							if (ImGui.MenuItem("Remove"))
 							{
-								Configuration.Current.IndexServers.Remove(indexServer);
-								Configuration.Current.Save();
+								DialogBox.Show(
+								"Confirm",
+								$"Are you sure you want to remove the index server\n{indexServer} ?",
+								FontAwesomeIcon.ExclamationTriangle,
+								0xFF0080FF,
+								"Remove",
+								"Cancel",
+								() =>
+								{
+									Configuration.Current.IndexServers.Remove(indexServer);
+									Configuration.Current.Save();
+								});
 							}
 
 							ImGui.PopID();
@@ -301,9 +312,31 @@ public class MainWindow : Window, IDisposable
 						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 					{
 						ImGui.PushID($"character_{character}_contextMenu");
+
+						if (plugin.LocalCharacter == character)
+						{
+							if (ImGui.MenuItem("Inspect"))
+							{
+								Plugin.Instance?.InspectWindow.Show();
+							}
+
+							ImGui.Separator();
+						}
+
 						if (ImGui.MenuItem("Remove"))
 						{
-							// ??
+							DialogBox.Show(
+								"Confirm",
+								$"Are you sure you want to remove the character\n{character.CharacterName} @ {character.World} ?",
+								FontAwesomeIcon.ExclamationTriangle,
+								0xFF0080FF,
+								"Remove",
+								"Cancel",
+								() =>
+								{
+									Configuration.Current.Characters.Remove(character);
+									Configuration.Current.Save();
+								});
 						}
 
 						if (ImGui.MenuItem("Copy Password"))
@@ -334,7 +367,7 @@ public class MainWindow : Window, IDisposable
 						ImGui.Text($"{character.CharacterName} @ {character.World}");
 						ImGui.Separator();
 
-						ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.25f);
+						ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
 						ImGui.SameLine();
 						ImGui.SetWindowFontScale(0.75f);
 						ImGui.TextColoredWrapped(0x80FFFFFF, $"{character.GetFingerprint()}");
@@ -447,12 +480,6 @@ public class MainWindow : Window, IDisposable
 
 				ImGui.EndTable();
 			}
-
-			if (this.peerToRemove != null)
-			{
-				Configuration.Current.Pairs.Remove(this.peerToRemove);
-				Configuration.Current.Save();
-			}
 		}
 
 		foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
@@ -481,8 +508,32 @@ public class MainWindow : Window, IDisposable
 			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 		{
 			ImGui.PushID($"peer_{peer}_contextMenu");
+
+			if (sync != null)
+			{
+				if (ImGui.MenuItem("Inspect"))
+				{
+					Plugin.Instance?.InspectWindow.Show(sync);
+				}
+
+				ImGui.Separator();
+			}
+
 			if (ImGui.MenuItem("Remove"))
-				this.peerToRemove = peer;
+			{
+				DialogBox.Show(
+					"Confirm",
+					$"Are you sure you want to remove the peer\n{peer.CharacterName} @ {peer.World} ?",
+					FontAwesomeIcon.ExclamationTriangle,
+					0xFF0080FF,
+					"Remove",
+					"Cancel",
+					() =>
+					{
+						Configuration.Current.Pairs.Remove(peer);
+						Configuration.Current.Save();
+					});
+			}
 
 			ImGui.PopID();
 			ImGui.EndPopup();
@@ -496,7 +547,7 @@ public class MainWindow : Window, IDisposable
 			ImGui.Text($"{peer.CharacterName} @ {peer.World}");
 			ImGui.Separator();
 
-			ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.25f);
+			ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
 			ImGui.SameLine();
 			ImGui.SetWindowFontScale(0.75f);
 			ImGui.TextColoredWrapped(0x80FFFFFF, $"{peer.GetFingerprint()}");

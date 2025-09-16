@@ -31,7 +31,6 @@ public class CharacterSync : IDisposable
 	private readonly ConnectionManager network;
 	private readonly ushort objectIndex;
 
-	private CharacterData? lastData;
 	private bool isApplyingData = false;
 	private Connection? connection;
 
@@ -81,6 +80,7 @@ public class CharacterSync : IDisposable
 	public Status CurrentStatus { get; private set; } = Status.None;
 	public Connection? Connection => this.connection;
 	public bool IsConnected => this.CurrentStatus == Status.Connected;
+	public CharacterData? LastData { get; private set; }
 
 	public void SendIAm()
 	{
@@ -136,9 +136,17 @@ public class CharacterSync : IDisposable
 		return true;
 	}
 
-	public void Flush()
+	public void Reset()
 	{
-		this.lastData = null;
+		this.LastData = null;
+
+		if (Plugin.Instance == null)
+			return;
+
+		foreach (SyncProviderBase provider in Plugin.Instance.SyncProviders)
+		{
+			provider.Reset(this, this.objectIndex);
+		}
 	}
 
 	public void Dispose()
@@ -356,6 +364,9 @@ public class CharacterSync : IDisposable
 	{
 		Plugin.Log.Information($"Connection to {this.Peer} was closed.");
 		this.CurrentStatus = Status.Disconnected;
+
+		this.Reset();
+
 		this.Disconnected?.Invoke(this);
 
 		this.Reconnect();
@@ -386,12 +397,12 @@ public class CharacterSync : IDisposable
 
 		await this.ApplySyncData(
 			characterData.Character,
-			this.lastData?.Character,
+			this.LastData?.Character,
 			this.objectIndex);
 
 		await this.ApplySyncData(
 			characterData.MountOrMinion,
-			this.lastData?.MountOrMinion,
+			this.LastData?.MountOrMinion,
 			(ushort)(this.objectIndex + 1));
 
 		await Plugin.Framework.RunOnUpdate();
@@ -414,12 +425,12 @@ public class CharacterSync : IDisposable
 		{
 			await this.ApplySyncData(
 				characterData.Pet,
-				this.lastData?.Pet,
+				this.LastData?.Pet,
 				pet.ObjectIndex);
 		}
 
 		this.isApplyingData = false;
-		this.lastData = characterData;
+		this.LastData = characterData;
 	}
 
 	private async Task ApplySyncData(
@@ -445,6 +456,9 @@ public class CharacterSync : IDisposable
 				lastSync?.TryGetValue(key, out lastContent);
 
 				await provider.Deserialize(lastContent, content, this, objectIndex);
+			}
+			catch (TaskCanceledException)
+			{
 			}
 			catch (Exception ex)
 			{

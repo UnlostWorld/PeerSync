@@ -271,25 +271,25 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				character.Peer.GetFingerprint(),
 				out collectionId).ThrowOnFailure();
 
-			this.appliedCollections.Add(character.Peer.GetFingerprint(), collectionId);
-		}
-		else
-		{
-			collectionId = this.appliedCollections[character.Peer.GetFingerprint()];
-		}
-
-		try
-		{
 			this.penumbra.AssignTemporaryCollection.Invoke(
 				collectionId,
 				objectIndex,
 				true).ThrowOnFailure();
 
+			this.appliedCollections.Add(character.Peer.GetFingerprint(), collectionId);
+		}
+		else
+		{
+			collectionId = this.appliedCollections[character.Peer.GetFingerprint()];
+
 			this.penumbra.RemoveTemporaryMod.Invoke(
 				"PeerSync",
 				collectionId,
 				0).ThrowOnFailure();
+		}
 
+		try
+		{
 			this.penumbra.AddTemporaryMod.Invoke(
 				"PeerSync",
 				collectionId,
@@ -297,7 +297,6 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				data.MetaManipulations ?? string.Empty,
 				0).ThrowOnFailure();
 
-			await Task.Delay(100);
 			this.penumbra.RedrawObject.Invoke(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
@@ -390,6 +389,12 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		this.DownloadGroup.Cancel();
 		this.UploadGroup.Cancel();
+	}
+
+	public override void DrawInspect(CharacterSync? character, string content)
+	{
+		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(content);
+		data?.DrawInspect(this);
 	}
 
 	private void OnReceived(Connection connection, PacketTypes type, byte[] data)

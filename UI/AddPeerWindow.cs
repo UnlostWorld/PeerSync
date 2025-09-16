@@ -16,26 +16,30 @@ using System.Numerics;
 
 public class AddPeerWindow : Window, IDisposable
 {
-	private string characterName = string.Empty;
-	private string world = string.Empty;
+	private string character = string.Empty;
 	private string password = string.Empty;
+	private bool showNameInvalid = false;
 
 	public AddPeerWindow()
 		: base(
 		"Add peer##PeerWindow",
-		ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize)
+		ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar)
 	{
 		this.SizeConstraints = new WindowSizeConstraints
 		{
-			MinimumSize = new Vector2(450, -1),
-			MaximumSize = new Vector2(450, -1),
+			MinimumSize = new Vector2(350, -1),
+			MaximumSize = new Vector2(350, -1),
 		};
 	}
 
-	public void Show(string characterName = "", string world = "")
+	public void Show(string? characterName = null, string? world = null)
 	{
-		this.characterName = characterName;
-		this.world = world;
+		this.character = string.Empty;
+		this.password = string.Empty;
+
+		if (characterName != null && world != null)
+			this.character = $"{characterName} @ {world}";
+
 		this.IsOpen = true;
 	}
 
@@ -43,31 +47,94 @@ public class AddPeerWindow : Window, IDisposable
 	{
 	}
 
+	public override void PreDraw()
+	{
+		base.PreDraw();
+
+		Vector2 center = ImGui.GetMainViewport().GetCenter();
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
+	}
+
 	public override void Draw()
 	{
-		ImGui.TextWrapped("You will only be unable to connect to this peer if they have added your current character as a peer.");
+		ImGui.Text("Add a new peer");
+		ImGui.Spacing();
 
-		ImGui.InputText("Name", ref this.characterName);
-		ImGui.InputText("World", ref this.world);
-		ImGui.InputText("Password", ref this.password);
+		if (this.showNameInvalid)
+		{
+			ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1.0f);
+			ImGui.PushStyleColor(ImGuiCol.Border, 0xFF0080FF);
+		}
+
+		ImGui.SetNextItemWidth(-1);
+		ImGui.InputTextWithHint("###Character", "Meteor Survivor @ Etheirys", ref this.character);
+
+		if (this.showNameInvalid)
+		{
+			ImGui.PopStyleColor();
+			ImGui.PopStyleVar();
+		}
+
+		ImGui.SetNextItemWidth(-1);
+		ImGui.InputTextWithHint("###Password", "Password", ref this.password);
+
+		ImGui.SetWindowFontScale(0.9f);
+		ImGui.TextColoredWrapped(0x80FFFFFF, "You will only be unable to connect to this peer if they have also added your current character as a peer.");
+		ImGui.SetWindowFontScale(1.0f);
+
+		ImGui.Spacing();
 
 		ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle, 1);
 		ImGui.SameLine();
-		ImGui.TextColoredWrapped(0xFF0080FF, "You should add people you trust as peers.");
+		ImGui.TextColoredWrapped(0xFF0080FF, "You should only add people you trust as peers.");
+
 		ImGui.TextColoredWrapped(0xFF0080FF, "Malicious users could sync inappropriate or unstable mods with you, causing distress or crashes.");
 
-		bool valid = !string.IsNullOrEmpty(this.characterName)
-			&& !string.IsNullOrEmpty(this.world)
+		ImGui.Spacing();
+
+		string name = string.Empty;
+		string world = string.Empty;
+
+		bool valid = !string.IsNullOrEmpty(this.character)
 			&& !string.IsNullOrEmpty(this.password);
+
+		if (valid)
+		{
+			this.showNameInvalid = false;
+			string[] parts = this.character.Split('@', StringSplitOptions.RemoveEmptyEntries);
+
+			if (parts.Length == 2)
+			{
+				name = parts[0].Trim();
+				world = parts[1].Trim();
+
+				if (string.IsNullOrEmpty(name)
+					|| string.IsNullOrEmpty(world)
+					|| !name.Contains(' '))
+				{
+					valid = false;
+					this.showNameInvalid = true;
+				}
+			}
+			else
+			{
+				valid = false;
+				this.showNameInvalid = true;
+			}
+		}
+		else
+		{
+			this.showNameInvalid = false;
+		}
 
 		if (!valid)
 			ImGui.BeginDisabled();
 
 		ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (ImGui.GetContentRegionAvail().X - (200 + (ImGui.GetStyle().ItemSpacing.X * 2))));
 
-		if (ImGui.Button("Add Peer", new(100, 0)))
+		if (ImGui.Button($"Add Peer", new(100, 0)))
 		{
-			Configuration.Peer? peer = Configuration.Current.GetPeer(this.characterName, this.world);
+			Configuration.Peer? peer = Configuration.Current.GetPeer(name, world);
 
 			if (peer == null)
 			{
@@ -75,8 +142,8 @@ public class AddPeerWindow : Window, IDisposable
 				Configuration.Current.Pairs.Add(peer);
 			}
 
-			peer.CharacterName = this.characterName;
-			peer.World = this.world;
+			peer.CharacterName = name;
+			peer.World = world;
 			peer.Password = this.password;
 
 			Configuration.Current.Save();

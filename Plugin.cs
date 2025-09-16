@@ -44,6 +44,7 @@ public sealed partial class Plugin : IDalamudPlugin
 {
 	public readonly List<SyncProviderBase> SyncProviders = new();
 	public readonly Dictionary<string, int> IndexServersStatus = new();
+	public readonly CharacterData LocalCharacterData = new();
 
 	public Configuration.Character? LocalCharacter;
 	public PluginStatus Status;
@@ -51,7 +52,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	private const string CommandName = "/psync";
 	private const long ForceSendDataMs = 10000;
 
-	private readonly WindowSystem wWindowSystem = new("PeerSync");
+	private readonly WindowSystem windowSystem = new("PeerSync");
 	private readonly IDtrBarEntry dtrBarEntry;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
@@ -63,11 +64,17 @@ public sealed partial class Plugin : IDalamudPlugin
 	{
 		this.MainWindow = new MainWindow();
 		this.AddPeerWindow = new AddPeerWindow();
+		this.DialogBox = new DialogBoxWindow();
+		this.InspectWindow = new InspectWindow();
 
-		this.wWindowSystem.AddWindow(this.MainWindow);
-		this.wWindowSystem.AddWindow(this.AddPeerWindow);
+		this.windowSystem.AddWindow(this.MainWindow);
+		this.windowSystem.AddWindow(this.AddPeerWindow);
+		this.windowSystem.AddWindow(this.DialogBox);
+		this.windowSystem.AddWindow(this.InspectWindow);
 
+#if DEBUG
 		this.MainWindow.IsOpen = true;
+#endif
 
 		CommandManager.AddHandler(CommandName, new CommandInfo(this.OnCommand)
 		{
@@ -104,6 +111,8 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static Plugin? Instance { get; private set; } = null;
 	public MainWindow MainWindow { get; init; }
 	public AddPeerWindow AddPeerWindow { get; init; }
+	public DialogBoxWindow DialogBox { get; init; }
+	public InspectWindow InspectWindow { get; init; }
 
 	public string Name => "Peer Sync";
 
@@ -269,7 +278,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	private void OnDalamudDrawUI()
 	{
-		this.wWindowSystem.Draw();
+		this.windowSystem.Draw();
 	}
 
 	private void OnContextMenuOpened(IMenuOpenedArgs args)
@@ -319,11 +328,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	private void ResyncPeer(CharacterSync sync, IPlayerCharacter character)
 	{
-		sync.Flush();
-		foreach (SyncProviderBase provider in this.SyncProviders)
-		{
-			provider.Reset(sync, character.ObjectIndex);
-		}
+		sync.Reset();
 	}
 
 	private async Task<Configuration.Character> GetLocalCharacter(CancellationToken token)
@@ -527,9 +532,12 @@ public sealed partial class Plugin : IDalamudPlugin
 				character.Connected -= this.OnCharacterConnected;
 				character.Disconnected -= this.OnCharacterDisconnected;
 
-				foreach (SyncProviderBase provider in this.SyncProviders)
+				lock (this.SyncProviders)
 				{
-					provider.Reset(character, null);
+					foreach (SyncProviderBase provider in this.SyncProviders)
+					{
+						provider.Reset(character, null);
+					}
 				}
 
 				character.Dispose();
@@ -677,7 +685,6 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	private async Task UpdateData()
 	{
-		CharacterData lastSentData = new();
 		CharacterData data = new();
 		Stopwatch timeSinceLastSendTimer = new();
 		timeSinceLastSendTimer.Start();
@@ -717,7 +724,13 @@ public sealed partial class Plugin : IDalamudPlugin
 				}
 			}
 
-			foreach (SyncProviderBase sync in this.SyncProviders.AsReadOnly())
+			List<SyncProviderBase> providers;
+			lock (this.SyncProviders)
+			{
+				providers = new(this.SyncProviders);
+			}
+
+			foreach (SyncProviderBase sync in providers)
 			{
 				if (this.tokenSource.IsCancellationRequested)
 					return;
@@ -745,11 +758,11 @@ public sealed partial class Plugin : IDalamudPlugin
 				}
 			}
 
-			if (lastSentData.IsSame(data) && timeSinceLastSendTimer.ElapsedMilliseconds < ForceSendDataMs)
+			if (this.LocalCharacterData.IsSame(data) && timeSinceLastSendTimer.ElapsedMilliseconds < ForceSendDataMs)
 				continue;
 
 			timeSinceLastSendTimer.Restart();
-			data.CopyTo(lastSentData);
+			data.CopyTo(this.LocalCharacterData);
 
 			foreach (CharacterSync sync in this.checkedCharacters.Values)
 			{

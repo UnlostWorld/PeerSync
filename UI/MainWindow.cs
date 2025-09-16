@@ -283,6 +283,8 @@ public class MainWindow : Window, IDisposable
 				ImGui.TableSetupColumn("Password", ImGuiTableColumnFlags.WidthStretch);
 				ImGui.TableNextRow();
 
+				Configuration.Character? characterToRemove = null;
+
 				foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
 				{
 					// Tooltip
@@ -305,7 +307,7 @@ public class MainWindow : Window, IDisposable
 						ImGui.PushID($"character_{character}_contextMenu");
 						if (ImGui.MenuItem("Remove"))
 						{
-							// ??
+							characterToRemove = character;
 						}
 
 						if (ImGui.MenuItem("Copy Password"))
@@ -387,6 +389,12 @@ public class MainWindow : Window, IDisposable
 					}
 
 					ImGui.TableNextRow();
+				}
+
+				if (characterToRemove != null)
+				{
+					Configuration.Current.Characters.Remove(characterToRemove);
+					Configuration.Current.Save();
 				}
 			}
 

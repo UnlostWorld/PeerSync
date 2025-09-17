@@ -57,4 +57,23 @@ public class PenumbraProgress(PenumbraSync provider, CharacterSync character)
 
 		ImGui.SameLine();
 	}
+
+	public override void Combine(ref long current, ref long total)
+	{
+		provider.DownloadGroup.GetCharacterProgress(
+			this.Character,
+			out long downloadCurrent,
+			out long downloadTotal);
+
+		provider.UploadGroup.GetCharacterProgress(
+			this.Character,
+			out long uploadCurrent,
+			out long uploadTotal);
+
+		current += downloadCurrent;
+		current += uploadCurrent;
+
+		total += downloadTotal;
+		total += uploadTotal;
+	}
 }

@@ -19,6 +19,12 @@ public class SyncProgressBase(SyncProviderBase provider, CharacterSync character
 	public long Current { get; set; }
 	public long Total { get; set; }
 
+	public virtual void Combine(ref long current, ref long total)
+	{
+		current += this.Current;
+		total += this.Total;
+	}
+
 	public virtual void DrawInfo()
 	{
 		if (this.Current < this.Total && this.Total > 0)

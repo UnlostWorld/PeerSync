@@ -42,7 +42,10 @@ public partial class Configuration : IPluginConfiguration
 	public int MaxUploads { get; set; } = 5;
 	public int MaxDownloads { get; set; } = 10;
 
-	public List<string> IndexServers { get; init; } = new();
+	public List<string> IndexServers { get; init; } = new()
+	{
+		"https://peer-sync-index-server-9y4rg.ondigitalocean.app/",
+	};
 
 	public void Save()
 	{
@@ -81,7 +84,7 @@ public partial class Configuration : IPluginConfiguration
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 
 #if DEBUG
-				pluginVersion = "debug";
+				pluginVersion = "1.0.1.52";
 #endif
 
 				string input = $"{this.CharacterName}{this.World}";

@@ -617,7 +617,10 @@ public class MainWindow : Window, IDisposable
 
 			foreach (SyncProgressBase progress in progresses)
 			{
-				progress.Combine(ref current, ref total);
+				if (progress.Status == SyncProgressStatus.Syncing)
+				{
+					progress.Combine(ref current, ref total);
+				}
 			}
 
 			float p = (float)current / (float)total;

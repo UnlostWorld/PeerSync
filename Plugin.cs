@@ -49,7 +49,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public Configuration.Character? LocalCharacter;
 	public PluginStatus Status;
 
-	private const string CommandName = "/psync";
+	private const string CommandName = "/peersync";
 	private const long ForceSendDataMs = 10000;
 
 	private readonly WindowSystem windowSystem = new("PeerSync");

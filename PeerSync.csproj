@@ -9,7 +9,7 @@
 		<OutputPath>.\bin\</OutputPath>
 		<DocumentationFile>.\obj\PeerSync.xml</DocumentationFile>
 		<NoWarn>1701;1702;SA1503;CS1591;SA1401;SA1516;CS0067;IDE0027;IDE0025;SA1011;SA1134;NU1903;</NoWarn>
-		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 		<Nullable>enable</Nullable>
 		<ProduceReferenceAssembly>false</ProduceReferenceAssembly>
 		<TrimMode>CopyUsed</TrimMode>

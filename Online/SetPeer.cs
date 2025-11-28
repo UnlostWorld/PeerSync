@@ -20,7 +20,7 @@ public class SetPeer
 	public async Task<int> Send(string indexServer)
 	{
 		string json = JsonSerializer.Serialize(this);
-		string msg = await ServerApi.PostAsync($"{indexServer}/Peer/Set", json, "application/json");
+		string msg = await ServerApi.PostAsync($"{indexServer.TrimEnd('/')}/Peer/Set", json, "application/json");
 
 		try
 		{

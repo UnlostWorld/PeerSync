@@ -186,7 +186,8 @@ public class MainWindow : Window, IDisposable
 					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
 					ImGui.TableNextRow();
 
-					foreach (string indexServer in Configuration.Current.IndexServers.AsReadOnly())
+					HashSet<string> servers = new(Configuration.Current.IndexServers);
+					foreach (string indexServer in servers)
 					{
 						int peerCount = 0;
 						Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out peerCount);

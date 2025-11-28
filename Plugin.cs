@@ -650,7 +650,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				setPeerRequest.Port = port;
 				setPeerRequest.LocalAddress = localIp?.ToString();
 
-				foreach (string indexServer in Configuration.Current.IndexServers.ToArray())
+				foreach (string indexServer in Configuration.Current.IndexServers)
 				{
 					try
 					{

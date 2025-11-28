@@ -22,7 +22,7 @@ public class GetPeer
 	public async Task<GetPeer?> Send(string indexServer)
 	{
 		string json = JsonSerializer.Serialize(this);
-		string str = await ServerApi.PostAsync($"{indexServer}/Peer/Get", json, "application/json");
+		string str = await ServerApi.PostAsync($"{indexServer.TrimEnd('/')}/Peer/Get", json, "application/json");
 
 		if (string.IsNullOrEmpty(str))
 			return null;

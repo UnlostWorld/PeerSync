@@ -42,9 +42,9 @@ public partial class Configuration : IPluginConfiguration
 	public int MaxUploads { get; set; } = 5;
 	public int MaxDownloads { get; set; } = 10;
 
-	public List<string> IndexServers { get; init; } = new()
+	public HashSet<string> IndexServers { get; init; } = new()
 	{
-		"https://peer-sync-index-server-9y4rg.ondigitalocean.app/",
+		"https://peer-sync-index-server-9y4rg.ondigitalocean.app",
 	};
 
 	public void Save()

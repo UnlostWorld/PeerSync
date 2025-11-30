@@ -189,8 +189,8 @@ public class MainWindow : Window, IDisposable
 					HashSet<string> servers = new(Configuration.Current.IndexServers);
 					foreach (string indexServer in servers)
 					{
-						int peerCount = 0;
-						Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out peerCount);
+						string? serverStatus = null;
+						Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out serverStatus);
 
 						// Tooltip
 						ImGui.TableNextColumn();
@@ -238,7 +238,7 @@ public class MainWindow : Window, IDisposable
 							ImGui.TextWrapped($"{indexServer}");
 							ImGui.Separator();
 
-							if (peerCount <= 0)
+							if (serverStatus == null)
 							{
 								ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
 								ImGui.SameLine();
@@ -248,31 +248,37 @@ public class MainWindow : Window, IDisposable
 							{
 								ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 								ImGui.SameLine();
-								ImGui.Text($"{peerCount} online peers");
+								ImGui.TextWrapped(serverStatus);
 							}
 
 							ImGui.TextDisabled("Right-click for more options");
 							ImGui.EndTooltip();
 						}
 
-						// Url
-						ImGui.TableNextColumn();
-						string indexServerName = indexServer;
-						indexServerName = indexServerName.Replace("http://", string.Empty);
-						indexServerName = indexServerName.Replace("https://", string.Empty);
-						indexServerName = indexServerName.Replace("www.", string.Empty);
-						indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
-						ImGui.Text(indexServerName);
-
-						// Status
-						ImGui.TableNextColumn();
-
-						if (peerCount > 0)
+						if (!string.IsNullOrEmpty(serverStatus))
 						{
+							// Url
+							ImGui.TableNextColumn();
+							string[] lines = serverStatus.Split('\n');
+							ImGui.Text(lines[0]);
+
+							// Status
+							ImGui.TableNextColumn();
 							ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 						}
 						else
 						{
+							// Url
+							ImGui.TableNextColumn();
+							string indexServerName = indexServer;
+							indexServerName = indexServerName.Replace("http://", string.Empty);
+							indexServerName = indexServerName.Replace("https://", string.Empty);
+							indexServerName = indexServerName.Replace("www.", string.Empty);
+							indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
+							ImGui.Text(indexServerName);
+
+							// Status
+							ImGui.TableNextColumn();
 							ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
 						}
 
@@ -557,9 +563,18 @@ public class MainWindow : Window, IDisposable
 
 			if (sync != null)
 			{
-				ImGuiEx.Icon(sync.CurrentStatus.GetIcon());
+				ImGuiEx.Icon(sync.CurrentStatus.GetColor(), sync.CurrentStatus.GetIcon());
 				ImGui.SameLine();
-				ImGui.Text(sync.CurrentStatus.GetMessage());
+				ImGui.TextColoredWrapped(sync.CurrentStatus.GetColor(), sync.CurrentStatus.GetMessage());
+
+				if (sync.LastException != null)
+				{
+					ImGui.SetWindowFontScale(0.75f);
+					ImGui.TextColoredWrapped(0xFF0080FF, sync.LastException.Message);
+					ImGui.SetWindowFontScale(1.0f);
+					ImGui.Separator();
+				}
+
 				ImGui.Separator();
 			}
 

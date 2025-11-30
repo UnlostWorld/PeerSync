@@ -47,4 +47,14 @@ public static class CharacterSyncExtensions
 
 		return FontAwesomeIcon.QuestionCircle;
 	}
+
+	public static uint GetColor(this CharacterSync.Status self)
+	{
+		switch (self)
+		{
+			case CharacterSync.Status.ConnectionFailed: return 0xFF0080FF;
+		}
+
+		return 0xFFFFFFFF;
+	}
 }

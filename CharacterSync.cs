@@ -78,6 +78,7 @@ public class CharacterSync : IDisposable
 	}
 
 	public Status CurrentStatus { get; private set; } = Status.None;
+	public Exception? LastException { get; private set; }
 	public Connection? Connection => this.connection;
 	public bool IsConnected => this.CurrentStatus == Status.Connected;
 	public CharacterData? LastData { get; private set; }
@@ -274,25 +275,30 @@ public class CharacterSync : IDisposable
 			CancellationTokenSource localCancel = new();
 			CancellationTokenSource wideCancel = new();
 
-			Task<Connection?>? localConnectTask = null;
+			Task<(Connection?, Exception?)>? localConnectTask = null;
 			IPAddress.TryParse(response.LocalAddress, out IPAddress? localAddress);
 			if (localAddress != null)
 			{
 				localConnectTask = this.network.Connect(new(localAddress, response.Port), localCancel.Token);
 			}
 
-			Task<Connection?> wideConnectTask = this.network.Connect(new(address, response.Port), wideCancel.Token);
+			Task<(Connection?, Exception?)> wideConnectTask = this.network.Connect(new(address, response.Port), wideCancel.Token);
 
-			Connection? localConnection = null;
+			(Connection? Success, Exception? Failure) localConnection;
 			try
 			{
 				if (localConnectTask != null)
 				{
 					localConnection = await localConnectTask;
 
-					if (localConnection != null)
+					if (localConnection.Success != null)
 					{
+						this.connection = localConnection.Success;
 						wideCancel.Cancel();
+					}
+					else
+					{
+						this.LastException = localConnection.Failure;
 					}
 				}
 			}
@@ -300,21 +306,24 @@ public class CharacterSync : IDisposable
 			{
 			}
 
-			Connection? wideConnection = null;
+			(Connection? Success, Exception? Failure) wideConnection;
 			try
 			{
 				wideConnection = await wideConnectTask;
 
-				if (wideConnection != null)
+				if (wideConnection.Success != null)
 				{
+					this.connection = wideConnection.Success;
 					localCancel.Cancel();
+				}
+				else
+				{
+					this.LastException = wideConnection.Failure;
 				}
 			}
 			catch (Exception)
 			{
 			}
-
-			this.connection = localConnection ?? wideConnection;
 
 			if (this.connection == null)
 			{

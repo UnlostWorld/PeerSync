@@ -43,7 +43,7 @@ using System.Diagnostics;
 public sealed partial class Plugin : IDalamudPlugin
 {
 	public readonly List<SyncProviderBase> SyncProviders = new();
-	public readonly Dictionary<string, int> IndexServersStatus = new();
+	public readonly Dictionary<string, string> IndexServersStatus = new();
 	public readonly CharacterData LocalCharacterData = new();
 
 	public Configuration.Character? LocalCharacter;
@@ -658,7 +658,7 @@ public sealed partial class Plugin : IDalamudPlugin
 					}
 					catch (Exception ex)
 					{
-						this.IndexServersStatus[indexServer] = 0;
+						this.IndexServersStatus[indexServer] = string.Empty;
 						Plugin.Log.Warning(ex, $"Failed to connect to index server: {indexServer}");
 						await Task.Delay(20000, this.tokenSource.Token);
 						continue;

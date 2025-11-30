@@ -68,7 +68,7 @@ public class ConnectionManager : IDisposable
 		}
 	}
 
-	public async Task<Connection?> Connect(IPEndPoint endPoint, CancellationToken token)
+	public async Task<(Connection? Success, Exception? Failure)> Connect(IPEndPoint endPoint, CancellationToken token)
 	{
 		TcpClient client = new();
 
@@ -76,35 +76,15 @@ public class ConnectionManager : IDisposable
 		{
 			await client.ConnectAsync(endPoint, token);
 		}
-		catch (OperationCanceledException)
-		{
-			client.Dispose();
-			return null;
-		}
-		catch (SocketException ex)
-		{
-			if (ex.ErrorCode == 10060)
-			{
-				Plugin.Log.Warning($"Timed out connecting to end point: {endPoint}");
-			}
-			else
-			{
-				Plugin.Log.Error(ex, $"Failed to connect to end point: {endPoint}");
-			}
-
-			client.Dispose();
-			return null;
-		}
 		catch (Exception ex)
 		{
-			Plugin.Log.Error(ex, $"Failed to connect to end point: {endPoint}");
 			client.Dispose();
-			return null;
+			return (null, ex);
 		}
 
 		Connection connection = new Connection(client);
 		this.OnOutgoingConnectionConnected(connection);
-		return connection;
+		return (connection, null);
 	}
 
 	private async Task Listen()

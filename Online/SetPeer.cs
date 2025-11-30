@@ -17,18 +17,9 @@ public class SetPeer
 	public ushort Port { get; set; }
 	public string? LocalAddress { get; set; }
 
-	public async Task<int> Send(string indexServer)
+	public async Task<string> Send(string indexServer)
 	{
 		string json = JsonSerializer.Serialize(this);
-		string msg = await ServerApi.PostAsync($"{indexServer.TrimEnd('/')}/Peer/Set", json, "application/json");
-
-		try
-		{
-			return int.Parse(msg);
-		}
-		catch
-		{
-			return 0;
-		}
+		return await ServerApi.PostAsync($"{indexServer.TrimEnd('/')}/Peer/Set", json, "application/json");
 	}
 }

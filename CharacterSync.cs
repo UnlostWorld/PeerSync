@@ -226,6 +226,8 @@ public class CharacterSync : IDisposable
 			if (Plugin.Instance == null || Plugin.Instance.LocalCharacter == null)
 				return;
 
+			this.LastException = null;
+
 			this.CurrentStatus = Status.Searching;
 			GetPeer request = new();
 			request.Fingerprint = this.Peer.GetFingerprint();

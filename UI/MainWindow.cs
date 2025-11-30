@@ -572,7 +572,6 @@ public class MainWindow : Window, IDisposable
 					ImGui.SetWindowFontScale(0.75f);
 					ImGui.TextColoredWrapped(0xFF0080FF, sync.LastException.Message);
 					ImGui.SetWindowFontScale(1.0f);
-					ImGui.Separator();
 				}
 
 				ImGui.Separator();

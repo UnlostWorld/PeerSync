@@ -335,6 +335,8 @@ public class CharacterSync : IDisposable
 				return;
 			}
 
+			this.LastException = null;
+
 			// Send who packet to identify ourselves.
 			this.CurrentStatus = Status.Handshake;
 

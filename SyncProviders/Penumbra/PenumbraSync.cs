@@ -494,6 +494,9 @@ public class TransferGroup
 
 		foreach (FileTransfer transfer in this.active)
 		{
+			if (transfer.Character != character)
+				continue;
+
 			total += transfer.Total;
 			current += transfer.Current;
 		}

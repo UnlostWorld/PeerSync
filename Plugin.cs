@@ -39,11 +39,12 @@ using PeerSync.SyncProviders;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Dalamud.Game.ClientState.Conditions;
 using System.Diagnostics;
+using Dalamud.Game.Text;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
 	public readonly List<SyncProviderBase> SyncProviders = new();
-	public readonly Dictionary<string, string> IndexServersStatus = new();
+	public readonly Dictionary<string, ServerStatus?> IndexServersStatus = new();
 	public readonly CharacterData LocalCharacterData = new();
 
 	public Configuration.Character? LocalCharacter;
@@ -107,6 +108,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	[PluginService] public static IContextMenu ContextMenu { get; private set; } = null!;
 	[PluginService] public static IDtrBar DtrBar { get; private set; } = null!;
 	[PluginService] public static ICondition Condition { get; private set; } = null!;
+	[PluginService] public static IChatGui ChatGui { get; private set; } = null!;
 
 	public static Plugin? Instance { get; private set; } = null;
 	public MainWindow MainWindow { get; init; }
@@ -649,16 +651,40 @@ public sealed partial class Plugin : IDalamudPlugin
 				setPeerRequest.Fingerprint = this.LocalCharacter.GetFingerprint();
 				setPeerRequest.Port = port;
 				setPeerRequest.LocalAddress = localIp?.ToString();
-
 				foreach (string indexServer in Configuration.Current.IndexServers)
 				{
 					try
 					{
+						bool wasConnected = this.IndexServersStatus.ContainsKey(indexServer)
+							&& this.IndexServersStatus[indexServer] != null;
 						this.IndexServersStatus[indexServer] = await setPeerRequest.Send(indexServer);
+
+						if (!wasConnected)
+						{
+							ServerStatus? status = this.IndexServersStatus[indexServer];
+							if (status != null)
+							{
+								SeStringBuilder str = new();
+								str.AddText("\uE0BC");
+								str.AddText(" Connected to ");
+								str.AddText(status.ServerName ?? string.Empty);
+
+								if (status.Motd != null)
+								{
+									str.AddText(": ");
+									str.AddText(status.Motd);
+								}
+
+								XivChatEntry entry = new();
+								entry.Type = XivChatType.Debug;
+								entry.Message = str.Build();
+								ChatGui.Print(entry);
+							}
+						}
 					}
 					catch (Exception ex)
 					{
-						this.IndexServersStatus[indexServer] = string.Empty;
+						this.IndexServersStatus[indexServer] = null;
 						Plugin.Log.Warning(ex, $"Failed to connect to index server: {indexServer}");
 						await Task.Delay(20000, this.tokenSource.Token);
 						continue;

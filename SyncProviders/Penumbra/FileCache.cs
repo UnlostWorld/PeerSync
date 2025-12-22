@@ -24,11 +24,12 @@ public enum FileDeletionReasons
 	None,
 	Age,
 	Hash,
+	Flush,
 }
 
 public class FileCache : IDisposable
 {
-	private const int ScanDelay = 10 * 60 * 1000; // every 10 minutes after boot.
+	private static readonly TimeSpan ScanDelay = TimeSpan.FromMinutes(10);
 
 	private readonly CancellationTokenSource tokenSource = new();
 	private readonly Dictionary<string, FileInfo> hashToFileLookup = new();
@@ -36,6 +37,8 @@ public class FileCache : IDisposable
 
 	private float totalCacheSizeGb = 0;
 	private int fileCount = 0;
+	private bool flushCache = false;
+	private bool scanNow = false;
 	private int scanCount = 0;
 
 	public FileCache()
@@ -142,6 +145,12 @@ public class FileCache : IDisposable
 				Configuration.Current.Save();
 			}
 
+			if (ImGui.Button("Flush"))
+			{
+				this.flushCache = true;
+				this.ScanCache();
+			}
+
 			if (p < 1)
 			{
 				ImGui.BeginGroup();
@@ -163,7 +172,7 @@ public class FileCache : IDisposable
 				if (this.deletedFiles.Count > 0)
 				{
 					ImGui.Text("Removed:");
-					if (this.deletedFiles.Count < 256)
+					if (this.deletedFiles.Count < 10)
 					{
 						foreach ((FileInfo file, FileDeletionReasons reason) in this.deletedFiles)
 						{
@@ -212,61 +221,83 @@ public class FileCache : IDisposable
 		return null;
 	}
 
+	private void ScanCache()
+	{
+		this.scanNow = true;
+	}
+
 	private async Task CacheThread()
 	{
 		while (!this.tokenSource.IsCancellationRequested)
 		{
-			DirectoryInfo? dir = this.GetDirectory();
-			long totalCacheSize = 0;
-			if (dir != null && dir.Exists)
+			this.scanNow = false;
+
+			lock (this.deletedFiles)
 			{
-				FileInfo[] files = dir.GetFiles();
-				this.fileCount = files.Length;
-				this.scanCount = 0;
-
-				this.deletedFiles.Clear();
-
-				foreach (FileInfo file in files)
+				DirectoryInfo? dir = this.GetDirectory();
+				long totalCacheSize = 0;
+				if (dir != null && dir.Exists)
 				{
-					if (this.tokenSource.IsCancellationRequested)
-						return;
+					FileInfo[] files = dir.GetFiles();
+					this.fileCount = files.Length;
+					this.scanCount = 0;
 
-					this.scanCount++;
-					this.GetFileHash(file.FullName, out string hash, out long size);
+					this.deletedFiles.Clear();
 
-					if (file.Name != hash)
+					foreach (FileInfo file in files)
 					{
-						Plugin.Log.Warning($"Incorrect file hash! Expected: {file.Name}, got: {hash}");
-						this.deletedFiles.Add(file, FileDeletionReasons.Hash);
-						continue;
+						if (this.tokenSource.IsCancellationRequested)
+							return;
+
+						this.scanCount++;
+						this.GetFileHash(file.FullName, out string hash, out long size);
+
+						if (this.flushCache)
+						{
+							this.deletedFiles.Add(file, FileDeletionReasons.Flush);
+							continue;
+						}
+
+						if (file.Name != hash)
+						{
+							Plugin.Log.Warning($"Incorrect file hash! Expected: {file.Name}, got: {hash}");
+							this.deletedFiles.Add(file, FileDeletionReasons.Hash);
+							continue;
+						}
+
+						TimeSpan age = DateTime.UtcNow - file.LastWriteTimeUtc;
+						if (age.TotalDays > 30)
+						{
+							this.deletedFiles.Add(file, FileDeletionReasons.Age);
+							continue;
+						}
+
+						totalCacheSize += size;
 					}
 
-					TimeSpan age = DateTime.UtcNow - file.LastWriteTimeUtc;
-					if (age.TotalDays > 30)
+					foreach (FileInfo file in this.deletedFiles.Keys)
 					{
-						this.deletedFiles.Add(file, FileDeletionReasons.Age);
-						continue;
+						try
+						{
+							file.Delete();
+						}
+						catch (Exception ex)
+						{
+							Plugin.Log.Warning(ex, $"Failed to delete file: {file.FullName}");
+						}
 					}
 
-					totalCacheSize += size;
+					this.totalCacheSizeGb = totalCacheSize / 1024.0f / 1024.0f / 1024.0f;
 				}
-
-				foreach (FileInfo file in this.deletedFiles.Keys)
-				{
-					try
-					{
-						file.Delete();
-					}
-					catch (Exception ex)
-					{
-						Plugin.Log.Warning(ex, $"Failed to delete file: {file.FullName}");
-					}
-				}
-
-				this.totalCacheSizeGb = totalCacheSize / 1024.0f / 1024.0f / 1024.0f;
 			}
 
-			await Task.Delay(ScanDelay);
+			this.flushCache = false;
+
+			DateTime nextScan = DateTime.UtcNow + ScanDelay;
+			while (DateTime.UtcNow < nextScan && !this.scanNow)
+			{
+				await Task.Delay(500);
+			}
 		}
 	}
 }

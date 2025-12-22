@@ -114,41 +114,68 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			this.hasSeenBefore.Add(objectIndex);
 		}
 
-		// Perform file hashing on a separate thread.
-		await Plugin.Framework.RunOutsideUpdate();
-
 		PenumbraData data = new();
 
 		// Get file hashes
 		data.Files = new();
+
+		// Tree
+		Dictionary<string, HashSet<string>>?[] penumbraResources = this.penumbra.GetGameObjectResourcePaths.Invoke([objectIndex]);
+
+		Dictionary<string, string> resources = new();
+		foreach (Dictionary<string, HashSet<string>>? dict in penumbraResources)
+		{
+			if (dict == null)
+				continue;
+
+			foreach ((string redirectPath, HashSet<string> gamePaths) in dict)
+			{
+				foreach (string gamePath in gamePaths)
+				{
+					resources.Add(gamePath, redirectPath);
+				}
+			}
+		}
+
+		// Perform file hashing on a separate thread.
+		await Plugin.Framework.RunOutsideUpdate();
+
+		// Live resources:
 		Dictionary<string, string>? liveResources = this.resourceMonitor.GetResources(objectIndex);
 		if (liveResources != null)
 		{
-			Dictionary<string, string>? resources;
 			lock (liveResources)
 			{
-				resources = new(liveResources);
+				foreach ((string gamePath, string redirectPath) in liveResources)
+				{
+					resources.TryAdd(gamePath, redirectPath);
+				}
 			}
+		}
 
-			foreach ((string gamePath, string redirectPath) in resources)
+		// Gather hashes
+		foreach ((string gamePath, string redirectPath) in resources)
+		{
+			string fileExtension = Path.GetExtension(gamePath);
+			if (!AllowedFileExtensions.Contains(fileExtension))
+				continue;
+
+			bool isFilePath = Path.IsPathRooted(redirectPath);
+			if (isFilePath)
 			{
-				bool isFilePath = Path.IsPathRooted(redirectPath);
-				if (isFilePath)
+				bool found = this.FileCache.GetFileHash(redirectPath, out string hash, out long fileSize);
+				if (!found)
 				{
-					bool found = this.FileCache.GetFileHash(redirectPath, out string hash, out long fileSize);
-					if (!found)
-					{
-						Plugin.Log.Warning($"File not found for sync: {redirectPath}");
-						continue;
-					}
+					Plugin.Log.Warning($"File not found for sync: {redirectPath}");
+					continue;
+				}
 
-					data.Files[gamePath] = hash;
-					data.FileSizes[hash] = fileSize;
-				}
-				else
-				{
-					data.Redirects[gamePath] = redirectPath;
-				}
+				data.Files[gamePath] = hash;
+				data.FileSizes[hash] = fileSize;
+			}
+			else
+			{
+				data.Redirects[gamePath] = redirectPath;
 			}
 		}
 
@@ -494,6 +521,9 @@ public class TransferGroup
 
 		foreach (FileTransfer transfer in this.active)
 		{
+			if (transfer.Character != character)
+				continue;
+
 			total += transfer.Total;
 			current += transfer.Current;
 		}

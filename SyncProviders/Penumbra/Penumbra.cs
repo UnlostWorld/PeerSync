@@ -21,6 +21,7 @@ public class Penumbra
 	public readonly AddTemporaryMod AddTemporaryMod = new(Plugin.PluginInterface);
 	public readonly RedrawObject RedrawObject = new(Plugin.PluginInterface);
 	public readonly DeleteTemporaryCollection DeleteTemporaryCollection = new(Plugin.PluginInterface);
+	public readonly GetGameObjectResourcePaths GetGameObjectResourcePaths = new(Plugin.PluginInterface);
 
 	public bool GetIsAvailable()
 	{

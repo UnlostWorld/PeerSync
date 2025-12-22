@@ -156,6 +156,10 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		// Gather hashes
 		foreach ((string gamePath, string redirectPath) in resources)
 		{
+			string fileExtension = Path.GetExtension(gamePath);
+			if (!AllowedFileExtensions.Contains(fileExtension))
+				continue;
+
 			bool isFilePath = Path.IsPathRooted(redirectPath);
 			if (isFilePath)
 			{

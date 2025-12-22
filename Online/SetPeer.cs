@@ -10,6 +10,7 @@ namespace PeerSync.Online;
 
 using System.Threading.Tasks;
 using System.Text.Json;
+using System;
 
 public class SetPeer
 {
@@ -17,9 +18,19 @@ public class SetPeer
 	public ushort Port { get; set; }
 	public string? LocalAddress { get; set; }
 
-	public async Task<string> Send(string indexServer)
+	public async Task<ServerStatus> Send(string indexServer)
 	{
 		string json = JsonSerializer.Serialize(this);
-		return await ServerApi.PostAsync($"{indexServer.TrimEnd('/')}/Peer/Set", json, "application/json");
+		json = await ServerApi.PostAsync($"{indexServer.TrimEnd('/')}/Peer/Set", json, "application/json");
+		JsonSerializerOptions options = new();
+		options.PropertyNameCaseInsensitive = true;
+		return JsonSerializer.Deserialize<ServerStatus>(json, options) ?? throw new Exception();
 	}
+}
+
+public class ServerStatus
+{
+	public string? Motd { get; set; }
+	public string? ServerName { get; set; }
+	public int OnlineUsers { get; set; }
 }

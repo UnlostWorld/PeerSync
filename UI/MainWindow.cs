@@ -11,6 +11,7 @@ namespace PeerSync.UI;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
+using PeerSync.Online;
 using PeerSync.SyncProviders;
 using System;
 using System.Collections.Generic;
@@ -169,7 +170,7 @@ public class MainWindow : Window, IDisposable
 
 		if (indexServersSectionOpen)
 		{
-			if (ImGui.BeginTable("IndexServersTable", 3))
+			if (ImGui.BeginTable("IndexServersTable", 4))
 			{
 				if (Configuration.Current.IndexServers.Count <= 0)
 				{
@@ -183,13 +184,14 @@ public class MainWindow : Window, IDisposable
 				{
 					ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 					ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
+					ImGui.TableSetupColumn("Users", ImGuiTableColumnFlags.WidthFixed);
 					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
 					ImGui.TableNextRow();
 
 					HashSet<string> servers = new(Configuration.Current.IndexServers);
 					foreach (string indexServer in servers)
 					{
-						string? serverStatus = null;
+						ServerStatus? serverStatus = null;
 						Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out serverStatus);
 
 						// Tooltip
@@ -248,19 +250,22 @@ public class MainWindow : Window, IDisposable
 							{
 								ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 								ImGui.SameLine();
-								ImGui.TextWrapped(serverStatus);
+								ImGui.TextWrapped(serverStatus.Motd);
 							}
 
 							ImGui.TextDisabled("Right-click for more options");
 							ImGui.EndTooltip();
 						}
 
-						if (!string.IsNullOrEmpty(serverStatus))
+						if (serverStatus != null)
 						{
 							// Url
 							ImGui.TableNextColumn();
-							string[] lines = serverStatus.Split('\n');
-							ImGui.Text(lines[0]);
+							ImGui.Text(serverStatus.ServerName);
+
+							// Users
+							ImGui.TableNextColumn();
+							ImGui.Text($"{serverStatus.OnlineUsers}");
 
 							// Status
 							ImGui.TableNextColumn();
@@ -276,6 +281,10 @@ public class MainWindow : Window, IDisposable
 							indexServerName = indexServerName.Replace("www.", string.Empty);
 							indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
 							ImGui.Text(indexServerName);
+
+							// Users
+							ImGui.TableNextColumn();
+							ImGui.Text("-");
 
 							// Status
 							ImGui.TableNextColumn();

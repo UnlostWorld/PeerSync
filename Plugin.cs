@@ -50,9 +50,13 @@ public sealed partial class Plugin : IDalamudPlugin
 	public Configuration.Character? LocalCharacter;
 	public PluginStatus Status;
 
-	private const string CommandName = "/peersync";
 	private const long ForceSendDataMs = 10000;
-
+	private readonly string[] commandNames = [
+		"/peersync",
+		"/pissync",
+		"/pissinc",
+		"/pisssync",
+		"/piercesink"];
 	private readonly WindowSystem windowSystem = new("PeerSync");
 	private readonly IDtrBarEntry dtrBarEntry;
 	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
@@ -77,10 +81,13 @@ public sealed partial class Plugin : IDalamudPlugin
 		this.MainWindow.IsOpen = true;
 #endif
 
-		CommandManager.AddHandler(CommandName, new CommandInfo(this.OnCommand)
+		foreach (string str in this.commandNames)
 		{
-			HelpMessage = "Show the Peer Sync window with /psync",
-		});
+			CommandManager.AddHandler(str, new CommandInfo(this.OnCommand)
+			{
+				HelpMessage = "Show the Peer Sync window with /psync",
+			});
+		}
 
 		this.dtrBarEntry = DtrBar.Get("Peer Sync");
 		this.dtrBarEntry.Text = SeStringUtils.ToSeString("\uE0BC");

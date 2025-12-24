@@ -260,7 +260,10 @@ public sealed partial class Plugin : IDalamudPlugin
 	{
 		this.Stop();
 
-		CommandManager.RemoveHandler(CommandName);
+		foreach (string str in this.commandNames)
+		{
+			CommandManager.RemoveHandler(str);
+		}
 
 		Framework.Update -= this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened -= this.OnContextMenuOpened;

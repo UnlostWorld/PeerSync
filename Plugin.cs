@@ -529,6 +529,9 @@ public sealed partial class Plugin : IDalamudPlugin
 		if (this.Status != PluginStatus.Online)
 			return;
 
+		Stopwatch sw = new();
+		sw.Start();
+
 		// Update characters, remove missing characters
 		HashSet<string> toRemove = new();
 		SeStringBuilder dtrTooltipBuilder = new();
@@ -598,6 +601,14 @@ public sealed partial class Plugin : IDalamudPlugin
 			}
 		}
 
+		sw.Stop();
+		if (sw.ElapsedMilliseconds > 16)
+		{
+			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds} to check characters");
+		}
+
+		sw.Restart();
+
 		SeStringBuilder dtrEntryBuilder = new();
 		dtrEntryBuilder.AddText($"\uE0BD");
 
@@ -614,6 +625,12 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		this.dtrBarEntry.Text = dtrEntryBuilder.ToString();
 		this.dtrBarEntry.Tooltip = dtrTooltipBuilder.ToString();
+
+		sw.Stop();
+		if (sw.ElapsedMilliseconds > 16)
+		{
+			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds} to update dtr bar");
+		}
 	}
 
 	private void OnCharacterConnected(CharacterSync character)

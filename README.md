@@ -26,4 +26,4 @@ The other risks of using Peer Sync are the same or similar as other mod-syncing 
 
 ## INSTALLATION
 
-Repo URL: `https://github.com/UnlostWorld/PeerSync/blob/main/repo.json`
+Repo URL: `https://raw.githubusercontent.com/UnlostWorld/PeerSync/refs/heads/main/repo.json'

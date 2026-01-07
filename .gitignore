@@ -19,3 +19,4 @@ Setup/Debug/
 *.recipe
 *.ilk
 packages.lock.json
+*.DS_Store

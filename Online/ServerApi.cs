@@ -9,9 +9,12 @@
 namespace PeerSync.Online;
 
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 public static class ServerApi
@@ -20,8 +23,9 @@ public static class ServerApi
 
 	static ServerApi()
 	{
-		HttpClientHandler handler = new();
+		SocketsHttpHandler handler = new();
 		handler.AutomaticDecompression = DecompressionMethods.All;
+		handler.ConnectCallback = OnConnect;
 
 		Client = new(handler);
 	}
@@ -53,6 +57,25 @@ public static class ServerApi
 		catch (Exception ex)
 		{
 			throw new Exception($"Error posting message to {uri}\n{data}", ex);
+		}
+	}
+
+	private static async ValueTask<Stream> OnConnect(SocketsHttpConnectionContext context, CancellationToken token)
+	{
+		// Force IPv4
+		IPHostEntry entry = await Dns.GetHostEntryAsync(context.DnsEndPoint.Host, AddressFamily.InterNetwork, token);
+		Socket socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+		socket.NoDelay = true;
+
+		try
+		{
+			await socket.ConnectAsync(entry.AddressList, context.DnsEndPoint.Port, token);
+			return new NetworkStream(socket, ownsSocket: true);
+		}
+		catch
+		{
+			socket.Dispose();
+			throw;
 		}
 	}
 }

@@ -251,6 +251,10 @@ public class CharacterSync : IDisposable
 			if (this.tokenSource.IsCancellationRequested)
 				return;
 
+#if DEBUG
+			Plugin.Log.Info($"connecting to peer: {this.Peer.CharacterName}:  {response?.LocalAddress} / {response?.Address} : {response?.Port}");
+#endif
+
 			IPAddress? address = null;
 			if (response == null
 				|| response.Address == null
@@ -330,6 +334,10 @@ public class CharacterSync : IDisposable
 			if (this.connection == null)
 			{
 				this.CurrentStatus = Status.ConnectionFailed;
+
+				if (this.LastException != null)
+					Plugin.Log.Warning(this.LastException, "Failed to connect to peer");
+
 				await Task.Delay(60000, this.tokenSource.Token);
 				this.Reconnect();
 				return;

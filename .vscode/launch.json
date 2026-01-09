@@ -1,10 +1,10 @@
 {
 	"configurations": [
 		{
-			"name": "Debug",
-			"type": "dotnet",
-			"request": "launch",
-			"projectPath": "${workspaceFolder}/PeerSync.csproj"
-		}
+			"name": "Attach",
+			"type": "coreclr",
+			"request": "attach",
+			"preLaunchTask": "Build",
+		},
 	]
 }

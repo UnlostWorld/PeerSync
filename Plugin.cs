@@ -361,7 +361,7 @@ public sealed partial class Plugin : IDalamudPlugin
 					continue;
 				}
 
-				IPlayerCharacter? player = ClientState.LocalPlayer;
+				IPlayerCharacter? player = ObjectTable.LocalPlayer;
 				if (player == null)
 				{
 					this.Status = PluginStatus.Init_Character;
@@ -499,17 +499,26 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		// Get local IpAddress
 		IPAddress? localIp = null;
-		IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
-		foreach (IPAddress ipAddress in host.AddressList)
+		try
 		{
-			if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
-				continue;
+			string hostName = Dns.GetHostName();
+			IPHostEntry? host = Dns.GetHostEntry(hostName);
 
-			if (IPAddress.IsLoopback(ipAddress))
-				continue;
+			foreach (IPAddress ipAddress in host.AddressList)
+			{
+				if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
+					continue;
 
-			localIp = ipAddress;
-			Plugin.Log.Information($"Got Local Address: {ipAddress}");
+				if (IPAddress.IsLoopback(ipAddress))
+					continue;
+
+				localIp = ipAddress;
+				Plugin.Log.Information($"Got Local Address: {ipAddress}");
+			}
+		}
+		catch (Exception ex)
+		{
+			Plugin.Log.Warning($"Error getting local IP: {ex.Message}");
 		}
 
 		// Start the main tasks
@@ -577,7 +586,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		{
 			if (battleChara is IPlayerCharacter character)
 			{
-				if (character == ClientState.LocalPlayer)
+				if (character == ObjectTable.LocalPlayer)
 					continue;
 
 				string characterName = character.Name.ToString();
@@ -604,7 +613,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		sw.Stop();
 		if (sw.ElapsedMilliseconds > 16)
 		{
-			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds} to check characters");
+			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to check for characters");
 		}
 
 		sw.Restart();
@@ -629,7 +638,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		sw.Stop();
 		if (sw.ElapsedMilliseconds > 16)
 		{
-			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds} to update dtr bar");
+			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to update dtr bar");
 		}
 	}
 
@@ -760,7 +769,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				continue;
 			}
 
-			IPlayerCharacter? player = ClientState.LocalPlayer;
+			IPlayerCharacter? player = ObjectTable.LocalPlayer;
 			if (this.LocalCharacter == null || player == null)
 				continue;
 

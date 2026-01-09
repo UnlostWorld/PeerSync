@@ -1,0 +1,11 @@
+{
+  "tasks" : [
+    {
+      "name" : "Build",
+      "command" : "dotnet build"
+    }
+  ],
+  "project" : {
+    "projectName" : "Peer Sync"
+  }
+}

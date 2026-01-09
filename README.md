@@ -26,4 +26,9 @@ The other risks of using Peer Sync are the same or similar as other mod-syncing 
 
 ## INSTALLATION
 
-Repo URL: `https://raw.githubusercontent.com/UnlostWorld/PeerSync/refs/heads/main/repo.json'
+- Enter `/xlsettings` in the chat window and go to the Experimental tab in the opening window.
+- **Skip below the DevPlugins section to the Custom Plugin Repositories section.**
+- Copy and paste the repo.json link into the first free text input field.
+```
+https://raw.githubusercontent.com/UnlostWorld/PeerSync/refs/heads/main/repo.json
+```

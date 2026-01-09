@@ -84,14 +84,15 @@ public partial class Configuration : IPluginConfiguration
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 
 #if DEBUG
-				pluginVersion = "1.0.1.56";
+				pluginVersion = "1.0.1.68";
 #endif
 
 				string input = $"{this.CharacterName}{this.World}";
 				for (int i = 0; i < iterations; i++)
 				{
 					HashAlgorithm algorithm = SHA256.Create();
-					byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes($"{input}{this.Password}{pluginVersion}"));
+					input = $"{input}{this.Password}{pluginVersion}";
+					byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes(input));
 					input = BitConverter.ToString(bytes);
 					input = input.Replace("-", string.Empty, StringComparison.Ordinal);
 				}

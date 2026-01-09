@@ -1,8 +1,8 @@
 {
   "tasks" : [
     {
-      "command" : "dotnet build",
-      "name" : "Build"
+      "name" : "Build",
+      "command" : "dotnet build"
     }
   ],
   "project" : {

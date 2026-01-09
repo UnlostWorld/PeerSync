@@ -251,10 +251,6 @@ public class CharacterSync : IDisposable
 			if (this.tokenSource.IsCancellationRequested)
 				return;
 
-#if DEBUG
-			Plugin.Log.Info($"connecting to peer: {this.Peer.CharacterName}:  {response?.LocalAddress} / {response?.Address} : {response?.Port}");
-#endif
-
 			IPAddress? address = null;
 			if (response == null
 				|| response.Address == null
@@ -266,6 +262,10 @@ public class CharacterSync : IDisposable
 				this.Reconnect();
 				return;
 			}
+
+#if DEBUG
+			Plugin.Log.Info($"connecting to peer: {this.Peer.CharacterName}:  {response.LocalAddress} / {response.Address} : {response.Port}");
+#endif
 
 			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Peer);
 			if (sort >= 0)

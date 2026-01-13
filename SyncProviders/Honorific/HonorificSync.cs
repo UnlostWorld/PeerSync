@@ -45,11 +45,6 @@ public class HonorificSync : SyncProviderBase
 		}
 		else
 		{
-			if (character.Peer.GetFingerprint() == "167FE6A741C7ECAE2007EED38C71523B52BF274725681CD7EA0D3784FA3C6F1D")
-			{
-				content = "{\"Title\":\"I smell bad\",\"IsPrefix\":false,\"IsOriginal\":false,\"Color\":{\"X\":0.9795082,\"Y\":0.4134809,\"Z\":0.9423917},\"Glow\":null,\"Color3\":null,\"GradientColourSet\":null,\"GradientAnimationStyle\":null}";
-			}
-
 			this.honorific.SetCharacterTitle(objectIndex, content);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}

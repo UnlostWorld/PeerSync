@@ -40,9 +40,12 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Dalamud.Game.ClientState.Conditions;
 using System.Diagnostics;
 using Dalamud.Game.Text;
+using PeerSync.SyncBlockers;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
+	public static readonly LightlessCommunicator Lightless = new();
+
 	public readonly List<SyncProviderBase> SyncProviders = new();
 	public readonly Dictionary<string, ServerStatus?> IndexServersStatus = new();
 	public readonly CharacterData LocalCharacterData = new();
@@ -85,7 +88,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		{
 			CommandManager.AddHandler(str, new CommandInfo(this.OnCommand)
 			{
-				HelpMessage = "Show the Peer Sync window with /psync",
+				HelpMessage = "Show the Peer Sync window.",
 			});
 		}
 

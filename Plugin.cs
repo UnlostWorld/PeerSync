@@ -88,7 +88,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		{
 			CommandManager.AddHandler(str, new CommandInfo(this.OnCommand)
 			{
-				HelpMessage = "Show the Peer Sync window with /psync",
+				HelpMessage = "Show the Peer Sync window.",
 			});
 		}
 

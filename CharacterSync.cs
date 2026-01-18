@@ -21,6 +21,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Newtonsoft.Json;
 using PeerSync.Network;
 using PeerSync.Online;
+using PeerSync.SyncBlockers;
 using PeerSync.SyncProviders;
 
 public class CharacterSync : IDisposable
@@ -75,6 +76,9 @@ public class CharacterSync : IDisposable
 
 		// The connection was terminated.
 		Disconnected,
+
+		// This peer is being handled by Lightless
+		Lightless,
 	}
 
 	public Status CurrentStatus { get; private set; } = Status.None;
@@ -227,6 +231,12 @@ public class CharacterSync : IDisposable
 				return;
 
 			this.LastException = null;
+
+			if (await Plugin.Lightless.GetIsGameObjectHandled(this.objectIndex))
+			{
+				this.CurrentStatus = Status.Lightless;
+				return;
+			}
 
 			this.CurrentStatus = Status.Searching;
 			GetPeer request = new();
@@ -432,6 +442,13 @@ public class CharacterSync : IDisposable
 	{
 		if (this.isApplyingData)
 			return;
+
+		if (await Plugin.Lightless.GetIsGameObjectHandled(this.objectIndex))
+		{
+			this.CurrentStatus = Status.Lightless;
+			this.Reconnect();
+			return;
+		}
 
 		this.isApplyingData = true;
 

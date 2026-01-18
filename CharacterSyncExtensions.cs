@@ -25,6 +25,7 @@ public static class CharacterSyncExtensions
 			case CharacterSync.Status.Handshake: return "Connecting...";
 			case CharacterSync.Status.Connected: return "Connected to peer.";
 			case CharacterSync.Status.Disconnected: return "Peer is offline";
+			case CharacterSync.Status.Lightless: return "Peer is syncing via Lightless Sync";
 		}
 
 		return string.Empty;
@@ -43,6 +44,7 @@ public static class CharacterSyncExtensions
 			case CharacterSync.Status.Handshake: return FontAwesomeIcon.Handshake;
 			case CharacterSync.Status.Connected: return FontAwesomeIcon.Wifi;
 			case CharacterSync.Status.Disconnected: return FontAwesomeIcon.Bed;
+			case CharacterSync.Status.Lightless: return FontAwesomeIcon.Lightbulb;
 		}
 
 		return FontAwesomeIcon.QuestionCircle;

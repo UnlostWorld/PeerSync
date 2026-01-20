@@ -207,6 +207,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		{
 			sync.Connected -= this.OnCharacterConnected;
 			sync.Disconnected -= this.OnCharacterDisconnected;
+			sync.Reset();
 			sync.Dispose();
 		}
 

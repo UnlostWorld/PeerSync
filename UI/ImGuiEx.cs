@@ -94,7 +94,7 @@ public static class ImGuiEx
 		ImGui.InputTextMultiline(
 			$"###JsonInspector{id}",
 			ref json,
-			4096,
+			10000,
 			new Vector2(-1, 400),
 			ImGuiInputTextFlags.ReadOnly);
 		ImGui.PopFont();

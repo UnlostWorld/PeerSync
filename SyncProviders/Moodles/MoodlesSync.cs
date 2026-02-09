@@ -56,7 +56,7 @@ public class MoodlesSync : SyncProviderBase
 		}
 	}
 
-	public override async Task<string?> Serialize(ushort objectIndex)
+	public override async Task<string?> Serialize(Configuration.Character character, ushort objectIndex)
 	{
 		if (!this.moodles.GetIsAvailable())
 			return null;

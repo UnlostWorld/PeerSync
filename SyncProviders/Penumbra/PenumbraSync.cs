@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Text.SeStringHandling;
+using Dalamud.Interface;
 using Newtonsoft.Json;
 using PeerSync.Network;
 using PeerSync.UI;
@@ -49,6 +50,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	public readonly TransferGroup UploadGroup = new();
 
 	public readonly FileCache FileCache = new();
+	public readonly CharacterCache CharacterCache = new();
 	public byte LastQueueIndex = 0;
 
 	private readonly Penumbra penumbra = new();
@@ -99,7 +101,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		base.OnCharacterDisconnected(character);
 	}
 
-	public override async Task<string?> Serialize(ushort objectIndex)
+	public override async Task<string?> Serialize(Configuration.Character character, ushort objectIndex)
 	{
 		await Plugin.Framework.RunOnUpdate();
 
@@ -152,6 +154,18 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				}
 			}
 		}
+
+		// Cache
+		Dictionary<string, string>? cacheResources = this.CharacterCache.GetRedirects(character.GetFingerprint());
+		if (cacheResources != null)
+		{
+			foreach ((string gamePath, string redirectPath) in cacheResources)
+			{
+				resources.TryAdd(gamePath, redirectPath);
+			}
+		}
+
+		this.CharacterCache.SetRedirects(character.GetFingerprint(), resources);
 
 		// Gather hashes
 		foreach ((string gamePath, string redirectPath) in resources)
@@ -406,7 +420,22 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			this.UploadGroup.DrawStatus("UploadTable");
 		}
 
-		this.FileCache.DrawInfo();
+		bool open = ImGui.CollapsingHeader("###cacheSection");
+		ImGui.SameLine();
+
+		if (!this.FileCache.IsValid())
+		{
+			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+			ImGui.SameLine();
+		}
+
+		ImGui.Text($"Cache ({this.FileCache.GetSizeString()})");
+
+		if (open)
+		{
+			this.FileCache.DrawInfo();
+			this.CharacterCache.DrawInfo();
+		}
 	}
 
 	public override void Dispose()
@@ -417,6 +446,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		this.UploadGroup.Cancel();
 
 		this.FileCache.Dispose();
+		this.CharacterCache.Dispose();
 
 		foreach ((string fingerprint, Guid guid) in this.appliedCollections)
 		{

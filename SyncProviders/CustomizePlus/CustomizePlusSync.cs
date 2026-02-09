@@ -63,7 +63,7 @@ public class CustomizePlusSync : SyncProviderBase
 		}
 	}
 
-	public override async Task<string?> Serialize(ushort objectIndex)
+	public override async Task<string?> Serialize(Configuration.Character character, ushort objectIndex)
 	{
 		if (!this.customizePlus.GetIsAvailable())
 			return null;

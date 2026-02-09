@@ -761,6 +761,9 @@ public sealed partial class Plugin : IDalamudPlugin
 
 			data.Clear();
 
+			if (this.LocalCharacter == null)
+				continue;
+
 			await Plugin.Framework.RunOnUpdate();
 			if (this.tokenSource.IsCancellationRequested)
 				return;
@@ -803,18 +806,18 @@ public sealed partial class Plugin : IDalamudPlugin
 
 				try
 				{
-					string? content = await sync.Serialize(player.ObjectIndex);
+					string? content = await sync.Serialize(this.LocalCharacter, player.ObjectIndex);
 					data.Character.Add(sync.Key, content);
 
 					if (mountOrMinion != null)
 					{
-						content = await sync.Serialize(mountOrMinion.ObjectIndex);
+						content = await sync.Serialize(this.LocalCharacter, mountOrMinion.ObjectIndex);
 						data.MountOrMinion.Add(sync.Key, content);
 					}
 
 					if (pet != null)
 					{
-						content = await sync.Serialize(pet.ObjectIndex);
+						content = await sync.Serialize(this.LocalCharacter, pet.ObjectIndex);
 						data.Pet.Add(sync.Key, content);
 					}
 				}

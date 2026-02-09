@@ -27,7 +27,7 @@ public abstract class SyncProviderBase : IDisposable
 
 	protected CancellationToken CancellationToken => this.tokenSource.Token;
 
-	public abstract Task<string?> Serialize(ushort objectIndex);
+	public abstract Task<string?> Serialize(Configuration.Character character, ushort objectIndex);
 	public abstract Task Deserialize(
 		string? lastContent,
 		string? content,

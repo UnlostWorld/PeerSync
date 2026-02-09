@@ -23,7 +23,7 @@ public class GlamourerSync : SyncProviderBase
 	public override string DisplayName => "Glamourer";
 	public override string Key => "g";
 
-	public override async Task<string?> Serialize(ushort objectIndex)
+	public override async Task<string?> Serialize(Configuration.Character character, ushort objectIndex)
 	{
 		if (!this.glamourer.GetIsAvailable())
 			return null;

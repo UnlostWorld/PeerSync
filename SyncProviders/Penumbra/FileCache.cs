@@ -108,7 +108,7 @@ public class FileCache : IDisposable
 		return new FileInfo(Path.Combine(dir.FullName, hash));
 	}
 
-	public void DrawInfo()
+	public string GetSizeString()
 	{
 		string cacheSizeStr = this.totalCacheSizeGb.ToString("F2") + "Gb";
 		float p = (float)this.scanCount / (float)this.fileCount;
@@ -116,84 +116,88 @@ public class FileCache : IDisposable
 		if (p < 1)
 			cacheSizeStr = "Scanning...";
 
-		bool open = ImGui.CollapsingHeader("###cacheSection");
-		ImGui.SameLine();
+		return cacheSizeStr;
+	}
 
+	public void DrawInfo()
+	{
+		ImGui.Text("File Cache:");
 		if (!this.IsValid())
 		{
+			ImGuiEx.BeginCenter("FileCacheWarningBox");
 			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 			ImGui.SameLine();
+			ImGui.TextColored(0xFF0080FF, $"Invalid file cache directory");
+			ImGuiEx.EndCenter();
 		}
 
-		ImGui.Text($"File Cache ({cacheSizeStr})");
-
-		if (open)
+		string cache = Configuration.Current.CacheDirectory ?? string.Empty;
+		if (ImGui.InputText("Directory", ref cache, 512, ImGuiInputTextFlags.EnterReturnsTrue))
 		{
-			if (!this.IsValid())
-			{
-				ImGuiEx.BeginCenter("FileCacheWarningBox");
-				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-				ImGui.SameLine();
-				ImGui.TextColored(0xFF0080FF, $"Invalid cache directory");
-				ImGuiEx.EndCenter();
-			}
+			Configuration.Current.CacheDirectory = cache;
+			Configuration.Current.Save();
+		}
 
-			string cache = Configuration.Current.CacheDirectory ?? string.Empty;
-			if (ImGui.InputText("Directory", ref cache, 512, ImGuiInputTextFlags.EnterReturnsTrue))
-			{
-				Configuration.Current.CacheDirectory = cache;
-				Configuration.Current.Save();
-			}
-
-			if (ImGui.Button("Flush"))
-			{
-				this.flushCache = true;
-				this.ScanCache();
-			}
-
-			if (p < 1)
-			{
-				ImGui.BeginGroup();
-				ImGui.Text("Scanning");
-				ImGui.SameLine();
-				ImGuiEx.ThinProgressBar(p, -1);
-				ImGui.EndGroup();
-
-				if (ImGui.IsItemHovered())
+		if (ImGui.Button("Flush##files"))
+		{
+			DialogBox.Show(
+				"Confirm",
+				"Are you sure you want to flush the file cache? This will cause all synced mods to re-download from peers.",
+				FontAwesomeIcon.Question,
+				0xFF0080FF,
+				"Flush",
+				"Cancel",
+				() =>
 				{
-					ImGui.BeginTooltip();
-					ImGui.Text($"Scanning {this.scanCount} of {this.fileCount} files in cache");
-					ImGui.EndTooltip();
-				}
-			}
+					this.flushCache = true;
+					this.ScanCache();
+				},
+				null);
+		}
 
-			lock (this.deletedFiles)
+		float p = (float)this.scanCount / (float)this.fileCount;
+		if (p < 1)
+		{
+			ImGui.BeginGroup();
+			ImGui.Text("Scanning");
+			ImGui.SameLine();
+			ImGuiEx.ThinProgressBar(p, -1);
+			ImGui.EndGroup();
+
+			if (ImGui.IsItemHovered())
 			{
-				if (this.deletedFiles.Count > 0)
+				ImGui.BeginTooltip();
+				ImGui.Text($"Scanning {this.scanCount} of {this.fileCount} files in cache");
+				ImGui.EndTooltip();
+			}
+		}
+
+		lock (this.deletedFiles)
+		{
+			if (this.deletedFiles.Count > 0)
+			{
+				ImGui.Text("Removed:");
+				if (this.deletedFiles.Count < 10)
 				{
-					ImGui.Text("Removed:");
-					if (this.deletedFiles.Count < 10)
+					foreach ((FileInfo file, FileDeletionReasons reason) in this.deletedFiles)
 					{
-						foreach ((FileInfo file, FileDeletionReasons reason) in this.deletedFiles)
+						if (reason == FileDeletionReasons.Age)
 						{
-							if (reason == FileDeletionReasons.Age)
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.Clock);
-							}
-							else
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.ExclamationTriangle);
-							}
-
-							ImGui.SameLine();
-							ImGui.Text(file.Name);
+							ImGuiEx.Icon(FontAwesomeIcon.Clock);
 						}
-					}
-					else
-					{
+						else
+						{
+							ImGuiEx.Icon(FontAwesomeIcon.ExclamationTriangle);
+						}
+
 						ImGui.SameLine();
-						ImGui.Text($"{this.deletedFiles.Count} files from cache");
+						ImGui.Text(file.Name);
 					}
+				}
+				else
+				{
+					ImGui.SameLine();
+					ImGui.Text($"{this.deletedFiles.Count} files from cache");
 				}
 			}
 		}

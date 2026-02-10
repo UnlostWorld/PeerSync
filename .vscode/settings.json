@@ -17,6 +17,7 @@
 		"Pickler",
 		"psync",
 		"Raii",
+		"Renamer",
 		"Serialise",
 		"shpk",
 		"sklb",

@@ -247,6 +247,7 @@ public sealed partial class Plugin : IDalamudPlugin
 			this.SyncProviders.Add(new HonorificSync());
 			this.SyncProviders.Add(new GlamourerSync());
 			this.SyncProviders.Add(new PenumbraSync());
+			this.SyncProviders.Add(new PetNamesSync());
 		}
 
 		Task.Run(this.InitializeAsync, this.tokenSource.Token);
@@ -502,28 +503,45 @@ public sealed partial class Plugin : IDalamudPlugin
 		}
 
 		// Get local IpAddress
+		// https://stackoverflow.com/questions/6803073/get-local-ip-address
 		IPAddress? localIp = null;
 		try
 		{
-			string hostName = Dns.GetHostName();
-			IPHostEntry? host = Dns.GetHostEntry(hostName);
-
-			foreach (IPAddress ipAddress in host.AddressList)
+			// Try asking the DNS system for our local IP
+			if (localIp == null)
 			{
-				if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
-					continue;
+				string hostName = Dns.GetHostName();
+				IPHostEntry? host = Dns.GetHostEntry(hostName);
 
-				if (IPAddress.IsLoopback(ipAddress))
-					continue;
+				foreach (IPAddress ipAddress in host.AddressList)
+				{
+					if (ipAddress.AddressFamily != AddressFamily.InterNetwork)
+						continue;
 
-				localIp = ipAddress;
-				Plugin.Log.Information($"Got Local Address: {ipAddress}");
+					if (IPAddress.IsLoopback(ipAddress))
+						continue;
+
+					localIp = ipAddress;
+				}
+			}
+
+			// Try opening a UDP socket and getting our IP from it
+			if (localIp == null)
+			{
+				using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+				{
+					socket.Connect("8.8.8.8", 65530);
+					IPEndPoint? endPoint = socket.LocalEndPoint as IPEndPoint;
+					localIp = endPoint?.Address;
+				}
 			}
 		}
 		catch (Exception ex)
 		{
 			Plugin.Log.Warning($"Error getting local IP: {ex.Message}");
 		}
+
+		Plugin.Log.Information($"Got Local Address: {localIp}");
 
 		// Start the main tasks
 		Task updateIndexTask = Task.Run(async () => await this.UpdateIndex(port, localIp));

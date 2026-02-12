@@ -789,7 +789,8 @@ public sealed partial class Plugin : IDalamudPlugin
 			// Do not sync character if we are in combat is loading
 			if (Plugin.Condition[ConditionFlag.InCombat]
 				|| Plugin.Condition[ConditionFlag.BetweenAreas]
-				|| Plugin.Condition[ConditionFlag.BetweenAreas51])
+				|| Plugin.Condition[ConditionFlag.BetweenAreas51]
+				|| Plugin.Condition[ConditionFlag.LoggingOut])
 			{
 				continue;
 			}

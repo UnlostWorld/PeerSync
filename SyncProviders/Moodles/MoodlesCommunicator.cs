@@ -13,8 +13,9 @@ using Dalamud.Game.ClientState.Objects.SubKinds;
 
 public class MoodlesCommunicator : PluginCommunicatorBase
 {
+	protected const int IPCVersion = 4;
 	protected override string InternalName => "Moodles";
-	protected override Version Version => new Version(1, 0, 0, 50);
+	protected override Version Version => new Version(1, 1, 0, 0);
 
 	public int GetVersion()
 	{
@@ -23,7 +24,7 @@ public class MoodlesCommunicator : PluginCommunicatorBase
 
 	public string? GetStatusManagerByPC(IPlayerCharacter pc)
 	{
-		if (!this.GetIsAvailable() || this.GetVersion() != 3)
+		if (!this.GetIsAvailable() || this.GetVersion() != IPCVersion)
 			return null;
 
 		return this.InvokeFunc<string, IPlayerCharacter>(
@@ -33,7 +34,7 @@ public class MoodlesCommunicator : PluginCommunicatorBase
 
 	public void SetStatusManagerByPC(IPlayerCharacter pc, string data)
 	{
-		if (!this.GetIsAvailable() || this.GetVersion() != 3)
+		if (!this.GetIsAvailable() || this.GetVersion() != IPCVersion)
 			return;
 
 		this.InvokeAction(
@@ -44,7 +45,7 @@ public class MoodlesCommunicator : PluginCommunicatorBase
 
 	public void ClearStatusManager(IPlayerCharacter pc)
 	{
-		if (!this.GetIsAvailable() || this.GetVersion() != 3)
+		if (!this.GetIsAvailable() || this.GetVersion() != IPCVersion)
 			return;
 
 		this.InvokeAction(

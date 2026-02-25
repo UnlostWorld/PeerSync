@@ -360,6 +360,15 @@ public sealed partial class Plugin : IDalamudPlugin
 				await Framework.Delay(500);
 				token.ThrowIfCancellationRequested();
 
+				if (Plugin.Condition[ConditionFlag.InCombat]
+				|| Plugin.Condition[ConditionFlag.BetweenAreas]
+				|| Plugin.Condition[ConditionFlag.BetweenAreas51]
+				|| Plugin.Condition[ConditionFlag.LoggingOut])
+				{
+					this.Status = PluginStatus.Init_Character;
+					continue;
+				}
+
 				if (!ClientState.IsLoggedIn)
 				{
 					this.Status = PluginStatus.Init_Character;
@@ -555,6 +564,15 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	private void OnFrameworkUpdate(IFramework framework)
 	{
+		if (Plugin.Condition[ConditionFlag.InCombat]
+				|| Plugin.Condition[ConditionFlag.BetweenAreas]
+				|| Plugin.Condition[ConditionFlag.BetweenAreas51]
+				|| Plugin.Condition[ConditionFlag.LoggingOut])
+		{
+			this.LocalCharacter = null;
+			this.Status = PluginStatus.Init_Character;
+		}
+
 		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync - {this.Status.GetMessage()}");
 
 		if (this.Status != PluginStatus.Online)
@@ -694,7 +712,6 @@ public sealed partial class Plugin : IDalamudPlugin
 			if (newCharacter != this.LocalCharacter)
 			{
 				this.LocalCharacter = newCharacter;
-				Plugin.Log.Information($"Got local character: {this.LocalCharacter}");
 			}
 
 			if (this.tokenSource.IsCancellationRequested)
@@ -752,7 +769,13 @@ public sealed partial class Plugin : IDalamudPlugin
 				if (this.Status < PluginStatus.Online)
 					this.Status = PluginStatus.Online;
 
-				await Task.Delay(30000, this.tokenSource.Token);
+				for (int i = 30; i > 0; i--)
+				{
+					if (this.LocalCharacter == null)
+						continue;
+
+					await Task.Delay(1000, this.tokenSource.Token);
+				}
 			}
 			catch (TaskCanceledException)
 			{

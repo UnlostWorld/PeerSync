@@ -248,6 +248,7 @@ public sealed partial class Plugin : IDalamudPlugin
 			this.SyncProviders.Add(new GlamourerSync());
 			this.SyncProviders.Add(new PenumbraSync());
 			this.SyncProviders.Add(new PetNamesSync());
+			this.SyncProviders.Add(new SimpleHeelsSync());
 		}
 
 		Task.Run(this.InitializeAsync, this.tokenSource.Token);

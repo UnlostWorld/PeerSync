@@ -46,6 +46,19 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		".shpk"
 	];
 
+	public static readonly HashSet<string> BlockedFileNames =
+	[
+		"common/graphics/texture/dummy.tex",
+		"chara/common/texture/white.tex",
+		"chara/common/texture/black.tex",
+		"chara/common/texture/id_16.tex",
+		"chara/common/texture/red.tex",
+		"chara/common/texture/green.tex",
+		"chara/common/texture/blue.tex",
+		"chara/common/texture/null_normal.tex",
+		"chara/common/texture/skin_mask.tex",
+	];
+
 	public readonly TransferGroup DownloadGroup = new();
 	public readonly TransferGroup UploadGroup = new();
 
@@ -172,6 +185,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		{
 			string fileExtension = Path.GetExtension(gamePath);
 			if (!AllowedFileExtensions.Contains(fileExtension))
+				continue;
+
+			if (BlockedFileNames.Contains(gamePath))
 				continue;
 
 			bool isFilePath = Path.IsPathRooted(redirectPath);

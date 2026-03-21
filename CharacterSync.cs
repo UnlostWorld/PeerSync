@@ -227,8 +227,15 @@ public class CharacterSync : IDisposable
 	{
 		try
 		{
-			if (Plugin.Instance == null || Plugin.Instance.LocalCharacter == null)
+			if (Plugin.Instance == null)
 				return;
+
+			if (Plugin.Instance.LocalCharacter == null)
+			{
+				await Task.Delay(30000, this.tokenSource.Token);
+				this.Reconnect();
+				return;
+			}
 
 			this.LastException = null;
 

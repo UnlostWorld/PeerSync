@@ -232,7 +232,7 @@ public class CharacterSync : IDisposable
 
 			if (Plugin.Instance.LocalCharacter == null)
 			{
-				await Task.Delay(30000, this.tokenSource.Token);
+				await Task.Delay(3000, this.tokenSource.Token);
 				this.Reconnect();
 				return;
 			}

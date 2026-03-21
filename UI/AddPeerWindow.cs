@@ -144,7 +144,7 @@ public class AddPeerWindow : Window, IDisposable
 
 			peer.CharacterName = name;
 			peer.World = world;
-			peer.Password = this.password;
+			peer.Password = this.password.Trim();
 
 			Configuration.Current.Save();
 			this.IsOpen = false;

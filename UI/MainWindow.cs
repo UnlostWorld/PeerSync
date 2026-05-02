@@ -11,6 +11,7 @@ namespace PeerSync.UI;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
+using Lumina.Excel.Sheets;
 using PeerSync.Online;
 using PeerSync.SyncProviders;
 using System;
@@ -461,11 +462,25 @@ public class MainWindow : Window, IDisposable
 				ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
 
-				HashSet<Configuration.Peer> syncedPeers = new();
-
-				// Draw synced peers first
+				List<string> peerNames = new();
+				Dictionary<string, Configuration.Peer> peerLookup = new();
 				foreach (Configuration.Peer peer in Configuration.Current.Pairs)
 				{
+					if (peer.CharacterName == null)
+						continue;
+
+					peerNames.Add(peer.CharacterName);
+					peerLookup.Add(peer.CharacterName, peer);
+				}
+
+				peerNames.Sort();
+
+				// Draw synced peers first
+				foreach (string peerName in peerNames)
+				{
+					if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
+						continue;
+
 					CharacterSync? sync = null;
 					if (peer.CharacterName != null && peer.World != null)
 						sync = Plugin.Instance?.GetCharacterSync(peer.CharacterName, peer.World);
@@ -473,7 +488,7 @@ public class MainWindow : Window, IDisposable
 					if (sync == null)
 						continue;
 
-					syncedPeers.Add(peer);
+					peerLookup.Remove(peerName);
 					List<SyncProgressBase>? progresses = null;
 					if (sync != null)
 						progresses = plugin.GetSyncProgress(sync);
@@ -484,13 +499,12 @@ public class MainWindow : Window, IDisposable
 				}
 
 				// Draw unsynced peers last
-				foreach (Configuration.Peer peer in Configuration.Current.Pairs)
+				foreach (string peerName in peerNames)
 				{
-					if (syncedPeers.Contains(peer))
+					if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
 						continue;
 
 					this.DrawPeerEntry(peer, null, null);
-
 					ImGui.TableNextRow();
 				}
 

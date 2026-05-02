@@ -29,9 +29,8 @@ public class FileDownload : FileTransfer
 		string name,
 		string hash,
 		long expectedSize,
-		CharacterSync character,
-		CancellationToken token)
-		: base(sync, hash, character, token)
+		CharacterSync character)
+		: base(sync, hash, character)
 	{
 		this.Name = name;
 		this.BytesToReceive = expectedSize;

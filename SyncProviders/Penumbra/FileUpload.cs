@@ -19,8 +19,8 @@ public class FileUpload : FileTransfer
 	public long BytesToSend = 0;
 	private readonly byte clientQueueIndex;
 
-	public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterSync character, CancellationToken token)
-		: base(sync, hash, character, token)
+	public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterSync character)
+		: base(sync, hash, character)
 	{
 		this.clientQueueIndex = clientQueueIndex;
 		this.Name = sync.FileCache.GetFileName(hash);

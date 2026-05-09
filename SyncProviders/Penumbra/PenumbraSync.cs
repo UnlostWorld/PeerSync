@@ -111,6 +111,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		if (character.Connection != null)
 			character.Connection.Received -= this.OnReceived;
 
+		this.UploadGroup.Cancel(character);
+		this.DownloadGroup.Cancel(character);
+
 		base.OnCharacterDisconnected(character);
 	}
 
@@ -277,7 +280,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				data.FileSizes.TryGetValue(hash, out expectedSize);
 
 				string name = Path.GetFileName(gamePath);
-				FileDownload download = new(this, name, hash, expectedSize, character, this.CancellationToken);
+				FileDownload download = new(this, name, hash, expectedSize, character);
 				this.DownloadGroup.Enqueue(download);
 			}
 			else
@@ -519,7 +522,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			return;
 		}
 
-		FileUpload upload = new(this, clientQueueIndex, hash, character, this.CancellationToken);
+		FileUpload upload = new(this, clientQueueIndex, hash, character);
 		this.UploadGroup.Enqueue(upload);
 	}
 
@@ -545,9 +548,22 @@ public class TransferGroup
 
 	public void Cancel()
 	{
-		if (!this.transferTaskTokenSource.IsCancellationRequested)
+		this.transferTaskTokenSource.Cancel();
+
+		foreach (FileTransfer transfer in this.active)
 		{
-			this.transferTaskTokenSource.Cancel();
+			transfer.Cancel();
+		}
+	}
+
+	public void Cancel(CharacterSync character)
+	{
+		foreach (FileTransfer transfer in this.active)
+		{
+			if (transfer.Character != character)
+				continue;
+
+			transfer.Cancel();
 		}
 	}
 

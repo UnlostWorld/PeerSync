@@ -361,8 +361,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				await Framework.Delay(500);
 				token.ThrowIfCancellationRequested();
 
-				if (Plugin.Condition[ConditionFlag.InCombat]
-				|| Plugin.Condition[ConditionFlag.BetweenAreas]
+				if (Plugin.Condition[ConditionFlag.BetweenAreas]
 				|| Plugin.Condition[ConditionFlag.BetweenAreas51]
 				|| Plugin.Condition[ConditionFlag.LoggingOut])
 				{

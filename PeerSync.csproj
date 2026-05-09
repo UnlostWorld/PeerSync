@@ -17,7 +17,6 @@
 		<PublishTrimmed>false</PublishTrimmed>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 		<Deterministic>false</Deterministic>
-		<AssemblyVersion>1.0.1.*</AssemblyVersion>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 		<Platforms>x64</Platforms>
 	</PropertyGroup>

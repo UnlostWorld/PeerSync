@@ -469,6 +469,9 @@ public class MainWindow : Window, IDisposable
 					if (peer.CharacterName == null)
 						continue;
 
+					if (peerLookup.ContainsKey(peer.CharacterName))
+						continue;
+
 					peerNames.Add(peer.CharacterName);
 					peerLookup.Add(peer.CharacterName, peer);
 				}

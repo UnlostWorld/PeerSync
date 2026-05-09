@@ -34,6 +34,7 @@ public class CharacterSync : IDisposable
 
 	private bool isApplyingData = false;
 	private Connection? connection;
+	private int connectionAttempts = 0;
 
 	public CharacterSync(ConnectionManager network, Configuration.Peer peer, ushort objectIndex)
 	{
@@ -284,11 +285,27 @@ public class CharacterSync : IDisposable
 			Plugin.Log.Info($"connecting to peer: {this.Peer.CharacterName}:  {response.LocalAddress} / {response.Address} : {response.Port}");
 #endif
 
-			int sort = Plugin.Instance.LocalCharacter.CompareTo(this.Peer);
-			if (sort >= 0)
+			// invert connection direction on each reattempt.
+			this.connectionAttempts++;
+			bool invertDirection = this.connectionAttempts % 2 == 0;
+
+			bool host = Plugin.Instance.LocalCharacter.CompareTo(this.Peer) >= 0;
+
+			if (invertDirection)
+				host = !host;
+
+			if (host)
 			{
 				// We're the host.
 				this.CurrentStatus = Status.Listening;
+
+				// If we haven't gotten a connection within a minute, reset and try again.
+				await Task.Delay(60000, this.tokenSource.Token);
+				if (this.CurrentStatus == Status.Listening)
+				{
+					this.Reconnect();
+				}
+
 				return;
 			}
 
@@ -355,7 +372,7 @@ public class CharacterSync : IDisposable
 				if (this.LastException != null)
 					Plugin.Log.Warning(this.LastException, "Failed to connect to peer");
 
-				await Task.Delay(60000, this.tokenSource.Token);
+				await Task.Delay(30000, this.tokenSource.Token);
 				this.Reconnect();
 				return;
 			}

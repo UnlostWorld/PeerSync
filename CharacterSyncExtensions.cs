@@ -45,6 +45,7 @@ public static class CharacterSyncExtensions
 			case CharacterSync.Status.Connected: return FontAwesomeIcon.Wifi;
 			case CharacterSync.Status.Disconnected: return FontAwesomeIcon.Bed;
 			case CharacterSync.Status.Lightless: return FontAwesomeIcon.Lightbulb;
+			case CharacterSync.Status.Blocked: return FontAwesomeIcon.Stop;
 		}
 
 		return FontAwesomeIcon.QuestionCircle;

@@ -789,8 +789,26 @@ public class MainWindow : Window, IDisposable
 
 			ImGui.Separator();
 
-			if (ImGui.MenuItem("Block"))
+			if (Configuration.Current.GetIsBlocked(sync.Name, sync.World))
 			{
+				if (ImGui.MenuItem("Unblock"))
+				{
+					Configuration.Current.SetIsBlocked(sync.Name, sync.World, false);
+					sync.Reconnect();
+				}
+			}
+			else
+			{
+				if (ImGui.MenuItem("Block"))
+				{
+					Configuration.Current.SetIsBlocked(sync.Name, sync.World, true);
+					sync.Reconnect();
+				}
+			}
+
+			if (ImGui.MenuItem("Reconnect"))
+			{
+				Plugin.Instance?.ClearConnection(sync);
 			}
 
 			ImGui.PopID();
@@ -821,6 +839,11 @@ public class MainWindow : Window, IDisposable
 				ImGui.SetWindowFontScale(0.75f);
 				ImGui.TextColoredWrapped(0xFF0080FF, sync.LastException.Message);
 				ImGui.SetWindowFontScale(1.0f);
+			}
+
+			if (sync.CurrentStatus != CharacterSync.Status.Connected)
+			{
+				ImGui.Text($"Connection Attempts: {sync.ConnectionAttempts}");
 			}
 
 			ImGui.Separator();

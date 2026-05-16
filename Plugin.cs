@@ -209,6 +209,17 @@ public sealed partial class Plugin : IDalamudPlugin
 		return progresses;
 	}
 
+	public void ClearConnection(CharacterSync sync)
+	{
+		sync.Connected -= this.OnCharacterConnected;
+		sync.Disconnected -= this.OnCharacterDisconnected;
+		sync.Reset();
+		sync.Dispose();
+
+		string compoundName = $"{sync.Name}@{sync.World}";
+		this.CharacterSyncs.Remove(compoundName);
+	}
+
 	public void Stop()
 	{
 		if (this.Status != PluginStatus.Shutdown)

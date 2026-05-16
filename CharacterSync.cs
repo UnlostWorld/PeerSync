@@ -119,6 +119,9 @@ public class CharacterSync : IDisposable
 
 		// This peer is being handled by Lightless
 		Lightless,
+
+		// This peer is on the block list
+		Blocked,
 	}
 
 	public Status CurrentStatus { get; private set; } = Status.None;
@@ -281,6 +284,12 @@ public class CharacterSync : IDisposable
 			if (await Plugin.Lightless.GetIsGameObjectHandled(this.objectIndex))
 			{
 				this.CurrentStatus = Status.Lightless;
+				return;
+			}
+
+			if (Configuration.Current.GetIsBlocked(this.Name, this.World))
+			{
+				this.CurrentStatus = Status.Blocked;
 				return;
 			}
 

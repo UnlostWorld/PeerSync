@@ -1021,14 +1021,9 @@ public sealed partial class Plugin : IDalamudPlugin
 		{
 			string fingerprint = Encoding.UTF8.GetString(data);
 
-			Plugin.Log.Information($"Received IAm: {fingerprint}");
-
 			CharacterSync? sync = this.GetCharacterSync(fingerprint);
 			if (sync == null)
-			{
-				Plugin.Log.Warning($"Invalid I am fingerprint: {fingerprint}");
 				return;
-			}
 
 			if (sync.SetConnection(connection))
 			{

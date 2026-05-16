@@ -845,7 +845,8 @@ public class MainWindow : Window, IDisposable
 
 			if (sync.CurrentStatus == CharacterSync.Status.Connecting ||
 				sync.CurrentStatus == CharacterSync.Status.Listening ||
-				sync.CurrentStatus == CharacterSync.Status.Searching)
+				sync.CurrentStatus == CharacterSync.Status.Searching ||
+				sync.CurrentStatus == CharacterSync.Status.Handshake)
 			{
 				ImGui.SameLine();
 				ImGui.Text($"({sync.ConnectionAttempts} / {Plugin.MaxConnectionAttempts})");

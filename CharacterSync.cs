@@ -248,7 +248,7 @@ public class CharacterSync : IDisposable
 
 			this.CurrentStatus = Status.Searching;
 			GetPeer request = new();
-			request.Fingerprint = this.Peer.GetFingerprint();
+			request.MemberFingerprint = this.Peer.GetFingerprint();
 
 			GetPeer? response = null;
 			foreach (string indexServer in Configuration.Current.IndexServers)

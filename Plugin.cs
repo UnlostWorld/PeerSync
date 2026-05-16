@@ -72,11 +72,13 @@ public sealed partial class Plugin : IDalamudPlugin
 	{
 		this.MainWindow = new MainWindow();
 		this.AddPeerWindow = new AddPeerWindow();
+		this.AddGroupWindow = new AddGroupWindow();
 		this.DialogBox = new DialogBoxWindow();
 		this.InspectWindow = new InspectWindow();
 
 		this.windowSystem.AddWindow(this.MainWindow);
 		this.windowSystem.AddWindow(this.AddPeerWindow);
+		this.windowSystem.AddWindow(this.AddGroupWindow);
 		this.windowSystem.AddWindow(this.DialogBox);
 		this.windowSystem.AddWindow(this.InspectWindow);
 
@@ -123,6 +125,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static Plugin? Instance { get; private set; } = null;
 	public MainWindow MainWindow { get; init; }
 	public AddPeerWindow AddPeerWindow { get; init; }
+	public AddGroupWindow AddGroupWindow { get; init; }
 	public DialogBoxWindow DialogBox { get; init; }
 	public InspectWindow InspectWindow { get; init; }
 
@@ -722,7 +725,7 @@ public sealed partial class Plugin : IDalamudPlugin
 					this.Status = PluginStatus.Init_Index;
 
 				SetPeer setPeerRequest = new();
-				setPeerRequest.Fingerprint = this.LocalCharacter.GetFingerprint();
+				setPeerRequest.MemberFingerprint = this.LocalCharacter.GetFingerprint();
 				setPeerRequest.Port = port;
 				setPeerRequest.LocalAddress = localIp?.ToString();
 				foreach (string indexServer in Configuration.Current.IndexServers)

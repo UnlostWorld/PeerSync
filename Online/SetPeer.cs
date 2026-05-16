@@ -14,9 +14,10 @@ using System;
 
 public class SetPeer
 {
-	public string? Fingerprint { get; set; }
-	public ushort Port { get; set; }
+	public string? GroupFingerprint { get; set; }
+	public string? MemberFingerprint { get; set; }
 	public string? LocalAddress { get; set; }
+	public ushort Port { get; set; }
 
 	public async Task<ServerStatus> Send(string indexServer)
 	{

@@ -37,10 +37,10 @@ public static class CharacterSyncExtensions
 		switch (self)
 		{
 			case CharacterSync.Status.None: return FontAwesomeIcon.Hourglass;
-			case CharacterSync.Status.Listening: return FontAwesomeIcon.Handshake;
+			case CharacterSync.Status.Listening: return FontAwesomeIcon.CloudUploadAlt;
 			case CharacterSync.Status.Searching: return FontAwesomeIcon.Search;
 			case CharacterSync.Status.Offline: return FontAwesomeIcon.Bed;
-			case CharacterSync.Status.Connecting: return FontAwesomeIcon.Handshake;
+			case CharacterSync.Status.Connecting: return FontAwesomeIcon.CloudDownloadAlt;
 			case CharacterSync.Status.ConnectionFailed: return FontAwesomeIcon.ExclamationTriangle;
 			case CharacterSync.Status.Handshake: return FontAwesomeIcon.Handshake;
 			case CharacterSync.Status.Connected: return FontAwesomeIcon.Wifi;

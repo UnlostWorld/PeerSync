@@ -666,10 +666,6 @@ public sealed partial class Plugin : IDalamudPlugin
 							sync.Disconnected += this.OnCharacterDisconnected;
 							this.CharacterSyncs.Add(compoundName, sync);
 						}
-						else
-						{
-							Log.Info($"Not a member : {characterName} @ {world} -> {memberFingerprint}");
-						}
 					}
 				}
 			}

@@ -22,10 +22,11 @@ public static class CharacterSyncExtensions
 			case CharacterSync.Status.Offline: return "Peer is offline.";
 			case CharacterSync.Status.Connecting: return "Connecting...";
 			case CharacterSync.Status.ConnectionFailed: return "Failed to connect to peer.";
-			case CharacterSync.Status.Handshake: return "Connecting...";
+			case CharacterSync.Status.Handshake: return "Handshake...";
 			case CharacterSync.Status.Connected: return "Connected to peer.";
 			case CharacterSync.Status.Disconnected: return "Peer is offline";
 			case CharacterSync.Status.Lightless: return "Peer is syncing via Lightless Sync";
+			case CharacterSync.Status.Blocked: return "Peer has been blocked";
 		}
 
 		return string.Empty;
@@ -36,15 +37,16 @@ public static class CharacterSyncExtensions
 		switch (self)
 		{
 			case CharacterSync.Status.None: return FontAwesomeIcon.Hourglass;
-			case CharacterSync.Status.Listening: return FontAwesomeIcon.Hourglass;
+			case CharacterSync.Status.Listening: return FontAwesomeIcon.CloudUploadAlt;
 			case CharacterSync.Status.Searching: return FontAwesomeIcon.Search;
 			case CharacterSync.Status.Offline: return FontAwesomeIcon.Bed;
-			case CharacterSync.Status.Connecting: return FontAwesomeIcon.Handshake;
+			case CharacterSync.Status.Connecting: return FontAwesomeIcon.CloudDownloadAlt;
 			case CharacterSync.Status.ConnectionFailed: return FontAwesomeIcon.ExclamationTriangle;
 			case CharacterSync.Status.Handshake: return FontAwesomeIcon.Handshake;
 			case CharacterSync.Status.Connected: return FontAwesomeIcon.Wifi;
 			case CharacterSync.Status.Disconnected: return FontAwesomeIcon.Bed;
 			case CharacterSync.Status.Lightless: return FontAwesomeIcon.Lightbulb;
+			case CharacterSync.Status.Blocked: return FontAwesomeIcon.Stop;
 		}
 
 		return FontAwesomeIcon.QuestionCircle;

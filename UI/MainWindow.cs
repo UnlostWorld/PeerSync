@@ -658,6 +658,7 @@ public class MainWindow : Window, IDisposable
 			return;
 
 		string gId = group.GetFingerprint();
+		GroupSync? sync = Plugin.Instance?.GetGroupSync(group);
 
 		// Tooltip
 		ImGui.TableNextColumn();
@@ -704,6 +705,7 @@ public class MainWindow : Window, IDisposable
 			ImGui.BeginTooltip();
 
 			ImGui.Text($"{group.Name}");
+
 			ImGui.Separator();
 
 			ImGui.Text("Group:");
@@ -737,8 +739,6 @@ public class MainWindow : Window, IDisposable
 
 		// Count
 		ImGui.TableNextColumn();
-
-		GroupSync? sync = Plugin.Instance?.GetGroupSync(group);
 
 		if (sync == null || sync.ServerStatus == null)
 		{
@@ -789,8 +789,26 @@ public class MainWindow : Window, IDisposable
 
 			ImGui.Separator();
 
-			if (ImGui.MenuItem("Block"))
+			if (Configuration.Current.GetIsBlocked(sync.Name, sync.World))
 			{
+				if (ImGui.MenuItem("Unblock"))
+				{
+					Configuration.Current.SetIsBlocked(sync.Name, sync.World, false);
+					sync.Reconnect();
+				}
+			}
+			else
+			{
+				if (ImGui.MenuItem("Block"))
+				{
+					Configuration.Current.SetIsBlocked(sync.Name, sync.World, true);
+					sync.Reconnect();
+				}
+			}
+
+			if (ImGui.MenuItem("Reconnect"))
+			{
+				Plugin.Instance?.ClearConnection(sync);
 			}
 
 			ImGui.PopID();
@@ -821,6 +839,14 @@ public class MainWindow : Window, IDisposable
 				ImGui.SetWindowFontScale(0.75f);
 				ImGui.TextColoredWrapped(0xFF0080FF, sync.LastException.Message);
 				ImGui.SetWindowFontScale(1.0f);
+			}
+
+			if (sync.CurrentStatus == CharacterSync.Status.Connecting ||
+				sync.CurrentStatus == CharacterSync.Status.Listening ||
+				sync.CurrentStatus == CharacterSync.Status.Searching)
+			{
+				ImGui.SameLine();
+				ImGui.Text($"(Attempt {sync.ConnectionAttempts} of {Plugin.MaxConnectionAttempts})");
 			}
 
 			ImGui.Separator();

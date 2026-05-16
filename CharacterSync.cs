@@ -119,6 +119,9 @@ public class CharacterSync : IDisposable
 
 		// This peer is being handled by Lightless
 		Lightless,
+
+		// This peer is on the block list
+		Blocked,
 	}
 
 	public Status CurrentStatus { get; private set; } = Status.None;
@@ -284,6 +287,12 @@ public class CharacterSync : IDisposable
 				return;
 			}
 
+			if (Configuration.Current.GetIsBlocked(this.Name, this.World))
+			{
+				this.CurrentStatus = Status.Blocked;
+				return;
+			}
+
 			this.CurrentStatus = Status.Searching;
 			GetPeer request = new();
 			request.GroupFingerprint = this.GroupFingerprint;
@@ -315,7 +324,7 @@ public class CharacterSync : IDisposable
 				|| address == null)
 			{
 				this.CurrentStatus = Status.Offline;
-				await Task.Delay(30000, this.tokenSource.Token);
+				await Task.Delay(10000, this.tokenSource.Token);
 				this.Reconnect();
 				return;
 			}
@@ -350,55 +359,54 @@ public class CharacterSync : IDisposable
 			CancellationTokenSource localCancel = new();
 			CancellationTokenSource wideCancel = new();
 
-			Task<(Connection?, Exception?)>? localConnectTask = null;
-			IPAddress.TryParse(response.LocalAddress, out IPAddress? localAddress);
-			if (localAddress != null)
-			{
-				localConnectTask = this.network.Connect(new(localAddress, response.Port), localCancel.Token);
-			}
+			wideCancel.CancelAfter(5000);
+			localCancel.CancelAfter(5000);
 
-			Task<(Connection?, Exception?)> wideConnectTask = this.network.Connect(new(address, response.Port), wideCancel.Token);
-
-			(Connection? Success, Exception? Failure) localConnection;
-			try
-			{
-				if (localConnectTask != null)
+			Task wideConnectTask = Task.Run(
+				async () =>
 				{
-					localConnection = await localConnectTask;
+					(Connection? connection, Exception? exception) =
+						await this.network.Connect(new(address, response.Port), wideCancel.Token);
 
-					if (localConnection.Success != null)
+					if (connection != null)
 					{
-						this.connection = localConnection.Success;
+						this.connection = connection;
 						wideCancel.Cancel();
 					}
-					else
+					else if (exception is not TaskCanceledException)
 					{
-						this.LastException = localConnection.Failure;
+						this.LastException = exception;
 					}
-				}
-			}
-			catch (Exception)
+				},
+				wideCancel.Token);
+
+			IPAddress.TryParse(response.LocalAddress, out IPAddress? localAddress);
+			Task? localConnectTask = null;
+			if (localAddress != null)
 			{
+				localConnectTask = Task.Run(
+					async () =>
+					{
+						(Connection? connection, Exception? exception) =
+							await this.network.Connect(new(localAddress, response.Port), localCancel.Token);
+
+						if (connection != null)
+						{
+							this.connection = connection;
+							wideCancel.Cancel();
+						}
+						else if (exception is not TaskCanceledException)
+						{
+							this.LastException = exception;
+						}
+					},
+					localCancel.Token);
 			}
 
-			(Connection? Success, Exception? Failure) wideConnection;
-			try
-			{
-				wideConnection = await wideConnectTask;
+			if (localConnectTask != null)
+				await localConnectTask;
 
-				if (wideConnection.Success != null)
-				{
-					this.connection = wideConnection.Success;
-					localCancel.Cancel();
-				}
-				else
-				{
-					this.LastException = wideConnection.Failure;
-				}
-			}
-			catch (Exception)
-			{
-			}
+			await wideConnectTask;
 
 			if (this.connection == null)
 			{
@@ -406,8 +414,7 @@ public class CharacterSync : IDisposable
 
 				if (this.LastException != null)
 					Plugin.Log.Warning(this.LastException, "Failed to connect to peer");
-
-				await Task.Delay(10000, this.tokenSource.Token);
+				await Task.Delay(1000, this.tokenSource.Token);
 				this.Reconnect();
 				return;
 			}
@@ -430,7 +437,7 @@ public class CharacterSync : IDisposable
 					return;
 
 				this.SendIAm();
-				await Task.Delay(5000);
+				await Task.Delay(1000);
 			}
 		}
 		catch (TaskCanceledException)

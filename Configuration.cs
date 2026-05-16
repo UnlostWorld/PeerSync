@@ -36,6 +36,7 @@ public partial class Configuration : IPluginConfiguration
 	public List<Character> Characters { get; init; } = new();
 	public List<Group> Groups { get; init; } = new();
 	public List<Peer> Pairs { get; init; } = new();
+	public HashSet<string> BlockedCharacters { get; init; } = new();
 	public ushort Port { get; set; } = 0;
 	public ushort LastPort { get; set; } = 0;
 	public string? CacheDirectory { get; set; }
@@ -77,6 +78,28 @@ public partial class Configuration : IPluginConfiguration
 		}
 
 		return null;
+	}
+
+	public bool GetIsBlocked(string characterName, string world)
+	{
+		string compoundName = $"{characterName}@{world}";
+		return this.BlockedCharacters.Contains(compoundName);
+	}
+
+	public void SetIsBlocked(string characterName, string world, bool block)
+	{
+		string compoundName = $"{characterName}@{world}";
+		if (block)
+		{
+			this.BlockedCharacters.Add(compoundName);
+		}
+		else
+		{
+			if (this.BlockedCharacters.Contains(compoundName))
+			{
+				this.BlockedCharacters.Remove(compoundName);
+			}
+		}
 	}
 
 	public class Group

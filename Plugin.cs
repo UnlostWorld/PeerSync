@@ -640,27 +640,30 @@ public sealed partial class Plugin : IDalamudPlugin
 				string world = character.HomeWorld.Value.Name.ToString();
 				string compoundName = $"{characterName}@{world}";
 
-				if (this.CharacterSyncs.ContainsKey(compoundName))
-					continue;
-
-				Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
-				if (peer != null)
+				if (!this.CharacterSyncs.ContainsKey(compoundName))
 				{
-					CharacterSync sync = new(this.network, peer, character.ObjectIndex);
-					sync.Connected += this.OnCharacterConnected;
-					sync.Disconnected += this.OnCharacterDisconnected;
-					this.CharacterSyncs.Add(compoundName, sync);
+					foreach (Configuration.Group group in Configuration.Current.Groups)
+					{
+						if (group.Name == null || !this.GroupMemberFingerprints.ContainsKey(group.Name))
+							continue;
+
+						string memberFingerprint = group.GetMemberFingerprint(characterName, world);
+						if (this.GroupMemberFingerprints[group.Name].Contains(memberFingerprint))
+						{
+							CharacterSync sync = new(this.network, group, memberFingerprint, characterName, world, character.ObjectIndex);
+							sync.Connected += this.OnCharacterConnected;
+							sync.Disconnected += this.OnCharacterDisconnected;
+							this.CharacterSyncs.Add(compoundName, sync);
+						}
+					}
 				}
 
-				foreach (Configuration.Group group in Configuration.Current.Groups)
+				if (!this.CharacterSyncs.ContainsKey(compoundName))
 				{
-					if (group.Name == null || !this.GroupMemberFingerprints.ContainsKey(group.Name))
-						continue;
-
-					string memberFingerprint = group.GetMemberFingerprint(characterName, world);
-					if (this.GroupMemberFingerprints[group.Name].Contains(memberFingerprint))
+					Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
+					if (peer != null)
 					{
-						CharacterSync sync = new(this.network, group, memberFingerprint, characterName, world, character.ObjectIndex);
+						CharacterSync sync = new(this.network, peer, character.ObjectIndex);
 						sync.Connected += this.OnCharacterConnected;
 						sync.Disconnected += this.OnCharacterDisconnected;
 						this.CharacterSyncs.Add(compoundName, sync);

@@ -640,6 +640,25 @@ public sealed partial class Plugin : IDalamudPlugin
 				string world = character.HomeWorld.Value.Name.ToString();
 				string compoundName = $"{characterName}@{world}";
 
+				// If there's an existing connection for this character
+				if (this.CharacterSyncs.ContainsKey(compoundName))
+				{
+					// Has this connection timed out?
+					if (!this.CharacterSyncs[compoundName].IsConnected &&
+						this.CharacterSyncs[compoundName].ConnectionAttempts > 10)
+					{
+						this.CharacterSyncs[compoundName].Dispose();
+						this.CharacterSyncs[compoundName].Connected -= this.OnCharacterConnected;
+						this.CharacterSyncs[compoundName].Disconnected -= this.OnCharacterDisconnected;
+						this.CharacterSyncs.Remove(compoundName);
+					}
+					else
+					{
+						continue;
+					}
+				}
+
+				// check groups
 				if (!this.CharacterSyncs.ContainsKey(compoundName))
 				{
 					foreach (Configuration.Group group in Configuration.Current.Groups)
@@ -658,6 +677,7 @@ public sealed partial class Plugin : IDalamudPlugin
 					}
 				}
 
+				// Check peers
 				if (!this.CharacterSyncs.ContainsKey(compoundName))
 				{
 					Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);

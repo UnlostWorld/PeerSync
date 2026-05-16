@@ -125,6 +125,7 @@ public class CharacterSync : IDisposable
 	public Exception? LastException { get; private set; }
 	public Connection? Connection => this.connection;
 	public bool IsConnected => this.CurrentStatus == Status.Connected;
+	public int ConnectionAttempts => this.connectionAttempts;
 	public CharacterData? LastData { get; private set; }
 
 	public void SendIAm()

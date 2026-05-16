@@ -42,25 +42,31 @@ public class InspectWindow : Window, IDisposable
 	public override void Draw()
 	{
 		Plugin? plugin = Plugin.Instance;
-		if (plugin == null || this.character == null)
+		if (plugin == null)
 			return;
-
-		ImGui.Text($"{this.character.Name} @ {this.character.World}");
-
-		ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
-		ImGui.SameLine();
-		ImGui.Text($"{this.character.MemberFingerprint}");
 
 		if (this.character != null)
 		{
+			ImGui.Text($"{this.character.Name} @ {this.character.World}");
+
+			ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
+			ImGui.SameLine();
+			ImGui.Text($"{this.character.MemberFingerprint}");
+
 			ImGuiEx.Icon(this.character.CurrentStatus.GetIcon());
 			ImGui.SameLine();
 			ImGui.Text(this.character.CurrentStatus.GetMessage());
 
 			this.character.LastData?.DrawInspect();
 		}
-		else
+		else if (Plugin.Instance?.LocalCharacter != null)
 		{
+			ImGui.Text($"{Plugin.Instance.LocalCharacter.CharacterName} @ {Plugin.Instance.LocalCharacter.World}");
+
+			ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
+			ImGui.SameLine();
+			ImGui.Text($"{Plugin.Instance.LocalCharacter.GetFingerprint()}");
+
 			plugin.LocalCharacterData.DrawInspect();
 		}
 	}

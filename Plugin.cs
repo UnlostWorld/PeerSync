@@ -752,6 +752,15 @@ public sealed partial class Plugin : IDalamudPlugin
 			{
 				sync.OnCharacterConnected(character);
 			}
+
+			try
+			{
+				character.SendData(this.LocalCharacterData);
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, "Error sending character data");
+			}
 		}
 	}
 

@@ -332,8 +332,8 @@ public class CharacterSync : IDisposable
 				// We're the host.
 				this.CurrentStatus = Status.Listening;
 
-				// If we haven't gotten a connection within a minute, reset and try again.
-				await Task.Delay(60000, this.tokenSource.Token);
+				// If we haven't gotten a connection within 20 seconds, reset and try again.
+				await Task.Delay(20000, this.tokenSource.Token);
 				if (this.CurrentStatus == Status.Listening)
 				{
 					this.Reconnect();
@@ -405,7 +405,7 @@ public class CharacterSync : IDisposable
 				if (this.LastException != null)
 					Plugin.Log.Warning(this.LastException, "Failed to connect to peer");
 
-				await Task.Delay(30000, this.tokenSource.Token);
+				await Task.Delay(10000, this.tokenSource.Token);
 				this.Reconnect();
 				return;
 			}

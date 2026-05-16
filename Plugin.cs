@@ -48,9 +48,8 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	public readonly List<SyncProviderBase> SyncProviders = new();
 	public readonly Dictionary<string, ServerStatus?> IndexServersStatus = new();
-	public readonly Dictionary<string, Dictionary<string, ServerStatus?>> GroupServerStatus = new();
-	public readonly Dictionary<string, HashSet<string>> GroupMemberFingerprints = new();
 	public readonly Dictionary<string, CharacterSync> CharacterSyncs = new();
+	public readonly Dictionary<string, GroupSync> GroupSyncs = new();
 	public readonly CharacterData LocalCharacterData = new();
 
 	public Configuration.Character? LocalCharacter;
@@ -162,6 +161,19 @@ public sealed partial class Plugin : IDalamudPlugin
 		foreach (CharacterSync sync in this.CharacterSyncs.Values)
 		{
 			if (sync.MemberFingerprint == fingerprint)
+			{
+				return sync;
+			}
+		}
+
+		return null;
+	}
+
+	public GroupSync? GetGroupSync(Configuration.Group group)
+	{
+		foreach (GroupSync sync in this.GroupSyncs.Values)
+		{
+			if (sync.Group == group)
 			{
 				return sync;
 			}
@@ -661,18 +673,14 @@ public sealed partial class Plugin : IDalamudPlugin
 				// check groups
 				if (!this.CharacterSyncs.ContainsKey(compoundName))
 				{
-					foreach (Configuration.Group group in Configuration.Current.Groups)
+					foreach (GroupSync groupSync in this.GroupSyncs.Values)
 					{
-						if (group.Name == null || !this.GroupMemberFingerprints.ContainsKey(group.Name))
-							continue;
-
-						string memberFingerprint = group.GetMemberFingerprint(characterName, world);
-						if (this.GroupMemberFingerprints[group.Name].Contains(memberFingerprint))
+						CharacterSync? charSync = groupSync.TrySync(this.network, characterName, world, character.ObjectIndex);
+						if (charSync != null)
 						{
-							CharacterSync sync = new(this.network, group, memberFingerprint, characterName, world, character.ObjectIndex);
-							sync.Connected += this.OnCharacterConnected;
-							sync.Disconnected += this.OnCharacterDisconnected;
-							this.CharacterSyncs.Add(compoundName, sync);
+							charSync.Connected += this.OnCharacterConnected;
+							charSync.Disconnected += this.OnCharacterDisconnected;
+							this.CharacterSyncs.Add(compoundName, charSync);
 						}
 					}
 				}
@@ -693,7 +701,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		}
 
 		sw.Stop();
-		if (sw.ElapsedMilliseconds > 16)
+		if (sw.ElapsedMilliseconds > 6)
 		{
 			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to check for characters");
 		}
@@ -813,8 +821,13 @@ public sealed partial class Plugin : IDalamudPlugin
 					if (group.Name == null)
 						continue;
 
-					if (!this.GroupServerStatus.ContainsKey(group.Name))
-						this.GroupServerStatus.Add(group.Name, new());
+					GroupSync? sync;
+					this.GroupSyncs.TryGetValue(group.Name, out sync);
+					if (sync == null)
+					{
+						sync = new(group);
+						this.GroupSyncs.Add(group.Name, sync);
+					}
 
 					SetPeer setGroupPeerRequest = new();
 					setGroupPeerRequest.GroupFingerprint = group.GetFingerprint();
@@ -825,24 +838,21 @@ public sealed partial class Plugin : IDalamudPlugin
 					GetMembers getGroupMembersRequest = new();
 					getGroupMembersRequest.GroupFingerprint = group.GetFingerprint();
 
-					if (!this.GroupMemberFingerprints.ContainsKey(group.Name))
-						this.GroupMemberFingerprints[group.Name] = new();
-
-					this.GroupMemberFingerprints[group.Name].Clear();
+					sync.MemberFingerprints.Clear();
 
 					foreach (string indexServer in Configuration.Current.IndexServers)
 					{
 						try
 						{
 							ServerStatus status = await setGroupPeerRequest.Send(indexServer);
-							this.GroupServerStatus[group.Name][indexServer] = status;
+							sync.ServerStatus[indexServer] = status;
 
 							GetMembers? response = await getGroupMembersRequest.Send(indexServer);
 							if (response != null && response.Members != null)
 							{
 								foreach (string memberFingerprint in response.Members)
 								{
-									this.GroupMemberFingerprints[group.Name].Add(memberFingerprint);
+									sync.MemberFingerprints.Add(memberFingerprint);
 								}
 							}
 						}

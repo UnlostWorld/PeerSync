@@ -738,17 +738,16 @@ public class MainWindow : Window, IDisposable
 		// Count
 		ImGui.TableNextColumn();
 
-		Dictionary<string, ServerStatus?>? groupServerStatus = null;
-		Plugin.Instance?.GroupServerStatus?.TryGetValue(group.Name, out groupServerStatus);
+		GroupSync? sync = Plugin.Instance?.GetGroupSync(group);
 
-		if (groupServerStatus == null)
+		if (sync == null || sync.ServerStatus == null)
 		{
 			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
 		}
 		else
 		{
 			int bestCount = 0;
-			foreach ((string indexServer, ServerStatus? status) in groupServerStatus)
+			foreach ((string indexServer, ServerStatus? status) in sync.ServerStatus)
 			{
 				if (status?.OnlineUsers > bestCount)
 				{

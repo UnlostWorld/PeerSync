@@ -441,7 +441,6 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndTable();
 		}
 
-#if DEBUG
 		startPos = ImGui.GetCursorPos();
 		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
 		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
@@ -460,6 +459,7 @@ public class MainWindow : Window, IDisposable
 			{
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableNextRow();
 
 				List<string> groupNames = new();
@@ -491,7 +491,6 @@ public class MainWindow : Window, IDisposable
 
 			ImGui.EndTable();
 		}
-#endif
 
 		startPos = ImGui.GetCursorPos();
 		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
@@ -737,6 +736,9 @@ public class MainWindow : Window, IDisposable
 
 	private void DrawGroupEntry(Configuration.Group group)
 	{
+		if (group.Name == null)
+			return;
+
 		// Tooltip
 		ImGui.TableNextColumn();
 		ImGui.Selectable(
@@ -794,5 +796,29 @@ public class MainWindow : Window, IDisposable
 		// Name
 		ImGui.TableNextColumn();
 		ImGui.Text($"{group.Name}");
+
+		// Count
+		ImGui.TableNextColumn();
+
+		Dictionary<string, ServerStatus?>? groupServerStatus = null;
+		Plugin.Instance?.GroupServerStatus?.TryGetValue(group.Name, out groupServerStatus);
+
+		if (groupServerStatus == null)
+		{
+			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
+		}
+		else
+		{
+			int bestCount = 0;
+			foreach ((string indexServer, ServerStatus? status) in groupServerStatus)
+			{
+				if (status?.OnlineUsers > bestCount)
+				{
+					bestCount = status.OnlineUsers;
+				}
+			}
+
+			ImGui.Text($"{bestCount}");
+		}
 	}
 }

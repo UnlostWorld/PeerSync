@@ -81,8 +81,67 @@ public partial class Configuration : IPluginConfiguration
 
 	public class Group
 	{
+		private string? fingerprint;
 		public string? Name { get; set; }
 		public string? Password { get; set; }
+
+		public string GetFingerprint()
+		{
+			if (string.IsNullOrEmpty(this.fingerprint))
+			{
+				const int iterations = 1000;
+
+				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
+
+#if DEBUG
+				pluginVersion = "Debug";
+#endif
+
+				string input = $"{this.Name}{this.Password}";
+				for (int i = 0; i < iterations; i++)
+				{
+					HashAlgorithm algorithm = SHA256.Create();
+					input = $"{input}{this.Password}{pluginVersion}";
+					byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes(input));
+					input = BitConverter.ToString(bytes);
+					input = input.Replace("-", string.Empty, StringComparison.Ordinal);
+				}
+
+				this.fingerprint = input;
+			}
+
+			return this.fingerprint;
+		}
+
+		public string? GetMemberFingerprint(Configuration.Character character)
+		{
+			if (character.CharacterName == null || character.World == null)
+				return null;
+
+			return this.GetMemberFingerprint(character.CharacterName, character.World);
+		}
+
+		public string GetMemberFingerprint(string characterName, string world)
+		{
+			if (string.IsNullOrEmpty(this.fingerprint))
+			{
+				this.GetFingerprint();
+			}
+
+			const int iterations = 1000;
+
+			string input = $"{characterName}{world}";
+			for (int i = 0; i < iterations; i++)
+			{
+				HashAlgorithm algorithm = SHA256.Create();
+				input = $"{input}{this.fingerprint}";
+				byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes(input));
+				input = BitConverter.ToString(bytes);
+				input = input.Replace("-", string.Empty, StringComparison.Ordinal);
+			}
+
+			return input;
+		}
 	}
 
 	public class Peer
@@ -104,7 +163,7 @@ public partial class Configuration : IPluginConfiguration
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 
 #if DEBUG
-				pluginVersion = "1.0.1.80";
+				pluginVersion = "Debug";
 #endif
 
 				string input = $"{this.CharacterName}{this.World}";
@@ -126,24 +185,6 @@ public partial class Configuration : IPluginConfiguration
 		public void ClearFingerprint()
 		{
 			this.fingerprint = null;
-		}
-
-		public int CompareTo(Peer other)
-		{
-			string a = this.GetFingerprint();
-			string b = other.GetFingerprint();
-
-			return a.CompareTo(b);
-		}
-
-		public override string ToString()
-		{
-#if DEBUG
-			return $"{this.CharacterName} @ {this.World} -> {this.GetFingerprint()}";
-#else
-			return this.GetFingerprint();
-#endif
-
 		}
 	}
 

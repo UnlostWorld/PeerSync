@@ -29,6 +29,7 @@ public class CharacterSync : IDisposable
 	public readonly string MemberFingerprint;
 	public readonly string Name;
 	public readonly string World;
+	public readonly string LocalFingerprint;
 
 	private readonly CancellationTokenSource tokenSource = new();
 	private readonly ConnectionManager network;
@@ -40,6 +41,12 @@ public class CharacterSync : IDisposable
 
 	public CharacterSync(ConnectionManager network, Configuration.Peer peer, ushort objectIndex)
 	{
+		if (Plugin.Instance == null)
+			throw new InvalidOperationException("Attempt to sync with plugin in invalid state");
+
+		if (Plugin.Instance.LocalCharacter == null)
+			throw new InvalidOperationException("Attempt to sync without local character");
+
 		if (peer.CharacterName == null || peer.World == null)
 			throw new InvalidOperationException("Attempt to sync with invalid peer");
 
@@ -48,18 +55,30 @@ public class CharacterSync : IDisposable
 		this.MemberFingerprint = peer.GetFingerprint();
 		this.Name = peer.CharacterName;
 		this.World = peer.World;
+		this.LocalFingerprint = Plugin.Instance.LocalCharacter.GetFingerprint();
 
 		Task.Run(this.Connect, this.tokenSource.Token);
 	}
 
 	public CharacterSync(ConnectionManager network, Configuration.Group group, string memberFingerprint, string name, string world, ushort objectIndex)
 	{
+		if (Plugin.Instance == null)
+			throw new InvalidOperationException("Attempt to sync with plugin in invalid state");
+
+		if (Plugin.Instance.LocalCharacter == null)
+			throw new InvalidOperationException("Attempt to sync without local character");
+
+		string? localFingerprint = group.GetMemberFingerprint(Plugin.Instance.LocalCharacter);
+		if (localFingerprint == null)
+			throw new Exception("failed to get local fingerprint");
+
 		this.objectIndex = objectIndex;
 		this.network = network;
 		this.GroupFingerprint = group.GetFingerprint();
 		this.MemberFingerprint = memberFingerprint;
 		this.Name = name;
 		this.World = world;
+		this.LocalFingerprint = localFingerprint;
 
 		Task.Run(this.Connect, this.tokenSource.Token);
 	}
@@ -109,11 +128,7 @@ public class CharacterSync : IDisposable
 
 	public void SendIAm()
 	{
-		string? fingerprint = Plugin.Instance?.LocalCharacter?.GetFingerprint();
-		if (fingerprint == null)
-			return;
-
-		byte[] data = Encoding.UTF8.GetBytes(fingerprint);
+		byte[] data = Encoding.UTF8.GetBytes(this.LocalFingerprint);
 		this.Send(PacketTypes.IAm, data);
 	}
 
@@ -307,7 +322,7 @@ public class CharacterSync : IDisposable
 			this.connectionAttempts++;
 			bool invertDirection = this.connectionAttempts % 2 == 0;
 
-			bool host = Plugin.Instance.LocalCharacter.GetFingerprint().CompareTo(this.MemberFingerprint) >= 0;
+			bool host = this.LocalFingerprint.CompareTo(this.MemberFingerprint) >= 0;
 
 			if (invertDirection)
 				host = !host;

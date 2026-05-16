@@ -441,7 +441,6 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndTable();
 		}
 
-#if DEBUG
 		startPos = ImGui.GetCursorPos();
 		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
 		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
@@ -460,6 +459,7 @@ public class MainWindow : Window, IDisposable
 			{
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableNextRow();
 
 				List<string> groupNames = new();
@@ -491,7 +491,6 @@ public class MainWindow : Window, IDisposable
 
 			ImGui.EndTable();
 		}
-#endif
 
 		startPos = ImGui.GetCursorPos();
 		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
@@ -505,61 +504,72 @@ public class MainWindow : Window, IDisposable
 
 		ImGui.SetCursorPos(startPos);
 
-		if (ImGui.CollapsingHeader($"Peers ({plugin.CharacterSyncCount()} / {Configuration.Current.Pairs.Count})###PeersSection"))
+		if (ImGui.CollapsingHeader($"Peers ({Configuration.Current.Pairs.Count})###PeersSection"))
 		{
-			if (ImGui.BeginTable("PeersTable", 4))
+			if (ImGui.BeginTable("PeersTable", 2))
+			{
+				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
+
+				List<string> peerNames = new();
+				Dictionary<string, Configuration.Peer> peerLookup = new();
+				foreach (Configuration.Peer peer in Configuration.Current.Pairs)
+				{
+					string compoundName = $"{peer.CharacterName} @ {peer.World}";
+
+					if (peerLookup.ContainsKey(compoundName))
+						continue;
+
+					peerNames.Add(compoundName);
+					peerLookup.Add(compoundName, peer);
+				}
+
+				peerNames.Sort();
+
+				foreach (string peerName in peerNames)
+				{
+					if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
+						continue;
+
+					this.DrawPeerEntry(peer);
+					ImGui.TableNextRow();
+				}
+
+				ImGui.EndTable();
+			}
+		}
+
+		if (ImGui.CollapsingHeader($"Connections ({plugin.CharacterSyncCount()})###SyncSection"))
+		{
+			if (ImGui.BeginTable("SyncTable", 4))
 			{
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
 				ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
 
-				List<string> peerNames = new();
-				Dictionary<string, Configuration.Peer> peerLookup = new();
-				foreach (Configuration.Peer peer in Configuration.Current.Pairs)
+				List<string> syncNames = new();
+				Dictionary<string, CharacterSync> syncLookup = new();
+				foreach ((string id, CharacterSync sync) in plugin.CharacterSyncs)
 				{
-					if (peer.CharacterName == null)
+					string compoundName = $"{sync.Name} @ {sync.World}";
+					if (syncLookup.ContainsKey(compoundName))
 						continue;
 
-					if (peerLookup.ContainsKey(peer.CharacterName))
-						continue;
-
-					peerNames.Add(peer.CharacterName);
-					peerLookup.Add(peer.CharacterName, peer);
+					syncNames.Add(compoundName);
+					syncLookup.Add(compoundName, sync);
 				}
 
-				peerNames.Sort();
+				syncNames.Sort();
 
-				// Draw synced peers first
-				foreach (string peerName in peerNames)
+				foreach (string syncName in syncNames)
 				{
-					if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
+					if (!syncLookup.TryGetValue(syncName, out CharacterSync? sync) || sync == null)
 						continue;
 
-					CharacterSync? sync = null;
-					if (peer.CharacterName != null && peer.World != null)
-						sync = Plugin.Instance?.GetCharacterSync(peer.CharacterName, peer.World);
+					List<SyncProgressBase>? progresses = plugin.GetSyncProgress(sync);
+					this.DrawSyncEntry(sync, progresses);
 
-					if (sync == null)
-						continue;
-
-					peerLookup.Remove(peerName);
-					List<SyncProgressBase>? progresses = null;
-					if (sync != null)
-						progresses = plugin.GetSyncProgress(sync);
-
-					this.DrawPeerEntry(peer, sync, progresses);
-
-					ImGui.TableNextRow();
-				}
-
-				// Draw unsynced peers last
-				foreach (string peerName in peerNames)
-				{
-					if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
-						continue;
-
-					this.DrawPeerEntry(peer, null, null);
 					ImGui.TableNextRow();
 				}
 
@@ -573,36 +583,28 @@ public class MainWindow : Window, IDisposable
 		}
 	}
 
-	private void DrawPeerEntry(Configuration.Peer peer, CharacterSync? sync, List<SyncProgressBase>? progresses)
+	private void DrawPeerEntry(Configuration.Peer peer)
 	{
+		string pId = peer.GetFingerprint();
+
 		// Tooltip
 		ImGui.TableNextColumn();
 		ImGui.Selectable(
-			$"##RowSelector{peer}",
+			$"##RowSelector{pId}",
 			false,
 			ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
 
 		if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
 			&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 		{
-			ImGui.OpenPopup($"peer_{peer}_contextMenu");
+			ImGui.OpenPopup($"peer_{pId}_contextMenu");
 		}
 
 		if (ImGui.BeginPopup(
-			$"peer_{peer}_contextMenu",
+			$"peer_{pId}_contextMenu",
 			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 		{
-			ImGui.PushID($"peer_{peer}_contextMenu");
-
-			if (sync != null)
-			{
-				if (ImGui.MenuItem("Inspect"))
-				{
-					Plugin.Instance?.InspectWindow.Show(sync);
-				}
-
-				ImGui.Separator();
-			}
+			ImGui.PushID($"peer_{pId}_contextMenu");
 
 			if (ImGui.MenuItem("Remove"))
 			{
@@ -639,21 +641,190 @@ public class MainWindow : Window, IDisposable
 			ImGui.SetWindowFontScale(1.0f);
 			ImGui.Separator();
 
-			if (sync != null)
+			ImGui.Spacing();
+
+			ImGui.TextDisabled("Right-click for more options");
+			ImGui.EndTooltip();
+		}
+
+		// Name
+		ImGui.TableNextColumn();
+		ImGui.Text($"{peer.CharacterName} @ {peer.World}");
+	}
+
+	private void DrawGroupEntry(Configuration.Group group)
+	{
+		if (group.Name == null)
+			return;
+
+		string gId = group.GetFingerprint();
+
+		// Tooltip
+		ImGui.TableNextColumn();
+		ImGui.Selectable(
+			$"##RowSelector{gId}",
+			false,
+			ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+		if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+			&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+		{
+			ImGui.OpenPopup($"group_{gId}_contextMenu");
+		}
+
+		if (ImGui.BeginPopup(
+			$"group_{gId}_contextMenu",
+			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+		{
+			ImGui.PushID($"group_{gId}_contextMenu");
+
+			if (ImGui.MenuItem("Remove"))
 			{
-				ImGuiEx.Icon(sync.CurrentStatus.GetColor(), sync.CurrentStatus.GetIcon());
+				DialogBox.Show(
+					"Confirm",
+					$"Are you sure you want to remove the group\n{group.Name}?",
+					FontAwesomeIcon.ExclamationTriangle,
+					0xFF0080FF,
+					"Remove",
+					"Cancel",
+					() =>
+					{
+						Configuration.Current.Groups.Remove(group);
+						Configuration.Current.Save();
+					});
+			}
+
+			ImGui.PopID();
+			ImGui.EndPopup();
+		}
+
+		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+		{
+			ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
+			ImGui.BeginTooltip();
+
+			ImGui.Text($"{group.Name}");
+			ImGui.Separator();
+
+			ImGui.Text("Group:");
+			ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
+			ImGui.SameLine();
+			ImGui.SetWindowFontScale(0.75f);
+			ImGui.TextColoredWrapped(0x80FFFFFF, $"{group.GetFingerprint()}");
+			ImGui.SetWindowFontScale(1.0f);
+			ImGui.Separator();
+
+			if (Plugin.Instance != null && Plugin.Instance.LocalCharacter != null)
+			{
+				ImGui.Text("You:");
+				ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
 				ImGui.SameLine();
-				ImGui.TextColoredWrapped(sync.CurrentStatus.GetColor(), sync.CurrentStatus.GetMessage());
-
-				if (sync.LastException != null)
-				{
-					ImGui.SetWindowFontScale(0.75f);
-					ImGui.TextColoredWrapped(0xFF0080FF, sync.LastException.Message);
-					ImGui.SetWindowFontScale(1.0f);
-				}
-
+				ImGui.SetWindowFontScale(0.75f);
+				ImGui.TextColoredWrapped(0x80FFFFFF, $"{group.GetMemberFingerprint(Plugin.Instance.LocalCharacter)}");
+				ImGui.SetWindowFontScale(1.0f);
 				ImGui.Separator();
 			}
+
+			ImGui.Spacing();
+
+			ImGui.TextDisabled("Right-click for more options");
+			ImGui.EndTooltip();
+		}
+
+		// Name
+		ImGui.TableNextColumn();
+		ImGui.Text($"{group.Name}");
+
+		// Count
+		ImGui.TableNextColumn();
+
+		Dictionary<string, ServerStatus?>? groupServerStatus = null;
+		Plugin.Instance?.GroupServerStatus?.TryGetValue(group.Name, out groupServerStatus);
+
+		if (groupServerStatus == null)
+		{
+			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
+		}
+		else
+		{
+			int bestCount = 0;
+			foreach ((string indexServer, ServerStatus? status) in groupServerStatus)
+			{
+				if (status?.OnlineUsers > bestCount)
+				{
+					bestCount = status.OnlineUsers;
+				}
+			}
+
+			ImGui.Text($"{bestCount}");
+		}
+	}
+
+	private void DrawSyncEntry(CharacterSync sync, List<SyncProgressBase>? progresses)
+	{
+		string sId = sync.MemberFingerprint;
+
+		// Tooltip
+		ImGui.TableNextColumn();
+		ImGui.Selectable(
+			$"##RowSelector{sId}",
+			false,
+			ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+		if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+			&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+		{
+			ImGui.OpenPopup($"peer_{sId}_contextMenu");
+		}
+
+		if (ImGui.BeginPopup(
+			$"peer_{sId}_contextMenu",
+			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+		{
+			ImGui.PushID($"peer_{sId}_contextMenu");
+
+			if (ImGui.MenuItem("Inspect"))
+			{
+				Plugin.Instance?.InspectWindow.Show(sync);
+			}
+
+			ImGui.Separator();
+
+			if (ImGui.MenuItem("Block"))
+			{
+			}
+
+			ImGui.PopID();
+			ImGui.EndPopup();
+		}
+
+		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+		{
+			ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
+			ImGui.BeginTooltip();
+
+			ImGui.Text($"{sync.Name} @ {sync.World}");
+			ImGui.Separator();
+
+			ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
+			ImGui.SameLine();
+			ImGui.SetWindowFontScale(0.75f);
+			ImGui.TextColoredWrapped(0x80FFFFFF, $"{sync.MemberFingerprint}");
+			ImGui.SetWindowFontScale(1.0f);
+			ImGui.Separator();
+
+			ImGuiEx.Icon(sync.CurrentStatus.GetColor(), sync.CurrentStatus.GetIcon());
+			ImGui.SameLine();
+			ImGui.TextColoredWrapped(sync.CurrentStatus.GetColor(), sync.CurrentStatus.GetMessage());
+
+			if (sync.LastException != null)
+			{
+				ImGui.SetWindowFontScale(0.75f);
+				ImGui.TextColoredWrapped(0xFF0080FF, sync.LastException.Message);
+				ImGui.SetWindowFontScale(1.0f);
+			}
+
+			ImGui.Separator();
 
 			if (progresses != null)
 			{
@@ -692,14 +863,7 @@ public class MainWindow : Window, IDisposable
 
 		// Name
 		ImGui.TableNextColumn();
-		if (sync != null)
-		{
-			ImGui.Text($"{peer.CharacterName} @ {peer.World}");
-		}
-		else
-		{
-			ImGui.TextDisabled($"{peer.CharacterName} @ {peer.World}");
-		}
+		ImGui.Text($"{sync.Name} @ {sync.World}");
 
 		// Progress
 		ImGui.TableNextColumn();
@@ -733,66 +897,5 @@ public class MainWindow : Window, IDisposable
 		{
 			ImGuiEx.Icon(sync.CurrentStatus.GetIcon());
 		}
-	}
-
-	private void DrawGroupEntry(Configuration.Group group)
-	{
-		// Tooltip
-		ImGui.TableNextColumn();
-		ImGui.Selectable(
-			$"##RowSelector{group}",
-			false,
-			ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
-
-		if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
-			&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-		{
-			ImGui.OpenPopup($"group_{group}_contextMenu");
-		}
-
-		if (ImGui.BeginPopup(
-			$"group_{group}_contextMenu",
-			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
-		{
-			ImGui.PushID($"group_{group}_contextMenu");
-
-			if (ImGui.MenuItem("Remove"))
-			{
-				DialogBox.Show(
-					"Confirm",
-					$"Are you sure you want to remove the group\n{group.Name}?",
-					FontAwesomeIcon.ExclamationTriangle,
-					0xFF0080FF,
-					"Remove",
-					"Cancel",
-					() =>
-					{
-						Configuration.Current.Groups.Remove(group);
-						Configuration.Current.Save();
-					});
-			}
-
-			ImGui.PopID();
-			ImGui.EndPopup();
-		}
-
-		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-		{
-			ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
-			ImGui.BeginTooltip();
-
-			ImGui.Text($"{group.Name}");
-			ImGui.Separator();
-
-			// TODO - any group info? active members? etc.
-			ImGui.Spacing();
-
-			ImGui.TextDisabled("Right-click for more options");
-			ImGui.EndTooltip();
-		}
-
-		// Name
-		ImGui.TableNextColumn();
-		ImGui.Text($"{group.Name}");
 	}
 }

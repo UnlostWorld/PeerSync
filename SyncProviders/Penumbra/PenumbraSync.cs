@@ -528,7 +528,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 	private string GetTemporaryCollectionIdentifier(CharacterSync character, ushort objectId)
 	{
-		return $"{character.Peer.GetFingerprint()}_{objectId}";
+		return $"{character.MemberFingerprint}_{objectId}";
 	}
 }
 
@@ -662,7 +662,7 @@ public class TransferGroup
 			ImGui.Text(transfer.Name);
 
 			ImGui.Text($"{(transfer.Progress * 100).ToString("F0")}%");
-			ImGui.Text($"{transfer.Character.Peer.CharacterName} @ {transfer.Character.Peer.World}");
+			ImGui.Text($"{transfer.Character.Name} @ {transfer.Character.World}");
 
 			ImGui.EndTooltip();
 		}

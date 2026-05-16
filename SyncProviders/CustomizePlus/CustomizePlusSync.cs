@@ -44,10 +44,10 @@ public class CustomizePlusSync : SyncProviderBase
 
 		if (content == null)
 		{
-			if (this.appliedProfiles.TryGetValue(character.Peer.GetFingerprint(), out Guid guid))
+			if (this.appliedProfiles.TryGetValue(character.MemberFingerprint, out Guid guid))
 			{
 				this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
-				this.appliedProfiles.Remove(character.Peer.GetFingerprint());
+				this.appliedProfiles.Remove(character.MemberFingerprint);
 			}
 
 			this.SetStatus(character, SyncProgressStatus.Empty);
@@ -58,7 +58,7 @@ public class CustomizePlusSync : SyncProviderBase
 			if (guid == null)
 				return;
 
-			this.appliedProfiles[character.Peer.GetFingerprint()] = guid.Value;
+			this.appliedProfiles[character.MemberFingerprint] = guid.Value;
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}
@@ -82,10 +82,10 @@ public class CustomizePlusSync : SyncProviderBase
 		await base.Reset(character, objectIndex);
 		await Plugin.Framework.RunOnUpdate();
 
-		if (this.appliedProfiles.TryGetValue(character.Peer.GetFingerprint(), out Guid guid))
+		if (this.appliedProfiles.TryGetValue(character.MemberFingerprint, out Guid guid))
 		{
 			this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
-			this.appliedProfiles.Remove(character.Peer.GetFingerprint());
+			this.appliedProfiles.Remove(character.MemberFingerprint);
 		}
 
 		this.SetStatus(character, SyncProgressStatus.Empty);

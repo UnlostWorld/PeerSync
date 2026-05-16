@@ -21,12 +21,15 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Newtonsoft.Json;
 using PeerSync.Network;
 using PeerSync.Online;
-using PeerSync.SyncBlockers;
 using PeerSync.SyncProviders;
 
 public class CharacterSync : IDisposable
 {
-	public readonly Configuration.Peer Peer;
+	public readonly string? GroupFingerprint;
+	public readonly string MemberFingerprint;
+	public readonly string Name;
+	public readonly string World;
+	public readonly string LocalFingerprint;
 
 	private readonly CancellationTokenSource tokenSource = new();
 	private readonly ConnectionManager network;
@@ -38,9 +41,44 @@ public class CharacterSync : IDisposable
 
 	public CharacterSync(ConnectionManager network, Configuration.Peer peer, ushort objectIndex)
 	{
+		if (Plugin.Instance == null)
+			throw new InvalidOperationException("Attempt to sync with plugin in invalid state");
+
+		if (Plugin.Instance.LocalCharacter == null)
+			throw new InvalidOperationException("Attempt to sync without local character");
+
+		if (peer.CharacterName == null || peer.World == null)
+			throw new InvalidOperationException("Attempt to sync with invalid peer");
+
 		this.objectIndex = objectIndex;
 		this.network = network;
-		this.Peer = peer;
+		this.MemberFingerprint = peer.GetFingerprint();
+		this.Name = peer.CharacterName;
+		this.World = peer.World;
+		this.LocalFingerprint = Plugin.Instance.LocalCharacter.GetFingerprint();
+
+		Task.Run(this.Connect, this.tokenSource.Token);
+	}
+
+	public CharacterSync(ConnectionManager network, Configuration.Group group, string memberFingerprint, string name, string world, ushort objectIndex)
+	{
+		if (Plugin.Instance == null)
+			throw new InvalidOperationException("Attempt to sync with plugin in invalid state");
+
+		if (Plugin.Instance.LocalCharacter == null)
+			throw new InvalidOperationException("Attempt to sync without local character");
+
+		string? localFingerprint = group.GetMemberFingerprint(Plugin.Instance.LocalCharacter);
+		if (localFingerprint == null)
+			throw new Exception("failed to get local fingerprint");
+
+		this.objectIndex = objectIndex;
+		this.network = network;
+		this.GroupFingerprint = group.GetFingerprint();
+		this.MemberFingerprint = memberFingerprint;
+		this.Name = name;
+		this.World = world;
+		this.LocalFingerprint = localFingerprint;
 
 		Task.Run(this.Connect, this.tokenSource.Token);
 	}
@@ -90,11 +128,7 @@ public class CharacterSync : IDisposable
 
 	public void SendIAm()
 	{
-		string? fingerprint = Plugin.Instance?.LocalCharacter?.GetFingerprint();
-		if (fingerprint == null)
-			return;
-
-		byte[] data = Encoding.UTF8.GetBytes(fingerprint);
+		byte[] data = Encoding.UTF8.GetBytes(this.LocalFingerprint);
 		this.Send(PacketTypes.IAm, data);
 	}
 
@@ -182,9 +216,11 @@ public class CharacterSync : IDisposable
 		if (obj is not IPlayerCharacter character)
 			return false;
 
-		if (character.Name.ToString() != this.Peer.CharacterName
-			|| character.HomeWorld.Value.Name != this.Peer.World)
+		if (character.Name.ToString() != this.Name
+			|| character.HomeWorld.Value.Name != this.World)
+		{
 			return false;
+		}
 
 		return true;
 	}
@@ -248,7 +284,8 @@ public class CharacterSync : IDisposable
 
 			this.CurrentStatus = Status.Searching;
 			GetPeer request = new();
-			request.MemberFingerprint = this.Peer.GetFingerprint();
+			request.GroupFingerprint = this.GroupFingerprint;
+			request.MemberFingerprint = this.MemberFingerprint;
 
 			GetPeer? response = null;
 			foreach (string indexServer in Configuration.Current.IndexServers)
@@ -281,15 +318,11 @@ public class CharacterSync : IDisposable
 				return;
 			}
 
-#if DEBUG
-			Plugin.Log.Info($"connecting to peer: {this.Peer.CharacterName}:  {response.LocalAddress} / {response.Address} : {response.Port}");
-#endif
-
 			// invert connection direction on each reattempt.
 			this.connectionAttempts++;
 			bool invertDirection = this.connectionAttempts % 2 == 0;
 
-			bool host = Plugin.Instance.LocalCharacter.CompareTo(this.Peer) >= 0;
+			bool host = this.LocalFingerprint.CompareTo(this.MemberFingerprint) >= 0;
 
 			if (invertDirection)
 				host = !host;
@@ -436,7 +469,10 @@ public class CharacterSync : IDisposable
 
 	private void OnDisconnected(Connection connection)
 	{
-		Plugin.Log.Information($"Connection to {this.Peer} was closed.");
+#if DEBUG
+		Plugin.Log.Information($"Connection to {this.Name} @ {this.World}  was closed.");
+#endif
+
 		this.CurrentStatus = Status.Disconnected;
 
 		this.Reset();
@@ -449,7 +485,7 @@ public class CharacterSync : IDisposable
 	private void OnIAm(Connection connection, string fingerprint)
 	{
 		// Sanity check
-		if (connection != this.connection || fingerprint != this.Peer.GetFingerprint())
+		if (connection != this.connection || fingerprint != this.MemberFingerprint)
 			return;
 
 		if (this.CurrentStatus == Status.Listening)
@@ -457,7 +493,10 @@ public class CharacterSync : IDisposable
 			this.SendIAm();
 		}
 
-		Plugin.Log.Info($"Connected to {this.Peer} at {connection.EndPoint}");
+#if DEBUG
+		Plugin.Log.Information($"Connected to {this.Name} @ {this.World} at {connection.EndPoint}");
+#endif
+
 		this.CurrentStatus = Status.Connected;
 		this.Connected?.Invoke(this);
 	}

@@ -48,6 +48,9 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	public readonly List<SyncProviderBase> SyncProviders = new();
 	public readonly Dictionary<string, ServerStatus?> IndexServersStatus = new();
+	public readonly Dictionary<string, Dictionary<string, ServerStatus?>> GroupServerStatus = new();
+	public readonly Dictionary<string, HashSet<string>> GroupMemberFingerprints = new();
+	public readonly Dictionary<string, CharacterSync> CharacterSyncs = new();
 	public readonly CharacterData LocalCharacterData = new();
 
 	public Configuration.Character? LocalCharacter;
@@ -62,7 +65,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		"/piercesink"];
 	private readonly WindowSystem windowSystem = new("PeerSync");
 	private readonly IDtrBarEntry dtrBarEntry;
-	private readonly Dictionary<string, CharacterSync> checkedCharacters = new();
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
 
 	private CancellationTokenSource tokenSource = new();
@@ -131,20 +133,20 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	public string Name => "Peer Sync";
 
-	public int CharacterSyncCount() => this.checkedCharacters.Count;
+	public int CharacterSyncCount() => this.CharacterSyncs.Count;
 
 	public CharacterSync? GetCharacterSync(string characterName, string world)
 	{
 		string compoundName = $"{characterName}@{world}";
-		if (!this.checkedCharacters.ContainsKey(compoundName))
+		if (!this.CharacterSyncs.ContainsKey(compoundName))
 			return null;
 
-		return this.checkedCharacters[compoundName];
+		return this.CharacterSyncs[compoundName];
 	}
 
 	public CharacterSync? GetCharacterSync(Connection connection)
 	{
-		foreach (CharacterSync sync in this.checkedCharacters.Values)
+		foreach (CharacterSync sync in this.CharacterSyncs.Values)
 		{
 			if (sync.Connection == connection)
 			{
@@ -157,9 +159,9 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	public CharacterSync? GetCharacterSync(string fingerprint)
 	{
-		foreach (CharacterSync sync in this.checkedCharacters.Values)
+		foreach (CharacterSync sync in this.CharacterSyncs.Values)
 		{
-			if (sync.Peer.GetFingerprint() == fingerprint)
+			if (sync.MemberFingerprint == fingerprint)
 			{
 				return sync;
 			}
@@ -206,7 +208,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		this.tokenSource.Cancel();
 
-		foreach (CharacterSync sync in this.checkedCharacters.Values)
+		foreach (CharacterSync sync in this.CharacterSyncs.Values)
 		{
 			sync.Connected -= this.OnCharacterConnected;
 			sync.Disconnected -= this.OnCharacterDisconnected;
@@ -214,7 +216,7 @@ public sealed partial class Plugin : IDalamudPlugin
 			sync.Dispose();
 		}
 
-		this.checkedCharacters.Clear();
+		this.CharacterSyncs.Clear();
 
 		lock (this.SyncProviders)
 		{
@@ -589,7 +591,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		dtrTooltipBuilder.AddText($"Peer Sync - {this.Status.GetMessage()}");
 
 		int connectedCount = 0;
-		foreach ((string fingerprint, CharacterSync character) in this.checkedCharacters)
+		foreach ((string fingerprint, CharacterSync character) in this.CharacterSyncs)
 		{
 			bool isValid = character.Update();
 			if (!isValid)
@@ -612,7 +614,7 @@ public sealed partial class Plugin : IDalamudPlugin
 			{
 				if (character.IsConnected)
 				{
-					dtrTooltipBuilder.AddText($"\n・{character.Peer.CharacterName} @ {character.Peer.World}");
+					dtrTooltipBuilder.AddText($"\n・{character.Name} @ {character.World}");
 					connectedCount++;
 				}
 			}
@@ -620,12 +622,15 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		foreach (string fingerprint in toRemove)
 		{
-			this.checkedCharacters.Remove(fingerprint);
+			this.CharacterSyncs.Remove(fingerprint);
 		}
 
 		// Find new characters
 		foreach (IBattleChara battleChara in Plugin.ObjectTable.PlayerObjects)
 		{
+			if (this.network == null)
+				continue;
+
 			if (battleChara is IPlayerCharacter character)
 			{
 				if (character == ObjectTable.LocalPlayer)
@@ -635,20 +640,35 @@ public sealed partial class Plugin : IDalamudPlugin
 				string world = character.HomeWorld.Value.Name.ToString();
 				string compoundName = $"{characterName}@{world}";
 
-				if (this.checkedCharacters.ContainsKey(compoundName))
-					continue;
+				if (!this.CharacterSyncs.ContainsKey(compoundName))
+				{
+					foreach (Configuration.Group group in Configuration.Current.Groups)
+					{
+						if (group.Name == null || !this.GroupMemberFingerprints.ContainsKey(group.Name))
+							continue;
 
-				Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
-				if (peer == null)
-					continue;
+						string memberFingerprint = group.GetMemberFingerprint(characterName, world);
+						if (this.GroupMemberFingerprints[group.Name].Contains(memberFingerprint))
+						{
+							CharacterSync sync = new(this.network, group, memberFingerprint, characterName, world, character.ObjectIndex);
+							sync.Connected += this.OnCharacterConnected;
+							sync.Disconnected += this.OnCharacterDisconnected;
+							this.CharacterSyncs.Add(compoundName, sync);
+						}
+					}
+				}
 
-				if (this.network == null)
-					continue;
-
-				CharacterSync sync = new(this.network, peer, character.ObjectIndex);
-				sync.Connected += this.OnCharacterConnected;
-				sync.Disconnected += this.OnCharacterDisconnected;
-				this.checkedCharacters.Add(compoundName, sync);
+				if (!this.CharacterSyncs.ContainsKey(compoundName))
+				{
+					Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
+					if (peer != null)
+					{
+						CharacterSync sync = new(this.network, peer, character.ObjectIndex);
+						sync.Connected += this.OnCharacterConnected;
+						sync.Disconnected += this.OnCharacterDisconnected;
+						this.CharacterSyncs.Add(compoundName, sync);
+					}
+				}
 			}
 		}
 
@@ -768,6 +788,51 @@ public sealed partial class Plugin : IDalamudPlugin
 					}
 				}
 
+				foreach (Configuration.Group group in Configuration.Current.Groups)
+				{
+					if (group.Name == null)
+						continue;
+
+					if (!this.GroupServerStatus.ContainsKey(group.Name))
+						this.GroupServerStatus.Add(group.Name, new());
+
+					SetPeer setGroupPeerRequest = new();
+					setGroupPeerRequest.GroupFingerprint = group.GetFingerprint();
+					setGroupPeerRequest.MemberFingerprint = group.GetMemberFingerprint(this.LocalCharacter);
+					setGroupPeerRequest.Port = port;
+					setGroupPeerRequest.LocalAddress = localIp?.ToString();
+
+					GetMembers getGroupMembersRequest = new();
+					getGroupMembersRequest.GroupFingerprint = group.GetFingerprint();
+
+					if (!this.GroupMemberFingerprints.ContainsKey(group.Name))
+						this.GroupMemberFingerprints[group.Name] = new();
+
+					this.GroupMemberFingerprints[group.Name].Clear();
+
+					foreach (string indexServer in Configuration.Current.IndexServers)
+					{
+						try
+						{
+							ServerStatus status = await setGroupPeerRequest.Send(indexServer);
+							this.GroupServerStatus[group.Name][indexServer] = status;
+
+							GetMembers? response = await getGroupMembersRequest.Send(indexServer);
+							if (response != null && response.Members != null)
+							{
+								foreach (string memberFingerprint in response.Members)
+								{
+									this.GroupMemberFingerprints[group.Name].Add(memberFingerprint);
+								}
+							}
+						}
+						catch (Exception)
+						{
+							continue;
+						}
+					}
+				}
+
 				if (this.Status < PluginStatus.Online)
 					this.Status = PluginStatus.Online;
 
@@ -877,7 +942,7 @@ public sealed partial class Plugin : IDalamudPlugin
 			timeSinceLastSendTimer.Restart();
 			data.CopyTo(this.LocalCharacterData);
 
-			foreach (CharacterSync sync in this.checkedCharacters.Values)
+			foreach (CharacterSync sync in this.CharacterSyncs.Values)
 			{
 				if (!sync.IsConnected)
 					continue;

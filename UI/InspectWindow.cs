@@ -42,21 +42,14 @@ public class InspectWindow : Window, IDisposable
 	public override void Draw()
 	{
 		Plugin? plugin = Plugin.Instance;
-		if (plugin == null)
+		if (plugin == null || this.character == null)
 			return;
 
-		Configuration.Peer? peer = plugin.LocalCharacter;
-		if (this.character != null)
-			peer = this.character.Peer;
-
-		if (peer == null)
-			return;
-
-		ImGui.Text($"{peer.CharacterName} @ {peer.World}");
+		ImGui.Text($"{this.character.Name} @ {this.character.World}");
 
 		ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
 		ImGui.SameLine();
-		ImGui.Text($"{peer.GetFingerprint()}");
+		ImGui.Text($"{this.character.MemberFingerprint}");
 
 		if (this.character != null)
 		{

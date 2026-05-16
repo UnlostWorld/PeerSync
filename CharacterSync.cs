@@ -437,7 +437,8 @@ public class CharacterSync : IDisposable
 					return;
 
 				this.SendIAm();
-				await Task.Delay(1000);
+				this.connectionAttempts++;
+				await Task.Delay(3000);
 			}
 		}
 		catch (TaskCanceledException)

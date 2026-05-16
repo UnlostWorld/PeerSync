@@ -846,7 +846,7 @@ public class MainWindow : Window, IDisposable
 				sync.CurrentStatus == CharacterSync.Status.Searching)
 			{
 				ImGui.SameLine();
-				ImGui.Text($"(Attempt {sync.ConnectionAttempts} of {Plugin.MaxConnectionAttempts})");
+				ImGui.Text($"({sync.ConnectionAttempts} / {Plugin.MaxConnectionAttempts})");
 			}
 
 			ImGui.Separator();

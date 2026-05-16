@@ -30,6 +30,7 @@ public class CharacterSync : IDisposable
 	public readonly string Name;
 	public readonly string World;
 	public readonly string LocalFingerprint;
+	public readonly bool IsGroup;
 
 	private readonly CancellationTokenSource tokenSource = new();
 	private readonly ConnectionManager network;

@@ -640,33 +640,50 @@ public sealed partial class Plugin : IDalamudPlugin
 				string world = character.HomeWorld.Value.Name.ToString();
 				string compoundName = $"{characterName}@{world}";
 
-				if (!this.CharacterSyncs.ContainsKey(compoundName))
-				{
-					foreach (Configuration.Group group in Configuration.Current.Groups)
-					{
-						if (group.Name == null || !this.GroupMemberFingerprints.ContainsKey(group.Name))
-							continue;
+				CharacterSync? currentSync;
+				this.CharacterSyncs.TryGetValue(compoundName, out currentSync);
 
-						string memberFingerprint = group.GetMemberFingerprint(characterName, world);
-						if (this.GroupMemberFingerprints[group.Name].Contains(memberFingerprint))
+				foreach (Configuration.Group group in Configuration.Current.Groups)
+				{
+					if (group.Name == null || !this.GroupMemberFingerprints.ContainsKey(group.Name))
+						continue;
+
+					string memberFingerprint = group.GetMemberFingerprint(characterName, world);
+					if (this.GroupMemberFingerprints[group.Name].Contains(memberFingerprint))
+					{
+						if (currentSync != null)
 						{
-							CharacterSync sync = new(this.network, group, memberFingerprint, characterName, world, character.ObjectIndex);
-							sync.Connected += this.OnCharacterConnected;
-							sync.Disconnected += this.OnCharacterDisconnected;
-							this.CharacterSyncs.Add(compoundName, sync);
+							if (currentSync.GroupFingerprint == null)
+							{
+								// This is a group member, but we have a sync for a peer, remove them
+								currentSync.Connected -= this.OnCharacterConnected;
+								currentSync.Disconnected -= this.OnCharacterDisconnected;
+								currentSync.Dispose();
+							}
+							else
+							{
+								// This is a group member, and we already have a sync for them, don't do anything
+								continue;
+							}
 						}
+
+						currentSync = new(this.network, group, memberFingerprint, characterName, world, character.ObjectIndex);
+						currentSync.Connected += this.OnCharacterConnected;
+						currentSync.Disconnected += this.OnCharacterDisconnected;
+						this.CharacterSyncs.Add(compoundName, currentSync);
 					}
 				}
 
-				if (!this.CharacterSyncs.ContainsKey(compoundName))
+				// if we still don't have a sync, check if we have a peer
+				if (currentSync == null)
 				{
 					Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
 					if (peer != null)
 					{
-						CharacterSync sync = new(this.network, peer, character.ObjectIndex);
-						sync.Connected += this.OnCharacterConnected;
-						sync.Disconnected += this.OnCharacterDisconnected;
-						this.CharacterSyncs.Add(compoundName, sync);
+						currentSync = new(this.network, peer, character.ObjectIndex);
+						currentSync.Connected += this.OnCharacterConnected;
+						currentSync.Disconnected += this.OnCharacterDisconnected;
+						this.CharacterSyncs.Add(compoundName, currentSync);
 					}
 				}
 			}

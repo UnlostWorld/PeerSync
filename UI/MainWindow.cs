@@ -706,7 +706,25 @@ public class MainWindow : Window, IDisposable
 			ImGui.Text($"{group.Name}");
 			ImGui.Separator();
 
-			// TODO - any group info? active members? etc.
+			ImGui.Text("Group:");
+			ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
+			ImGui.SameLine();
+			ImGui.SetWindowFontScale(0.75f);
+			ImGui.TextColoredWrapped(0x80FFFFFF, $"{group.GetFingerprint()}");
+			ImGui.SetWindowFontScale(1.0f);
+			ImGui.Separator();
+
+			if (Plugin.Instance != null && Plugin.Instance.LocalCharacter != null)
+			{
+				ImGui.Text("You:");
+				ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
+				ImGui.SameLine();
+				ImGui.SetWindowFontScale(0.75f);
+				ImGui.TextColoredWrapped(0x80FFFFFF, $"{group.GetMemberFingerprint(Plugin.Instance.LocalCharacter)}");
+				ImGui.SetWindowFontScale(1.0f);
+				ImGui.Separator();
+			}
+
 			ImGui.Spacing();
 
 			ImGui.TextDisabled("Right-click for more options");

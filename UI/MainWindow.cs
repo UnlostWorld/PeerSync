@@ -865,6 +865,30 @@ public class MainWindow : Window, IDisposable
 
 					foreach (SyncProgressBase progress in progresses)
 					{
+						// This user sent no date for this sync progress
+						if (progress.Status == SyncProgressStatus.Empty
+						|| progress.Status == SyncProgressStatus.None
+						|| progress.Status == SyncProgressStatus.NotApplied)
+							continue;
+
+						ImGui.TableNextColumn();
+						progress.DrawStatus();
+
+						ImGui.TableNextColumn();
+						ImGui.Text(progress.Provider.DisplayName);
+
+						ImGui.TableNextColumn();
+						progress.DrawInfo();
+
+						ImGui.TableNextRow();
+					}
+
+					foreach (SyncProgressBase progress in progresses)
+					{
+						// This user sent no date for this sync progress
+						if (progress.Status != SyncProgressStatus.NotApplied)
+							continue;
+
 						ImGui.TableNextColumn();
 						progress.DrawStatus();
 

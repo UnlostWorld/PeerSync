@@ -34,6 +34,7 @@ public partial class Configuration : IPluginConfiguration
 
 	public int Version { get; set; } = 1;
 	public List<Character> Characters { get; init; } = new();
+	public List<Group> Groups { get; init; } = new();
 	public List<Peer> Pairs { get; init; } = new();
 	public ushort Port { get; set; } = 0;
 	public ushort LastPort { get; set; } = 0;
@@ -63,6 +64,25 @@ public partial class Configuration : IPluginConfiguration
 		}
 
 		return null;
+	}
+
+	public Group? GetGroup(string groupName)
+	{
+		foreach (Group group in this.Groups)
+		{
+			if (group.Name == groupName)
+			{
+				return group;
+			}
+		}
+
+		return null;
+	}
+
+	public class Group
+	{
+		public string? Name { get; set; }
+		public string? Password { get; set; }
 	}
 
 	public class Peer

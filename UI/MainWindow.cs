@@ -444,6 +444,56 @@ public class MainWindow : Window, IDisposable
 		startPos = ImGui.GetCursorPos();
 		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
 		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
+		if (ImGui.Button("+###AddGroupButton", new Vector2(25, 0)))
+		{
+			Plugin.Instance?.AddGroupWindow.Show();
+		}
+
+		ImGui.PopStyleColor();
+
+		ImGui.SetCursorPos(startPos);
+
+		if (ImGui.CollapsingHeader($"Groups ({Configuration.Current.Groups.Count})###GroupsSection"))
+		{
+			if (ImGui.BeginTable("GroupsTable", 3))
+			{
+				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableNextRow();
+
+				List<string> groupNames = new();
+				Dictionary<string, Configuration.Group> groupLookup = new();
+				foreach (Configuration.Group group in Configuration.Current.Groups)
+				{
+					if (group.Name == null)
+						continue;
+
+					if (groupLookup.ContainsKey(group.Name))
+						continue;
+
+					groupNames.Add(group.Name);
+					groupLookup.Add(group.Name, group);
+				}
+
+				groupNames.Sort();
+
+				foreach (string groupName in groupNames)
+				{
+					if (!groupLookup.TryGetValue(groupName, out Configuration.Group? group) || group == null)
+						continue;
+
+					this.DrawGroupEntry(group);
+
+					ImGui.TableNextRow();
+				}
+			}
+
+			ImGui.EndTable();
+		}
+
+		startPos = ImGui.GetCursorPos();
+		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
+		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
 		if (ImGui.Button("+###AddPeerButton", new Vector2(25, 0)))
 		{
 			Plugin.Instance?.AddPeerWindow.Show();
@@ -681,5 +731,66 @@ public class MainWindow : Window, IDisposable
 		{
 			ImGuiEx.Icon(sync.CurrentStatus.GetIcon());
 		}
+	}
+
+	private void DrawGroupEntry(Configuration.Group group)
+	{
+		// Tooltip
+		ImGui.TableNextColumn();
+		ImGui.Selectable(
+			$"##RowSelector{group}",
+			false,
+			ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+		if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+			&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+		{
+			ImGui.OpenPopup($"group_{group}_contextMenu");
+		}
+
+		if (ImGui.BeginPopup(
+			$"group_{group}_contextMenu",
+			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+		{
+			ImGui.PushID($"group_{group}_contextMenu");
+
+			if (ImGui.MenuItem("Remove"))
+			{
+				DialogBox.Show(
+					"Confirm",
+					$"Are you sure you want to remove the group\n{group.Name}?",
+					FontAwesomeIcon.ExclamationTriangle,
+					0xFF0080FF,
+					"Remove",
+					"Cancel",
+					() =>
+					{
+						Configuration.Current.Groups.Remove(group);
+						Configuration.Current.Save();
+					});
+			}
+
+			ImGui.PopID();
+			ImGui.EndPopup();
+		}
+
+		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+		{
+			ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
+			ImGui.BeginTooltip();
+
+			ImGui.Text($"{group.Name}");
+			ImGui.Separator();
+
+			// TODO - any group info? active members? etc.
+			ImGui.Spacing();
+
+			ImGui.TextDisabled("Right-click for more options");
+			ImGui.EndTooltip();
+		}
+
+		// Name
+		ImGui.TableNextColumn();
+		ImGui.Text($"{group.Name}");
 	}
 }

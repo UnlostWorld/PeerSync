@@ -311,24 +311,26 @@ public class MainWindow : Window, IDisposable
 
 				foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
 				{
+					string cId = character.GetFingerprint();
+
 					// Tooltip
 					ImGui.TableNextColumn();
 					ImGui.Selectable(
-						$"##RowSelector{character}",
+						$"##RowSelector{cId}",
 						false,
 						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
 
 					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
 						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
-						ImGui.OpenPopup($"character_{character}_contextMenu");
+						ImGui.OpenPopup($"character_{cId}_contextMenu");
 					}
 
 					if (ImGui.BeginPopup(
-						$"character_{character}_contextMenu",
+						$"character_{cId}_contextMenu",
 						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 					{
-						ImGui.PushID($"character_{character}_contextMenu");
+						ImGui.PushID($"character_{cId}_contextMenu");
 
 						if (plugin.LocalCharacter == character)
 						{
@@ -415,7 +417,7 @@ public class MainWindow : Window, IDisposable
 					{
 						ImGui.PushItemWidth(-1);
 						ImGui.SetKeyboardFocusHere();
-						if (ImGui.InputText($"###Password{character}", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
+						if (ImGui.InputText($"###Password{cId}", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
 						{
 							character.Password = password;
 							character.ClearFingerprint();

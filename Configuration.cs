@@ -117,7 +117,7 @@ public partial class Configuration : IPluginConfiguration
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 
 #if DEBUG
-				pluginVersion = "Debug";
+				pluginVersion = "1.0.1.96";
 #endif
 
 				string input = $"{this.Name}{this.Password}";

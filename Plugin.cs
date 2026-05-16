@@ -44,6 +44,7 @@ using PeerSync.SyncBlockers;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
+	public const int MaxConnectionAttempts = 10;
 	public static readonly LightlessCommunicator Lightless = new();
 
 	public readonly List<SyncProviderBase> SyncProviders = new();
@@ -491,7 +492,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				{
 					this.Status = PluginStatus.Error_NoPort;
 					Plugin.Log.Error("Failed to open port, no NAT device found");
-					await Task.Delay(30000, this.tokenSource.Token);
+					await Task.Delay(5000, this.tokenSource.Token);
 					continue;
 				}
 			}
@@ -668,7 +669,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				{
 					// Has this connection timed out?
 					if (!this.CharacterSyncs[compoundName].IsConnected &&
-						this.CharacterSyncs[compoundName].ConnectionAttempts > 10)
+						this.CharacterSyncs[compoundName].ConnectionAttempts > MaxConnectionAttempts)
 					{
 						this.CharacterSyncs[compoundName].Dispose();
 						this.CharacterSyncs[compoundName].Connected -= this.OnCharacterConnected;

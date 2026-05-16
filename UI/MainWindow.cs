@@ -658,6 +658,7 @@ public class MainWindow : Window, IDisposable
 			return;
 
 		string gId = group.GetFingerprint();
+		GroupSync? sync = Plugin.Instance?.GetGroupSync(group);
 
 		// Tooltip
 		ImGui.TableNextColumn();
@@ -704,6 +705,7 @@ public class MainWindow : Window, IDisposable
 			ImGui.BeginTooltip();
 
 			ImGui.Text($"{group.Name}");
+
 			ImGui.Separator();
 
 			ImGui.Text("Group:");
@@ -737,8 +739,6 @@ public class MainWindow : Window, IDisposable
 
 		// Count
 		ImGui.TableNextColumn();
-
-		GroupSync? sync = Plugin.Instance?.GetGroupSync(group);
 
 		if (sync == null || sync.ServerStatus == null)
 		{
@@ -841,9 +841,12 @@ public class MainWindow : Window, IDisposable
 				ImGui.SetWindowFontScale(1.0f);
 			}
 
-			if (sync.CurrentStatus != CharacterSync.Status.Connected)
+			if (sync.CurrentStatus == CharacterSync.Status.Connecting ||
+				sync.CurrentStatus == CharacterSync.Status.Listening ||
+				sync.CurrentStatus == CharacterSync.Status.Searching)
 			{
-				ImGui.Text($"Connection Attempts: {sync.ConnectionAttempts}");
+				ImGui.SameLine();
+				ImGui.Text($"(Attempt {sync.ConnectionAttempts} of {Plugin.MaxConnectionAttempts})");
 			}
 
 			ImGui.Separator();

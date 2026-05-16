@@ -11,13 +11,16 @@ namespace PeerSync.Online;
 using System.Threading.Tasks;
 using System.Text.Json;
 using System;
+using System.Collections.Generic;
 
 public class GetPeer
 {
-	public string? Fingerprint { get; set; }
+	public string? GroupFingerprint { get; set; }
+	public string? MemberFingerprint { get; set; }
 	public string? Address { get; set; }
 	public string? LocalAddress { get; set; }
 	public ushort Port { get; set; }
+	public HashSet<string>? Members { get; set; }
 
 	public async Task<GetPeer?> Send(string indexServer)
 	{

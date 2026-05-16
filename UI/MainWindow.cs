@@ -441,6 +441,7 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndTable();
 		}
 
+#if DEBUG
 		startPos = ImGui.GetCursorPos();
 		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
 		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
@@ -490,6 +491,7 @@ public class MainWindow : Window, IDisposable
 
 			ImGui.EndTable();
 		}
+#endif
 
 		startPos = ImGui.GetCursorPos();
 		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));

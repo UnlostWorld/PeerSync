@@ -725,7 +725,7 @@ public sealed partial class Plugin : IDalamudPlugin
 					this.Status = PluginStatus.Init_Index;
 
 				SetPeer setPeerRequest = new();
-				setPeerRequest.Fingerprint = this.LocalCharacter.GetFingerprint();
+				setPeerRequest.MemberFingerprint = this.LocalCharacter.GetFingerprint();
 				setPeerRequest.Port = port;
 				setPeerRequest.LocalAddress = localIp?.ToString();
 				foreach (string indexServer in Configuration.Current.IndexServers)

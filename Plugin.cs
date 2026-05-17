@@ -721,7 +721,14 @@ public sealed partial class Plugin : IDalamudPlugin
 		sw.Restart();
 
 		SeStringBuilder dtrEntryBuilder = new();
-		dtrEntryBuilder.AddText($"\uE0BD");
+		if (this.Status != PluginStatus.Online)
+		{
+			dtrEntryBuilder.AddText($"\uE0BC");
+		}
+		else
+		{
+			dtrEntryBuilder.AddText($"\uE0BD");
+		}
 
 		if (connectedCount > 0)
 			dtrEntryBuilder.AddText($"{connectedCount}");

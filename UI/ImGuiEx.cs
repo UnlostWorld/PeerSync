@@ -49,15 +49,10 @@ public static class ImGuiEx
 		Vector2 startPos = ImGui.GetCursorPos();
 		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
 
-		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0x00000000);
-		ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0x00000000);
 		if (ImGui.Button(label))
 		{
 			expanded = !expanded;
 		}
-
-		ImGui.PopStyleColor();
-		ImGui.PopStyleColor();
 
 		float height = ImGui.GetCursorPosY() - startPos.Y;
 

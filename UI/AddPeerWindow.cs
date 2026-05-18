@@ -57,7 +57,7 @@ public class AddPeerWindow : Window, IDisposable
 
 	public override void Draw()
 	{
-		ImGui.Text("Add a new peer");
+		ImGui.Text("Add a friend");
 		ImGui.Spacing();
 
 		if (this.showNameInvalid)
@@ -79,14 +79,14 @@ public class AddPeerWindow : Window, IDisposable
 		ImGui.InputTextWithHint("###Password", "Password", ref this.password);
 
 		ImGui.SetWindowFontScale(0.9f);
-		ImGui.TextColoredWrapped(0x80FFFFFF, "You will only be unable to connect to this peer if they have also added your current character as a peer.");
+		ImGui.TextColoredWrapped(0x80FFFFFF, "You will only be unable to connect to this character if they have also added your current character as a friend.");
 		ImGui.SetWindowFontScale(1.0f);
 
 		ImGui.Spacing();
 
 		ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle, 1);
 		ImGui.SameLine();
-		ImGui.TextColoredWrapped(0xFF0080FF, "You should only add people you trust as peers.");
+		ImGui.TextColoredWrapped(0xFF0080FF, "You should only add people you trust.");
 
 		ImGui.TextColoredWrapped(0xFF0080FF, "Malicious users could sync inappropriate or unstable mods with you, causing distress or crashes.");
 

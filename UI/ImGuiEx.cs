@@ -45,7 +45,7 @@ public static class ImGuiEx
 			ImGui.SameLine();
 			ImGui.SetCursorPosX(lineStartPos.X + width);
 			ImGui.SetCursorPosY(lineStartPos.Y);
-			clicked = ImGui.Button("+", new Vector2(25, 0));
+			clicked = ImGui.Button($"+###{label}", new Vector2(25, 0));
 		}
 
 		ImGui.PopStyleColor();

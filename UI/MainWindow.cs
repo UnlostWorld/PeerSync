@@ -60,7 +60,7 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndPopup();
 		}
 
-		if (ImGuiEx.Header($"Index Servers ({Configuration.Current.IndexServers.Count})", true))
+		if (ImGuiEx.Header($"Index Servers", true))
 		{
 			ImGui.OpenPopup("AddIndexPopup");
 		}
@@ -332,6 +332,42 @@ public class MainWindow : Window, IDisposable
 
 		ImGui.EndTable();
 
+		ImGuiEx.Header($"Connections");
+		if (ImGui.BeginTable("SyncTable", 4))
+		{
+			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
+
+			List<string> syncNames = new();
+			Dictionary<string, CharacterSync> syncLookup = new();
+			foreach ((string id, CharacterSync sync) in plugin.CharacterSyncs)
+			{
+				string compoundName = $"{sync.Name} @ {sync.World}";
+				if (syncLookup.ContainsKey(compoundName))
+					continue;
+
+				syncNames.Add(compoundName);
+				syncLookup.Add(compoundName, sync);
+			}
+
+			syncNames.Sort();
+
+			foreach (string syncName in syncNames)
+			{
+				if (!syncLookup.TryGetValue(syncName, out CharacterSync? sync) || sync == null)
+					continue;
+
+				List<SyncProgressBase>? progresses = plugin.GetSyncProgress(sync);
+				this.DrawSyncEntry(sync, progresses);
+
+				ImGui.TableNextRow();
+			}
+
+			ImGui.EndTable();
+		}
+
 		if (ImGuiEx.Header($"Groups", true))
 		{
 			Plugin.Instance?.AddGroupWindow.Show();
@@ -374,90 +410,50 @@ public class MainWindow : Window, IDisposable
 
 		ImGui.EndTable();
 
-		startPos = ImGui.GetCursorPos();
-		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
-		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-		if (ImGui.Button("+###AddPeerButton", new Vector2(25, 0)))
+		if (ImGuiEx.Header($"Friends", true))
 		{
 			Plugin.Instance?.AddPeerWindow.Show();
 		}
 
-		ImGui.PopStyleColor();
-
-		ImGui.SetCursorPos(startPos);
-
-		if (ImGui.CollapsingHeader($"Peers ({Configuration.Current.Pairs.Count})###PeersSection"))
+		if (ImGui.BeginTable("PeersTable", 2))
 		{
-			if (ImGui.BeginTable("PeersTable", 2))
+			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
+
+			List<string> peerNames = new();
+			Dictionary<string, Configuration.Peer> peerLookup = new();
+			foreach (Configuration.Peer peer in Configuration.Current.Pairs)
 			{
-				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
+				string compoundName = $"{peer.CharacterName} @ {peer.World}";
 
-				List<string> peerNames = new();
-				Dictionary<string, Configuration.Peer> peerLookup = new();
-				foreach (Configuration.Peer peer in Configuration.Current.Pairs)
-				{
-					string compoundName = $"{peer.CharacterName} @ {peer.World}";
+				if (peerLookup.ContainsKey(compoundName))
+					continue;
 
-					if (peerLookup.ContainsKey(compoundName))
-						continue;
-
-					peerNames.Add(compoundName);
-					peerLookup.Add(compoundName, peer);
-				}
-
-				peerNames.Sort();
-
-				foreach (string peerName in peerNames)
-				{
-					if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
-						continue;
-
-					this.DrawPeerEntry(peer);
-					ImGui.TableNextRow();
-				}
-
-				ImGui.EndTable();
+				peerNames.Add(compoundName);
+				peerLookup.Add(compoundName, peer);
 			}
+
+			peerNames.Sort();
+
+			foreach (string peerName in peerNames)
+			{
+				if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
+					continue;
+
+				this.DrawPeerEntry(peer);
+				ImGui.TableNextRow();
+			}
+
+			ImGui.EndTable();
 		}
 
-		if (ImGui.CollapsingHeader($"Connections ({plugin.CharacterSyncCount()})###SyncSection"))
+		foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
 		{
-			if (ImGui.BeginTable("SyncTable", 4))
-			{
-				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
-
-				List<string> syncNames = new();
-				Dictionary<string, CharacterSync> syncLookup = new();
-				foreach ((string id, CharacterSync sync) in plugin.CharacterSyncs)
-				{
-					string compoundName = $"{sync.Name} @ {sync.World}";
-					if (syncLookup.ContainsKey(compoundName))
-						continue;
-
-					syncNames.Add(compoundName);
-					syncLookup.Add(compoundName, sync);
-				}
-
-				syncNames.Sort();
-
-				foreach (string syncName in syncNames)
-				{
-					if (!syncLookup.TryGetValue(syncName, out CharacterSync? sync) || sync == null)
-						continue;
-
-					List<SyncProgressBase>? progresses = plugin.GetSyncProgress(sync);
-					this.DrawSyncEntry(sync, progresses);
-
-					ImGui.TableNextRow();
-				}
-
-				ImGui.EndTable();
-			}
+			syncProvider.DrawStatus();
 		}
+
+		ImGui.Spacing();
+		ImGui.Spacing();
 
 		if (ImGui.CollapsingHeader($"Settings"))
 		{
@@ -469,11 +465,11 @@ public class MainWindow : Window, IDisposable
 			}
 
 			ImGui.LabelText("Current Port", Configuration.Current.LastPort.ToString());
-		}
 
-		foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
-		{
-			syncProvider.DrawStatus();
+			foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
+			{
+				syncProvider.DrawSettings();
+			}
 		}
 	}
 

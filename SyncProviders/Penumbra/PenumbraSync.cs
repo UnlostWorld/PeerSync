@@ -405,55 +405,48 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		this.SetStatus(character, SyncProgressStatus.Empty);
 	}
 
+	public override void DrawSettings()
+	{
+		base.DrawSettings();
+
+		int maxDownloads = Configuration.Current.MaxDownloads;
+		if (ImGui.InputInt("Download Limit###LimitDownloads", ref maxDownloads))
+		{
+			Configuration.Current.MaxDownloads = maxDownloads;
+			Configuration.Current.Save();
+
+			this.DownloadGroup.Cancel();
+			this.DownloadGroup.SetCount(maxDownloads);
+		}
+
+		int maxUploads = Configuration.Current.MaxUploads;
+		if (ImGui.InputInt("Upload Limit###LimitUploads", ref maxUploads))
+		{
+			Configuration.Current.MaxUploads = maxUploads;
+			Configuration.Current.Save();
+
+			this.UploadGroup.Cancel();
+			this.UploadGroup.SetCount(maxUploads);
+		}
+
+		this.FileCache.DrawInfo();
+		this.CharacterCache.DrawInfo();
+	}
+
 	public override void DrawStatus()
 	{
 		base.DrawStatus();
 
-		if (ImGui.CollapsingHeader($"Downloads ({this.DownloadGroup.ActiveCount} / {this.DownloadGroup.QueueCount})###DownloadsSection"))
+		if (this.DownloadGroup.ActiveCount + this.DownloadGroup.QueueCount > 0)
 		{
-			int maxDownloads = Configuration.Current.MaxDownloads;
-			if (ImGui.InputInt("Limit###LimitDownloads", ref maxDownloads))
-			{
-				Configuration.Current.MaxDownloads = maxDownloads;
-				Configuration.Current.Save();
-
-				this.DownloadGroup.Cancel();
-				this.DownloadGroup.SetCount(maxDownloads);
-			}
-
+			ImGuiEx.Header("Downloads");
 			this.DownloadGroup.DrawStatus("DownloadTable");
 		}
 
-		if (ImGui.CollapsingHeader($"Uploads ({this.UploadGroup.ActiveCount} / {this.UploadGroup.QueueCount})###UploadsSection"))
+		if (this.UploadGroup.ActiveCount + this.UploadGroup.QueueCount > 0)
 		{
-			int maxUploads = Configuration.Current.MaxUploads;
-			if (ImGui.InputInt("Limit###LimitUploads", ref maxUploads))
-			{
-				Configuration.Current.MaxUploads = maxUploads;
-				Configuration.Current.Save();
-
-				this.UploadGroup.Cancel();
-				this.UploadGroup.SetCount(maxUploads);
-			}
-
+			ImGuiEx.Header("Uploads");
 			this.UploadGroup.DrawStatus("UploadTable");
-		}
-
-		bool open = ImGui.CollapsingHeader("###cacheSection");
-		ImGui.SameLine();
-
-		if (!this.FileCache.IsValid())
-		{
-			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-			ImGui.SameLine();
-		}
-
-		ImGui.Text($"Cache ({this.FileCache.GetSizeString()})");
-
-		if (open)
-		{
-			this.FileCache.DrawInfo();
-			this.CharacterCache.DrawInfo();
 		}
 	}
 
@@ -616,9 +609,10 @@ public class TransferGroup
 	{
 		if (ImGui.BeginTable(label, 3))
 		{
-			ImGui.TableSetupColumn($"###{label}Name", ImGuiTableColumnFlags.WidthStretch);
-			ImGui.TableSetupColumn($"###{label}Progress", ImGuiTableColumnFlags.WidthFixed);
-			ImGui.TableSetupColumn($"###{label}Hover", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn($"{label}Hover", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn($"{label}Name", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn($"{label}Progress", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableNextRow();
 
 			int rowIndex = 0;
 			foreach (FileTransfer transfer in this.active)
@@ -628,6 +622,20 @@ public class TransferGroup
 				ImGui.TableNextRow();
 			}
 
+			ImGui.EndTable();
+		}
+
+		ImGui.Indent();
+		ImGui.Selectable(
+			$"+ {this.QueueCount} Queued",
+			false,
+			ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+		ImGui.Unindent();
+
+		/*if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+		{
+			ImGui.BeginTooltip();
+
 			foreach (FileTransfer transfer in this.pending)
 			{
 				rowIndex++;
@@ -635,20 +643,13 @@ public class TransferGroup
 				ImGui.TableNextRow();
 			}
 
-			ImGui.EndTable();
-		}
+			ImGui.EndTooltip();
+		}*/
 	}
 
 	private void DrawTransferRow(FileTransfer transfer, int rowIndex)
 	{
-		ImGui.TableNextColumn();
-		ImGui.Text(transfer.Name);
-
-		ImGui.TableNextColumn();
-
-		if (transfer.Progress > 0 && transfer.Progress < 1)
-			ImGuiEx.ThinProgressBar(transfer.Progress);
-
+		// Tooltip
 		ImGui.TableNextColumn();
 		ImGui.Selectable(
 			$"##TransferProgressRowSelector{rowIndex}",
@@ -665,6 +666,16 @@ public class TransferGroup
 			ImGui.Text($"{transfer.Character.Name} @ {transfer.Character.World}");
 
 			ImGui.EndTooltip();
+		}
+
+		ImGui.TableNextColumn();
+		ImGui.Text(transfer.Name);
+
+		ImGui.TableNextColumn();
+
+		if (transfer.Progress > 0 && transfer.Progress < 1)
+		{
+			ImGuiEx.ThinProgressBar(transfer.Progress);
 		}
 	}
 

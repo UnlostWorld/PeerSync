@@ -46,81 +46,6 @@ public class MainWindow : Window, IDisposable
 		if (plugin == null)
 			return;
 
-		if (ImGui.BeginTable("StatusTable", 3))
-		{
-			ImGui.TableSetupColumn("Icon", ImGuiTableColumnFlags.WidthFixed, 20);
-			ImGui.TableSetupColumn("Text", ImGuiTableColumnFlags.WidthStretch);
-			ImGui.TableSetupColumn("Button", ImGuiTableColumnFlags.WidthFixed);
-			ImGui.TableNextRow();
-
-			ImGui.TableNextColumn();
-			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 5);
-			ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 6);
-			ImGuiEx.Icon(plugin.Status.GetIcon());
-			ImGui.TableNextColumn();
-			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 7);
-			ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 3);
-			ImGui.Text(plugin.Status.GetMessage());
-			ImGui.TableNextColumn();
-
-			if (plugin.Status == PluginStatus.Online)
-			{
-				ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-				ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
-				ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(12, 6));
-				ImGui.PushStyleColor(ImGuiCol.Border, 0xFF000080);
-				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xFF000080);
-				if (ImGui.Button("Stop"))
-				{
-					plugin.Stop();
-				}
-
-				ImGui.PopStyleColor();
-				ImGui.PopStyleColor();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleColor();
-			}
-			else if (plugin.Status == PluginStatus.Shutdown)
-			{
-				ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-				ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
-				ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(12, 6));
-				ImGui.PushStyleColor(ImGuiCol.Border, 0xFF004000);
-				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xFF004000);
-				if (ImGui.Button("Start"))
-				{
-					plugin.Start();
-				}
-
-				ImGui.PopStyleColor();
-				ImGui.PopStyleColor();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleColor();
-			}
-			else
-			{
-				ImGui.BeginDisabled();
-				ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-				ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
-				ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(12, 6));
-				ImGui.PushStyleColor(ImGuiCol.Border, 0xFF808080);
-				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xFF808080);
-				ImGui.Button("Wait...");
-				ImGui.PopStyleColor();
-				ImGui.PopStyleColor();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleColor();
-				ImGui.EndDisabled();
-			}
-
-			ImGui.EndTable();
-		}
-
-		ImGui.Spacing();
-
 		if (ImGui.CollapsingHeader($"Settings"))
 		{
 			int port = Configuration.Current.Port;
@@ -186,7 +111,7 @@ public class MainWindow : Window, IDisposable
 					ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 					ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
 					ImGui.TableSetupColumn("Users", ImGuiTableColumnFlags.WidthFixed);
-					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
 					ImGui.TableNextRow();
 
 					HashSet<string> servers = new(Configuration.Current.IndexServers);
@@ -241,13 +166,7 @@ public class MainWindow : Window, IDisposable
 							ImGui.TextWrapped($"{indexServer}");
 							ImGui.Separator();
 
-							if (serverStatus == null)
-							{
-								ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
-								ImGui.SameLine();
-								ImGui.Text("Offline");
-							}
-							else
+							if (serverStatus != null)
 							{
 								ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 								ImGui.SameLine();
@@ -282,14 +201,8 @@ public class MainWindow : Window, IDisposable
 							indexServerName = indexServerName.Replace("www.", string.Empty);
 							indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
 							ImGui.Text(indexServerName);
-
-							// Users
 							ImGui.TableNextColumn();
-							ImGui.Text("-");
-
-							// Status
 							ImGui.TableNextColumn();
-							ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
 						}
 
 						ImGui.TableNextRow();
@@ -302,11 +215,12 @@ public class MainWindow : Window, IDisposable
 
 		if (ImGui.CollapsingHeader($"Characters ({Configuration.Current.Characters.Count})###CharactersSection", ImGuiTreeNodeFlags.Framed))
 		{
-			if (ImGui.BeginTable("CharactersTable", 3))
+			if (ImGui.BeginTable("CharactersTable", 4))
 			{
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Password", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
 				ImGui.TableNextRow();
 
 				foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
@@ -436,6 +350,12 @@ public class MainWindow : Window, IDisposable
 						ImGui.EndDisabled();
 					}
 
+					ImGui.TableNextColumn();
+					if (plugin.LocalCharacter == character)
+					{
+						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+					}
+
 					ImGui.TableNextRow();
 				}
 			}
@@ -457,11 +377,12 @@ public class MainWindow : Window, IDisposable
 
 		if (ImGui.CollapsingHeader($"Groups ({Configuration.Current.Groups.Count})###GroupsSection"))
 		{
-			if (ImGui.BeginTable("GroupsTable", 3))
+			if (ImGui.BeginTable("GroupsTable", 4))
 			{
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Count", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
 				ImGui.TableNextRow();
 
 				List<string> groupNames = new();
@@ -548,7 +469,7 @@ public class MainWindow : Window, IDisposable
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
 				ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
 
 				List<string> syncNames = new();
 				Dictionary<string, CharacterSync> syncLookup = new();
@@ -742,11 +663,7 @@ public class MainWindow : Window, IDisposable
 		// Count
 		ImGui.TableNextColumn();
 
-		if (sync == null || sync.ServerStatus == null)
-		{
-			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
-		}
-		else
+		if (sync != null && sync.ServerStatus != null)
 		{
 			int bestCount = 0;
 			foreach ((string indexServer, ServerStatus? status) in sync.ServerStatus)
@@ -758,6 +675,14 @@ public class MainWindow : Window, IDisposable
 			}
 
 			ImGui.Text($"{bestCount}");
+		}
+
+		// Status
+		ImGui.TableNextColumn();
+
+		if (sync != null && sync.ServerStatus != null)
+		{
+			ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 		}
 	}
 

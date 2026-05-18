@@ -54,7 +54,6 @@ public sealed partial class Plugin : IDalamudPlugin
 	public readonly CharacterData LocalCharacterData = new();
 
 	public Configuration.Character? LocalCharacter;
-	public PluginStatus Status;
 
 	private const long ForceSendDataMs = 10000;
 	private readonly string[] commandNames = [
@@ -66,9 +65,9 @@ public sealed partial class Plugin : IDalamudPlugin
 	private readonly WindowSystem windowSystem = new("PeerSync");
 	private readonly IDtrBarEntry dtrBarEntry;
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
-
-	private CancellationTokenSource tokenSource = new();
+	private readonly CancellationTokenSource tokenSource = new();
 	private ConnectionManager? network;
+	private bool isInitialized = false;
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
@@ -98,7 +97,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		this.dtrBarEntry = DtrBar.Get("Peer Sync");
 		this.dtrBarEntry.Text = SeStringUtils.ToSeString("\uE0BC");
-		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync - {this.Status.GetMessage()}");
+		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync");
 		this.dtrBarEntry.OnClick = this.OnDtrClicked;
 
 		Instance = this;
@@ -108,7 +107,29 @@ public sealed partial class Plugin : IDalamudPlugin
 		PluginInterface.UiBuilder.Draw += this.OnDalamudDrawUI;
 		PluginInterface.UiBuilder.OpenMainUi += this.OnDalamudOpenMainUi;
 
-		this.Start();
+		this.tokenSource = new();
+
+		lock (this.SyncProviders)
+		{
+			this.SyncProviders.Clear();
+			this.SyncProviders.Add(new CustomizePlusSync());
+			this.SyncProviders.Add(new MoodlesSync());
+			this.SyncProviders.Add(new HonorificSync());
+			this.SyncProviders.Add(new GlamourerSync());
+			this.SyncProviders.Add(new PenumbraSync());
+			this.SyncProviders.Add(new PetNamesSync());
+			this.SyncProviders.Add(new SimpleHeelsSync());
+		}
+
+		Task.Run(this.InitializeAsync, this.tokenSource.Token);
+
+		foreach (SyncProviderBase provider in this.SyncProviders)
+		{
+			this.providerLookup.Add(provider.Key, provider);
+		}
+
+		this.network = new();
+		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
 	}
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
@@ -221,15 +242,8 @@ public sealed partial class Plugin : IDalamudPlugin
 		this.CharacterSyncs.Remove(compoundName);
 	}
 
-	public void Stop()
+	public void Dispose()
 	{
-		if (this.Status != PluginStatus.Shutdown)
-			this.Status = PluginStatus.ShutdownRequested;
-
-		SeStringBuilder dtrEntryBuilder = new();
-		dtrEntryBuilder.AddText($"\uE0BC");
-		this.dtrBarEntry.Text = dtrEntryBuilder.Build();
-
 		this.tokenSource.Cancel();
 
 		foreach (CharacterSync sync in this.CharacterSyncs.Values)
@@ -262,38 +276,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		}
 
 		this.IndexServersStatus.Clear();
-	}
-
-	public void Start()
-	{
-		this.tokenSource = new();
-
-		lock (this.SyncProviders)
-		{
-			this.SyncProviders.Clear();
-			this.SyncProviders.Add(new CustomizePlusSync());
-			this.SyncProviders.Add(new MoodlesSync());
-			this.SyncProviders.Add(new HonorificSync());
-			this.SyncProviders.Add(new GlamourerSync());
-			this.SyncProviders.Add(new PenumbraSync());
-			this.SyncProviders.Add(new PetNamesSync());
-			this.SyncProviders.Add(new SimpleHeelsSync());
-		}
-
-		Task.Run(this.InitializeAsync, this.tokenSource.Token);
-
-		foreach (SyncProviderBase provider in this.SyncProviders)
-		{
-			this.providerLookup.Add(provider.Key, provider);
-		}
-
-		this.network = new();
-		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
-	}
-
-	public void Dispose()
-	{
-		this.Stop();
 
 		foreach (string str in this.commandNames)
 		{
@@ -378,95 +360,16 @@ public sealed partial class Plugin : IDalamudPlugin
 		sync.Reset();
 	}
 
-	private async Task<Configuration.Character> GetLocalCharacter(CancellationToken token)
-	{
-		if (this.Status < PluginStatus.Init_Character)
-			this.Status = PluginStatus.Init_Character;
-
-		while (true)
-		{
-			try
-			{
-				await Framework.Delay(500);
-				token.ThrowIfCancellationRequested();
-
-				if (Plugin.Condition[ConditionFlag.BetweenAreas]
-				|| Plugin.Condition[ConditionFlag.BetweenAreas51]
-				|| Plugin.Condition[ConditionFlag.LoggingOut])
-				{
-					this.Status = PluginStatus.Init_Character;
-					continue;
-				}
-
-				if (!ClientState.IsLoggedIn)
-				{
-					this.Status = PluginStatus.Init_Character;
-					continue;
-				}
-
-				IPlayerCharacter? player = ObjectTable.LocalPlayer;
-				if (player == null)
-				{
-					this.Status = PluginStatus.Init_Character;
-					continue;
-				}
-
-				string characterName = player.Name.ToString();
-				string world = player.HomeWorld.Value.Name.ToString();
-
-				foreach (Configuration.Character character in Configuration.Current.Characters)
-				{
-					if (character.CharacterName == characterName && character.World == world)
-					{
-						if (string.IsNullOrEmpty(character.Password))
-						{
-							this.Status = PluginStatus.Error_NoPassword;
-							await Task.Delay(3000);
-							continue;
-						}
-
-						return character;
-					}
-				}
-
-				Configuration.Character newCharacter = new();
-				newCharacter.CharacterName = characterName;
-				newCharacter.World = world;
-				newCharacter.GeneratePassword();
-				Configuration.Current.Characters.Add(newCharacter);
-				Configuration.Current.Save();
-			}
-			catch (OperationCanceledException)
-			{
-				throw;
-			}
-			catch (Exception ex)
-			{
-				this.Status = PluginStatus.Error_NoCharacter;
-				Plugin.Log.Error(ex, $"Failed to get current character");
-				await Task.Delay(3000);
-			}
-		}
-	}
-
 	private async Task InitializeAsync()
 	{
 		if (this.tokenSource.IsCancellationRequested)
 			return;
-
-		while (Configuration.Current.IndexServers.Count <= 0)
-		{
-			this.Status = PluginStatus.Error_NoIndexServer;
-			await Task.Delay(5000);
-		}
 
 		// Open port
 		ushort port = 0;
 		bool isCustomPort = Configuration.Current.Port != 0;
 		while (!this.tokenSource.IsCancellationRequested && port == 0)
 		{
-			this.Status = PluginStatus.Init_OpenPort;
-
 			port = Configuration.Current.Port;
 
 			if (port <= 0)
@@ -490,7 +393,6 @@ public sealed partial class Plugin : IDalamudPlugin
 			{
 				if (!isCustomPort)
 				{
-					this.Status = PluginStatus.Error_NoPort;
 					Plugin.Log.Error("Failed to open port, no NAT device found");
 					await Task.Delay(5000, this.tokenSource.Token);
 					continue;
@@ -503,7 +405,6 @@ public sealed partial class Plugin : IDalamudPlugin
 				// done th port forwarding themselves.
 				if (!isCustomPort)
 				{
-					this.Status = PluginStatus.Error_NoPort;
 					Plugin.Log.Error(ex, "Failed to open port");
 					port = 0;
 					Configuration.Current.LastPort = 0;
@@ -524,7 +425,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		}
 
 		// Setup TCP listen
-		this.Status = PluginStatus.Init_Listen;
 		try
 		{
 			if (this.network == null)
@@ -536,7 +436,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		catch (Exception ex)
 		{
 			Plugin.Log.Error(ex, "Error listening for connections");
-			this.Status = PluginStatus.Error_CantListen;
 			return;
 		}
 
@@ -585,25 +484,24 @@ public sealed partial class Plugin : IDalamudPlugin
 		Task updateIndexTask = Task.Run(async () => await this.UpdateIndex(port, localIp));
 		Task updateDataTask = Task.Run(this.UpdateData);
 
+		this.isInitialized = true;
+
 		await updateDataTask;
 		await updateIndexTask;
-
-		this.Status = PluginStatus.Shutdown;
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)
 	{
-		if (Plugin.Condition[ConditionFlag.BetweenAreas]
-				|| Plugin.Condition[ConditionFlag.BetweenAreas51]
-				|| Plugin.Condition[ConditionFlag.LoggingOut])
+		if (!this.isInitialized)
+			return;
+
+		Configuration.Character? localCharacter = this.UpdateLocalCharacter();
+		if (this.LocalCharacter != localCharacter)
 		{
-			this.LocalCharacter = null;
-			this.Status = PluginStatus.Init_Character;
+			this.LocalCharacter = localCharacter;
 		}
 
-		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync - {this.Status.GetMessage()}");
-
-		if (this.Status != PluginStatus.Online)
+		if (this.LocalCharacter == null)
 			return;
 
 		Stopwatch sw = new();
@@ -612,7 +510,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		// Update characters, remove missing characters
 		HashSet<string> toRemove = new();
 		SeStringBuilder dtrTooltipBuilder = new();
-		dtrTooltipBuilder.AddText($"Peer Sync - {this.Status.GetMessage()}");
+		dtrTooltipBuilder.AddText($"Peer Sync");
 
 		int connectedCount = 0;
 		foreach ((string fingerprint, CharacterSync character) in this.CharacterSyncs)
@@ -721,14 +619,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		sw.Restart();
 
 		SeStringBuilder dtrEntryBuilder = new();
-		if (this.Status != PluginStatus.Online)
-		{
-			dtrEntryBuilder.AddText($"\uE0BC");
-		}
-		else
-		{
-			dtrEntryBuilder.AddText($"\uE0BD");
-		}
+		dtrEntryBuilder.AddText($"\uE0BD");
 
 		if (connectedCount > 0)
 			dtrEntryBuilder.AddText($"{connectedCount}");
@@ -749,6 +640,55 @@ public sealed partial class Plugin : IDalamudPlugin
 		{
 			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to update dtr bar");
 		}
+	}
+
+	private Configuration.Character? UpdateLocalCharacter()
+	{
+		if (Plugin.Condition[ConditionFlag.BetweenAreas]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas51]
+			|| Plugin.Condition[ConditionFlag.LoggingOut])
+		{
+			return null;
+		}
+
+		if (!ClientState.IsLoggedIn)
+		{
+			return null;
+		}
+
+		IPlayerCharacter? player = ObjectTable.LocalPlayer;
+		if (player == null)
+		{
+			return null;
+		}
+
+		string characterName = player.Name.ToString();
+		string world = player.HomeWorld.Value.Name.ToString();
+
+		if (this.LocalCharacter != null)
+		{
+			if (this.LocalCharacter.CharacterName == characterName
+				&& this.LocalCharacter.World == world)
+			{
+				return this.LocalCharacter;
+			}
+		}
+
+		foreach (Configuration.Character character in Configuration.Current.Characters)
+		{
+			if (character.CharacterName == characterName && character.World == world)
+			{
+				return character;
+			}
+		}
+
+		Configuration.Character newCharacter = new();
+		newCharacter.CharacterName = characterName;
+		newCharacter.World = world;
+		newCharacter.GeneratePassword();
+		Configuration.Current.Characters.Add(newCharacter);
+		Configuration.Current.Save();
+		return newCharacter;
 	}
 
 	private void OnCharacterConnected(CharacterSync character)
@@ -786,19 +726,15 @@ public sealed partial class Plugin : IDalamudPlugin
 	{
 		while (!this.tokenSource.IsCancellationRequested)
 		{
-			Configuration.Character newCharacter = await this.GetLocalCharacter(this.tokenSource.Token);
-			if (newCharacter != this.LocalCharacter)
-			{
-				this.LocalCharacter = newCharacter;
-			}
+			await Task.Delay(500);
 
 			if (this.tokenSource.IsCancellationRequested)
 				return;
 
 			try
 			{
-				if (this.Status < PluginStatus.Init_Index)
-					this.Status = PluginStatus.Init_Index;
+				if (this.LocalCharacter == null)
+					continue;
 
 				SetPeer setPeerRequest = new();
 				setPeerRequest.MemberFingerprint = this.LocalCharacter.GetFingerprint();
@@ -891,16 +827,7 @@ public sealed partial class Plugin : IDalamudPlugin
 					}
 				}
 
-				if (this.Status < PluginStatus.Online)
-					this.Status = PluginStatus.Online;
-
-				for (int i = 30; i > 0; i--)
-				{
-					if (this.LocalCharacter == null)
-						continue;
-
-					await Task.Delay(1000, this.tokenSource.Token);
-				}
+				await Task.Delay(20000);
 			}
 			catch (TaskCanceledException)
 			{
@@ -908,7 +835,6 @@ public sealed partial class Plugin : IDalamudPlugin
 			}
 			catch (Exception ex)
 			{
-				this.Status = PluginStatus.Error_Index;
 				Plugin.Log.Error(ex, $"Error updating index server status");
 				return;
 			}

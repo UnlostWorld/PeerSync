@@ -24,8 +24,8 @@ public class MainWindow : Window, IDisposable
 
 	private bool expandedIndex = true;
 	private bool expandedCharacters = false;
-	private bool expandedConnections = false;
-	private bool expandedGroups = false;
+	private bool expandedConnections = true;
+	private bool expandedGroups = true;
 	private bool expandedFriends = false;
 
 	public MainWindow()

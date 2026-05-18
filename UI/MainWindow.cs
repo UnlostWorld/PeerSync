@@ -415,36 +415,45 @@ public class MainWindow : Window, IDisposable
 			Plugin.Instance?.AddPeerWindow.Show();
 		}
 
-		if (ImGui.BeginTable("PeersTable", 2))
+		if (Configuration.Current.Pairs.Count <= 0)
 		{
-			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-			ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
-
-			List<string> peerNames = new();
-			Dictionary<string, Configuration.Peer> peerLookup = new();
-			foreach (Configuration.Peer peer in Configuration.Current.Pairs)
+			ImGui.Indent();
+			ImGuiEx.Icon(FontAwesomeIcon.SadCry, 1.0f);
+			ImGui.Unindent();
+		}
+		else
+		{
+			if (ImGui.BeginTable("PeersTable", 2))
 			{
-				string compoundName = $"{peer.CharacterName} @ {peer.World}";
+				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
 
-				if (peerLookup.ContainsKey(compoundName))
-					continue;
+				List<string> peerNames = new();
+				Dictionary<string, Configuration.Peer> peerLookup = new();
+				foreach (Configuration.Peer peer in Configuration.Current.Pairs)
+				{
+					string compoundName = $"{peer.CharacterName} @ {peer.World}";
 
-				peerNames.Add(compoundName);
-				peerLookup.Add(compoundName, peer);
+					if (peerLookup.ContainsKey(compoundName))
+						continue;
+
+					peerNames.Add(compoundName);
+					peerLookup.Add(compoundName, peer);
+				}
+
+				peerNames.Sort();
+
+				foreach (string peerName in peerNames)
+				{
+					if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
+						continue;
+
+					this.DrawPeerEntry(peer);
+					ImGui.TableNextRow();
+				}
+
+				ImGui.EndTable();
 			}
-
-			peerNames.Sort();
-
-			foreach (string peerName in peerNames)
-			{
-				if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
-					continue;
-
-				this.DrawPeerEntry(peer);
-				ImGui.TableNextRow();
-			}
-
-			ImGui.EndTable();
 		}
 
 		foreach (SyncProviderBase syncProvider in plugin.SyncProviders)

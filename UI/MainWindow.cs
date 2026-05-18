@@ -22,6 +22,12 @@ public class MainWindow : Window, IDisposable
 {
 	private Configuration.Character? editingCharacterPassword = null;
 
+	private bool expandedIndex = true;
+	private bool expandedCharacters = false;
+	private bool expandedConnections = true;
+	private bool expandedGroups = true;
+	private bool expandedFriends = false;
+
 	public MainWindow()
 #if DEBUG
 		: base($"Peer Sync - Debug##PeerSyncMainWindow")
@@ -60,7 +66,9 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndPopup();
 		}
 
-		if (ImGuiEx.Header($"Index Servers", true))
+		bool addIndex;
+		ImGuiEx.Header(ref this.expandedIndex, $"Index Servers", out addIndex);
+		if (addIndex)
 		{
 			ImGui.OpenPopup("AddIndexPopup");
 		}
@@ -183,8 +191,7 @@ public class MainWindow : Window, IDisposable
 			}
 		}
 
-		ImGuiEx.Header($"Characters");
-
+		ImGuiEx.Header(ref this.expandedCharacters, $"Characters");
 		if (ImGui.BeginTable("CharactersTable", 4))
 		{
 			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
@@ -193,146 +200,35 @@ public class MainWindow : Window, IDisposable
 			ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
 			ImGui.TableNextRow();
 
+			// Draw current character first
 			foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
 			{
-				string cId = character.GetFingerprint();
-
-				// Tooltip
-				ImGui.TableNextColumn();
-				ImGui.Selectable(
-					$"##RowSelector{cId}",
-					false,
-					ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
-
-				if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
-					&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+				if (plugin.LocalCharacter != character)
 				{
-					ImGui.OpenPopup($"character_{cId}_contextMenu");
+					continue;
 				}
 
-				if (ImGui.BeginPopup(
-					$"character_{cId}_contextMenu",
-					ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
-				{
-					ImGui.PushID($"character_{cId}_contextMenu");
+				this.DrawCharacterEntry(character);
+			}
 
+			if (this.expandedCharacters)
+			{
+				// Draw everyone else
+				foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
+				{
 					if (plugin.LocalCharacter == character)
 					{
-						if (ImGui.MenuItem("Inspect"))
-						{
-							Plugin.Instance?.InspectWindow.Show();
-						}
-
-						ImGui.Separator();
+						continue;
 					}
 
-					if (ImGui.MenuItem("Remove"))
-					{
-						DialogBox.Show(
-							"Confirm",
-							$"Are you sure you want to remove the character\n{character.CharacterName} @ {character.World} ?",
-							FontAwesomeIcon.ExclamationTriangle,
-							0xFF0080FF,
-							"Remove",
-							"Cancel",
-							() =>
-							{
-								Configuration.Current.Characters.Remove(character);
-								Configuration.Current.Save();
-							});
-					}
-
-					if (ImGui.MenuItem("Copy Password"))
-					{
-						ImGui.SetClipboardText(character.Password ?? string.Empty);
-					}
-
-					if (ImGui.MenuItem("Edit Password"))
-					{
-						this.editingCharacterPassword = character;
-					}
-
-					if (ImGui.MenuItem("Randomize Password"))
-					{
-						character.GeneratePassword();
-						Configuration.Current.Save();
-					}
-
-					ImGui.PopID();
-					ImGui.EndPopup();
+					this.DrawCharacterEntry(character);
 				}
-
-				if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-				{
-					ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
-					ImGui.BeginTooltip();
-
-					ImGui.Text($"{character.CharacterName} @ {character.World}");
-					ImGui.Separator();
-
-					ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
-					ImGui.SameLine();
-					ImGui.SetWindowFontScale(0.75f);
-					ImGui.TextColoredWrapped(0x80FFFFFF, $"{character.GetFingerprint()}");
-					ImGui.SetWindowFontScale(1.0f);
-					ImGui.Separator();
-
-					ImGui.TextWrapped("Peers can only connect to this character if they have this password. It is safe to give this password to people you trust and want to connect with.");
-
-					ImGui.Spacing();
-
-					ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-					ImGui.SameLine();
-					ImGui.TextColoredWrapped(0xFF0080FF, "Changing this password will break any connections to this character, Peers will be unable to sync with this character until they receive the updated password.");
-
-					ImGui.Spacing();
-
-					ImGui.TextDisabled("Right-click for more options");
-					ImGui.EndTooltip();
-				}
-
-				ImGui.TableNextColumn();
-				ImGui.Text($"{character.CharacterName} @ {character.World}");
-
-				ImGui.TableNextColumn();
-				string password = character.Password ?? string.Empty;
-
-				if (this.editingCharacterPassword == character)
-				{
-					ImGui.PushItemWidth(-1);
-					ImGui.SetKeyboardFocusHere();
-					if (ImGui.InputText($"###Password{cId}", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
-					{
-						character.Password = password;
-						character.ClearFingerprint();
-						Configuration.Current.Save();
-						this.editingCharacterPassword = null;
-					}
-
-					ImGui.PopItemWidth();
-				}
-				else
-				{
-					ImGui.BeginDisabled();
-					ImGui.PushItemWidth(-1);
-					ImGui.InputText("###Password{character}", ref password);
-					ImGui.PopItemWidth();
-					ImGui.EndDisabled();
-				}
-
-				ImGui.TableNextColumn();
-				if (plugin.LocalCharacter == character)
-				{
-					ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-				}
-
-				ImGui.TableNextRow();
 			}
 		}
 
 		ImGui.EndTable();
 
-		ImGuiEx.Header($"Connections");
+		ImGuiEx.Header(ref this.expandedConnections, $"Connections");
 		if (ImGui.BeginTable("SyncTable", 4))
 		{
 			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
@@ -368,7 +264,9 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndTable();
 		}
 
-		if (ImGuiEx.Header($"Groups", true))
+		bool addGroup;
+		ImGuiEx.Header(ref this.expandedGroups, $"Groups", out addGroup);
+		if (addGroup)
 		{
 			Plugin.Instance?.AddGroupWindow.Show();
 		}
@@ -410,49 +308,54 @@ public class MainWindow : Window, IDisposable
 
 		ImGui.EndTable();
 
-		if (ImGuiEx.Header($"Friends", true))
+		bool addFriend;
+		ImGuiEx.Header(ref this.expandedFriends, $"Friends", out addFriend);
+		if (addFriend)
 		{
 			Plugin.Instance?.AddPeerWindow.Show();
 		}
 
-		if (Configuration.Current.Pairs.Count <= 0)
+		if (this.expandedFriends)
 		{
-			ImGui.Indent();
-			ImGuiEx.Icon(FontAwesomeIcon.SadCry, 1.0f);
-			ImGui.Unindent();
-		}
-		else
-		{
-			if (ImGui.BeginTable("PeersTable", 2))
+			if (Configuration.Current.Pairs.Count <= 0)
 			{
-				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
-
-				List<string> peerNames = new();
-				Dictionary<string, Configuration.Peer> peerLookup = new();
-				foreach (Configuration.Peer peer in Configuration.Current.Pairs)
+				ImGui.Indent();
+				ImGuiEx.Icon(FontAwesomeIcon.SadCry, 1.0f);
+				ImGui.Unindent();
+			}
+			else
+			{
+				if (ImGui.BeginTable("PeersTable", 2))
 				{
-					string compoundName = $"{peer.CharacterName} @ {peer.World}";
+					ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+					ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
 
-					if (peerLookup.ContainsKey(compoundName))
-						continue;
+					List<string> peerNames = new();
+					Dictionary<string, Configuration.Peer> peerLookup = new();
+					foreach (Configuration.Peer peer in Configuration.Current.Pairs)
+					{
+						string compoundName = $"{peer.CharacterName} @ {peer.World}";
 
-					peerNames.Add(compoundName);
-					peerLookup.Add(compoundName, peer);
+						if (peerLookup.ContainsKey(compoundName))
+							continue;
+
+						peerNames.Add(compoundName);
+						peerLookup.Add(compoundName, peer);
+					}
+
+					peerNames.Sort();
+
+					foreach (string peerName in peerNames)
+					{
+						if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
+							continue;
+
+						this.DrawPeerEntry(peer);
+						ImGui.TableNextRow();
+					}
+
+					ImGui.EndTable();
 				}
-
-				peerNames.Sort();
-
-				foreach (string peerName in peerNames)
-				{
-					if (!peerLookup.TryGetValue(peerName, out Configuration.Peer? peer) || peer == null)
-						continue;
-
-					this.DrawPeerEntry(peer);
-					ImGui.TableNextRow();
-				}
-
-				ImGui.EndTable();
 			}
 		}
 
@@ -480,6 +383,142 @@ public class MainWindow : Window, IDisposable
 				syncProvider.DrawSettings();
 			}
 		}
+	}
+
+	private void DrawCharacterEntry(Configuration.Character character)
+	{
+		string cId = character.GetFingerprint();
+
+		// Tooltip
+		ImGui.TableNextColumn();
+		ImGui.Selectable(
+			$"##RowSelector{cId}",
+			false,
+			ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+		if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+			&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+		{
+			ImGui.OpenPopup($"character_{cId}_contextMenu");
+		}
+
+		if (ImGui.BeginPopup(
+			$"character_{cId}_contextMenu",
+			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+		{
+			ImGui.PushID($"character_{cId}_contextMenu");
+
+			if (Plugin.Instance?.LocalCharacter == character)
+			{
+				if (ImGui.MenuItem("Inspect"))
+				{
+					Plugin.Instance?.InspectWindow.Show();
+				}
+
+				ImGui.Separator();
+			}
+
+			if (ImGui.MenuItem("Remove"))
+			{
+				DialogBox.Show(
+					"Confirm",
+					$"Are you sure you want to remove the character\n{character.CharacterName} @ {character.World} ?",
+					FontAwesomeIcon.ExclamationTriangle,
+					0xFF0080FF,
+					"Remove",
+					"Cancel",
+					() =>
+					{
+						Configuration.Current.Characters.Remove(character);
+						Configuration.Current.Save();
+					});
+			}
+
+			if (ImGui.MenuItem("Copy Password"))
+			{
+				ImGui.SetClipboardText(character.Password ?? string.Empty);
+			}
+
+			if (ImGui.MenuItem("Edit Password"))
+			{
+				this.editingCharacterPassword = character;
+			}
+
+			if (ImGui.MenuItem("Randomize Password"))
+			{
+				character.GeneratePassword();
+				Configuration.Current.Save();
+			}
+
+			ImGui.PopID();
+			ImGui.EndPopup();
+		}
+
+		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+		{
+			ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
+			ImGui.BeginTooltip();
+
+			ImGui.Text($"{character.CharacterName} @ {character.World}");
+			ImGui.Separator();
+
+			ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
+			ImGui.SameLine();
+			ImGui.SetWindowFontScale(0.75f);
+			ImGui.TextColoredWrapped(0x80FFFFFF, $"{character.GetFingerprint()}");
+			ImGui.SetWindowFontScale(1.0f);
+			ImGui.Separator();
+
+			ImGui.TextWrapped("Peers can only connect to this character if they have this password. It is safe to give this password to people you trust and want to connect with.");
+
+			ImGui.Spacing();
+
+			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+			ImGui.SameLine();
+			ImGui.TextColoredWrapped(0xFF0080FF, "Changing this password will break any connections to this character, Peers will be unable to sync with this character until they receive the updated password.");
+
+			ImGui.Spacing();
+
+			ImGui.TextDisabled("Right-click for more options");
+			ImGui.EndTooltip();
+		}
+
+		ImGui.TableNextColumn();
+		ImGui.Text($"{character.CharacterName} @ {character.World}");
+
+		ImGui.TableNextColumn();
+		string password = character.Password ?? string.Empty;
+
+		if (this.editingCharacterPassword == character)
+		{
+			ImGui.PushItemWidth(-1);
+			ImGui.SetKeyboardFocusHere();
+			if (ImGui.InputText($"###Password{cId}", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
+			{
+				character.Password = password;
+				character.ClearFingerprint();
+				Configuration.Current.Save();
+				this.editingCharacterPassword = null;
+			}
+
+			ImGui.PopItemWidth();
+		}
+		else
+		{
+			ImGui.BeginDisabled();
+			ImGui.PushItemWidth(-1);
+			ImGui.InputText("###Password{character}", ref password);
+			ImGui.PopItemWidth();
+			ImGui.EndDisabled();
+		}
+
+		ImGui.TableNextColumn();
+		if (Plugin.Instance?.LocalCharacter == character)
+		{
+			ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+		}
+
+		ImGui.TableNextRow();
 	}
 
 	private void DrawPeerEntry(Configuration.Peer peer)

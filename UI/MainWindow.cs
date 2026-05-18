@@ -46,18 +46,6 @@ public class MainWindow : Window, IDisposable
 		if (plugin == null)
 			return;
 
-		if (ImGui.CollapsingHeader($"Settings"))
-		{
-			int port = Configuration.Current.Port;
-			if (ImGui.InputInt("Custom Port", ref port))
-			{
-				Configuration.Current.Port = (ushort)port;
-				Configuration.Current.Save();
-			}
-
-			ImGui.LabelText("Current Port", Configuration.Current.LastPort.ToString());
-		}
-
 		if (ImGui.BeginPopup("AddIndexPopup"))
 		{
 			string newIndex = string.Empty;
@@ -72,220 +60,69 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndPopup();
 		}
 
-		Vector2 startPos = ImGui.GetCursorPos();
-		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
-		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-		if (ImGui.Button("+###AddIndexButton", new Vector2(25, 0)))
+		if (ImGuiEx.Header($"Index Servers ({Configuration.Current.IndexServers.Count})", true))
 		{
 			ImGui.OpenPopup("AddIndexPopup");
 		}
 
-		ImGui.PopStyleColor();
-		ImGui.SetCursorPos(startPos);
+		Vector2 startPos = ImGui.GetCursorPos();
 
-		bool indexServersSectionOpen = ImGui.CollapsingHeader("###IndexServersSection");
-		ImGui.SameLine();
-
-		if (Configuration.Current.IndexServers.Count <= 0)
+		if (ImGui.BeginTable("IndexServersTable", 4))
 		{
-			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-			ImGui.SameLine();
-		}
-
-		ImGui.Text($"Index Servers ({Configuration.Current.IndexServers.Count})");
-
-		if (indexServersSectionOpen)
-		{
-			if (ImGui.BeginTable("IndexServersTable", 4))
+			if (Configuration.Current.IndexServers.Count <= 0)
 			{
-				if (Configuration.Current.IndexServers.Count <= 0)
-				{
-					ImGuiEx.BeginCenter("IndexServerWarningBox");
-					ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-					ImGui.SameLine();
-					ImGui.TextColored(0xFF0080FF, $"No index server");
-					ImGuiEx.EndCenter();
-				}
-				else
-				{
-					ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-					ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
-					ImGui.TableSetupColumn("Users", ImGuiTableColumnFlags.WidthFixed);
-					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
-					ImGui.TableNextRow();
-
-					HashSet<string> servers = new(Configuration.Current.IndexServers);
-					foreach (string indexServer in servers)
-					{
-						ServerStatus? serverStatus = null;
-						Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out serverStatus);
-
-						// Tooltip
-						ImGui.TableNextColumn();
-						ImGui.Selectable(
-							$"##RowSelector{indexServer}",
-							false,
-							ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
-
-						if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
-							&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-						{
-							ImGui.OpenPopup($"index_{indexServer}_contextMenu");
-						}
-
-						if (ImGui.BeginPopup(
-							$"index_{indexServer}_contextMenu",
-							ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
-						{
-							ImGui.PushID($"index_{indexServer}_contextMenu");
-							if (ImGui.MenuItem("Remove"))
-							{
-								DialogBox.Show(
-								"Confirm",
-								$"Are you sure you want to remove the index server\n{indexServer} ?",
-								FontAwesomeIcon.ExclamationTriangle,
-								0xFF0080FF,
-								"Remove",
-								"Cancel",
-								() =>
-								{
-									Configuration.Current.IndexServers.Remove(indexServer);
-									Configuration.Current.Save();
-								});
-							}
-
-							ImGui.PopID();
-							ImGui.EndPopup();
-						}
-
-						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-						{
-							ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
-							ImGui.BeginTooltip();
-
-							ImGui.TextWrapped($"{indexServer}");
-							ImGui.Separator();
-
-							if (serverStatus != null)
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-								ImGui.SameLine();
-								ImGui.TextWrapped(serverStatus.Motd);
-							}
-
-							ImGui.TextDisabled("Right-click for more options");
-							ImGui.EndTooltip();
-						}
-
-						if (serverStatus != null)
-						{
-							// Url
-							ImGui.TableNextColumn();
-							ImGui.Text(serverStatus.ServerName);
-
-							// Users
-							ImGui.TableNextColumn();
-							ImGui.Text($"{serverStatus.OnlineUsers}");
-
-							// Status
-							ImGui.TableNextColumn();
-							ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-						}
-						else
-						{
-							// Url
-							ImGui.TableNextColumn();
-							string indexServerName = indexServer;
-							indexServerName = indexServerName.Replace("http://", string.Empty);
-							indexServerName = indexServerName.Replace("https://", string.Empty);
-							indexServerName = indexServerName.Replace("www.", string.Empty);
-							indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
-							ImGui.Text(indexServerName);
-							ImGui.TableNextColumn();
-							ImGui.TableNextColumn();
-						}
-
-						ImGui.TableNextRow();
-					}
-
-					ImGui.EndTable();
-				}
+				ImGuiEx.BeginCenter("IndexServerWarningBox");
+				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+				ImGui.SameLine();
+				ImGui.TextColored(0xFF0080FF, $"No index server");
+				ImGuiEx.EndCenter();
 			}
-		}
-
-		if (ImGui.CollapsingHeader($"Characters ({Configuration.Current.Characters.Count})###CharactersSection", ImGuiTreeNodeFlags.Framed))
-		{
-			if (ImGui.BeginTable("CharactersTable", 4))
+			else
 			{
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Password", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Users", ImGuiTableColumnFlags.WidthFixed);
 				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
 				ImGui.TableNextRow();
 
-				foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
+				HashSet<string> servers = new(Configuration.Current.IndexServers);
+				foreach (string indexServer in servers)
 				{
-					string cId = character.GetFingerprint();
+					ServerStatus? serverStatus = null;
+					Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out serverStatus);
 
 					// Tooltip
 					ImGui.TableNextColumn();
 					ImGui.Selectable(
-						$"##RowSelector{cId}",
+						$"##RowSelector{indexServer}",
 						false,
 						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
 
 					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
 						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
-						ImGui.OpenPopup($"character_{cId}_contextMenu");
+						ImGui.OpenPopup($"index_{indexServer}_contextMenu");
 					}
 
 					if (ImGui.BeginPopup(
-						$"character_{cId}_contextMenu",
+						$"index_{indexServer}_contextMenu",
 						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 					{
-						ImGui.PushID($"character_{cId}_contextMenu");
-
-						if (plugin.LocalCharacter == character)
-						{
-							if (ImGui.MenuItem("Inspect"))
-							{
-								Plugin.Instance?.InspectWindow.Show();
-							}
-
-							ImGui.Separator();
-						}
-
+						ImGui.PushID($"index_{indexServer}_contextMenu");
 						if (ImGui.MenuItem("Remove"))
 						{
 							DialogBox.Show(
-								"Confirm",
-								$"Are you sure you want to remove the character\n{character.CharacterName} @ {character.World} ?",
-								FontAwesomeIcon.ExclamationTriangle,
-								0xFF0080FF,
-								"Remove",
-								"Cancel",
-								() =>
-								{
-									Configuration.Current.Characters.Remove(character);
-									Configuration.Current.Save();
-								});
-						}
-
-						if (ImGui.MenuItem("Copy Password"))
-						{
-							ImGui.SetClipboardText(character.Password ?? string.Empty);
-						}
-
-						if (ImGui.MenuItem("Edit Password"))
-						{
-							this.editingCharacterPassword = character;
-						}
-
-						if (ImGui.MenuItem("Randomize Password"))
-						{
-							character.GeneratePassword();
-							Configuration.Current.Save();
+							"Confirm",
+							$"Are you sure you want to remove the index server\n{indexServer} ?",
+							FontAwesomeIcon.ExclamationTriangle,
+							0xFF0080FF,
+							"Remove",
+							"Cancel",
+							() =>
+							{
+								Configuration.Current.IndexServers.Remove(indexServer);
+								Configuration.Current.Save();
+							});
 						}
 
 						ImGui.PopID();
@@ -297,123 +134,245 @@ public class MainWindow : Window, IDisposable
 						ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
 						ImGui.BeginTooltip();
 
-						ImGui.Text($"{character.CharacterName} @ {character.World}");
+						ImGui.TextWrapped($"{indexServer}");
 						ImGui.Separator();
 
-						ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
-						ImGui.SameLine();
-						ImGui.SetWindowFontScale(0.75f);
-						ImGui.TextColoredWrapped(0x80FFFFFF, $"{character.GetFingerprint()}");
-						ImGui.SetWindowFontScale(1.0f);
-						ImGui.Separator();
-
-						ImGui.TextWrapped("Peers can only connect to this character if they have this password. It is safe to give this password to people you trust and want to connect with.");
-
-						ImGui.Spacing();
-
-						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-						ImGui.SameLine();
-						ImGui.TextColoredWrapped(0xFF0080FF, "Changing this password will break any connections to this character, Peers will be unable to sync with this character until they receive the updated password.");
-
-						ImGui.Spacing();
+						if (serverStatus != null)
+						{
+							ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+							ImGui.SameLine();
+							ImGui.TextWrapped(serverStatus.Motd);
+						}
 
 						ImGui.TextDisabled("Right-click for more options");
 						ImGui.EndTooltip();
 					}
 
-					ImGui.TableNextColumn();
-					ImGui.Text($"{character.CharacterName} @ {character.World}");
-
-					ImGui.TableNextColumn();
-					string password = character.Password ?? string.Empty;
-
-					if (this.editingCharacterPassword == character)
+					if (serverStatus != null)
 					{
-						ImGui.PushItemWidth(-1);
-						ImGui.SetKeyboardFocusHere();
-						if (ImGui.InputText($"###Password{cId}", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
-						{
-							character.Password = password;
-							character.ClearFingerprint();
-							Configuration.Current.Save();
-							this.editingCharacterPassword = null;
-						}
+						// Url
+						ImGui.TableNextColumn();
+						ImGui.Text(serverStatus.ServerName);
 
-						ImGui.PopItemWidth();
+						// Users
+						ImGui.TableNextColumn();
+						ImGui.Text($"{serverStatus.OnlineUsers}");
+
+						// Status
+						ImGui.TableNextColumn();
+						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 					}
 					else
 					{
-						ImGui.BeginDisabled();
-						ImGui.PushItemWidth(-1);
-						ImGui.InputText("###Password{character}", ref password);
-						ImGui.PopItemWidth();
-						ImGui.EndDisabled();
-					}
-
-					ImGui.TableNextColumn();
-					if (plugin.LocalCharacter == character)
-					{
-						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+						// Url
+						ImGui.TableNextColumn();
+						string indexServerName = indexServer;
+						indexServerName = indexServerName.Replace("http://", string.Empty);
+						indexServerName = indexServerName.Replace("https://", string.Empty);
+						indexServerName = indexServerName.Replace("www.", string.Empty);
+						indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
+						ImGui.Text(indexServerName);
+						ImGui.TableNextColumn();
+						ImGui.TableNextColumn();
 					}
 
 					ImGui.TableNextRow();
 				}
-			}
 
-			ImGui.EndTable();
+				ImGui.EndTable();
+			}
 		}
 
-		startPos = ImGui.GetCursorPos();
-		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
-		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-		if (ImGui.Button("+###AddGroupButton", new Vector2(25, 0)))
+		ImGuiEx.Header($"Characters");
+
+		if (ImGui.BeginTable("CharactersTable", 4))
+		{
+			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Password", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
+			ImGui.TableNextRow();
+
+			foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
+			{
+				string cId = character.GetFingerprint();
+
+				// Tooltip
+				ImGui.TableNextColumn();
+				ImGui.Selectable(
+					$"##RowSelector{cId}",
+					false,
+					ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+				if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+					&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+				{
+					ImGui.OpenPopup($"character_{cId}_contextMenu");
+				}
+
+				if (ImGui.BeginPopup(
+					$"character_{cId}_contextMenu",
+					ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+				{
+					ImGui.PushID($"character_{cId}_contextMenu");
+
+					if (plugin.LocalCharacter == character)
+					{
+						if (ImGui.MenuItem("Inspect"))
+						{
+							Plugin.Instance?.InspectWindow.Show();
+						}
+
+						ImGui.Separator();
+					}
+
+					if (ImGui.MenuItem("Remove"))
+					{
+						DialogBox.Show(
+							"Confirm",
+							$"Are you sure you want to remove the character\n{character.CharacterName} @ {character.World} ?",
+							FontAwesomeIcon.ExclamationTriangle,
+							0xFF0080FF,
+							"Remove",
+							"Cancel",
+							() =>
+							{
+								Configuration.Current.Characters.Remove(character);
+								Configuration.Current.Save();
+							});
+					}
+
+					if (ImGui.MenuItem("Copy Password"))
+					{
+						ImGui.SetClipboardText(character.Password ?? string.Empty);
+					}
+
+					if (ImGui.MenuItem("Edit Password"))
+					{
+						this.editingCharacterPassword = character;
+					}
+
+					if (ImGui.MenuItem("Randomize Password"))
+					{
+						character.GeneratePassword();
+						Configuration.Current.Save();
+					}
+
+					ImGui.PopID();
+					ImGui.EndPopup();
+				}
+
+				if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+				{
+					ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
+					ImGui.BeginTooltip();
+
+					ImGui.Text($"{character.CharacterName} @ {character.World}");
+					ImGui.Separator();
+
+					ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
+					ImGui.SameLine();
+					ImGui.SetWindowFontScale(0.75f);
+					ImGui.TextColoredWrapped(0x80FFFFFF, $"{character.GetFingerprint()}");
+					ImGui.SetWindowFontScale(1.0f);
+					ImGui.Separator();
+
+					ImGui.TextWrapped("Peers can only connect to this character if they have this password. It is safe to give this password to people you trust and want to connect with.");
+
+					ImGui.Spacing();
+
+					ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+					ImGui.SameLine();
+					ImGui.TextColoredWrapped(0xFF0080FF, "Changing this password will break any connections to this character, Peers will be unable to sync with this character until they receive the updated password.");
+
+					ImGui.Spacing();
+
+					ImGui.TextDisabled("Right-click for more options");
+					ImGui.EndTooltip();
+				}
+
+				ImGui.TableNextColumn();
+				ImGui.Text($"{character.CharacterName} @ {character.World}");
+
+				ImGui.TableNextColumn();
+				string password = character.Password ?? string.Empty;
+
+				if (this.editingCharacterPassword == character)
+				{
+					ImGui.PushItemWidth(-1);
+					ImGui.SetKeyboardFocusHere();
+					if (ImGui.InputText($"###Password{cId}", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
+					{
+						character.Password = password;
+						character.ClearFingerprint();
+						Configuration.Current.Save();
+						this.editingCharacterPassword = null;
+					}
+
+					ImGui.PopItemWidth();
+				}
+				else
+				{
+					ImGui.BeginDisabled();
+					ImGui.PushItemWidth(-1);
+					ImGui.InputText("###Password{character}", ref password);
+					ImGui.PopItemWidth();
+					ImGui.EndDisabled();
+				}
+
+				ImGui.TableNextColumn();
+				if (plugin.LocalCharacter == character)
+				{
+					ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+				}
+
+				ImGui.TableNextRow();
+			}
+		}
+
+		ImGui.EndTable();
+
+		if (ImGuiEx.Header($"Groups", true))
 		{
 			Plugin.Instance?.AddGroupWindow.Show();
 		}
 
-		ImGui.PopStyleColor();
-
-		ImGui.SetCursorPos(startPos);
-
-		if (ImGui.CollapsingHeader($"Groups ({Configuration.Current.Groups.Count})###GroupsSection"))
+		if (ImGui.BeginTable("GroupsTable", 4))
 		{
-			if (ImGui.BeginTable("GroupsTable", 4))
+			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn("Count", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
+			ImGui.TableNextRow();
+
+			List<string> groupNames = new();
+			Dictionary<string, Configuration.Group> groupLookup = new();
+			foreach (Configuration.Group group in Configuration.Current.Groups)
 			{
-				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Count", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
-				ImGui.TableNextRow();
+				if (group.Name == null)
+					continue;
 
-				List<string> groupNames = new();
-				Dictionary<string, Configuration.Group> groupLookup = new();
-				foreach (Configuration.Group group in Configuration.Current.Groups)
-				{
-					if (group.Name == null)
-						continue;
+				if (groupLookup.ContainsKey(group.Name))
+					continue;
 
-					if (groupLookup.ContainsKey(group.Name))
-						continue;
-
-					groupNames.Add(group.Name);
-					groupLookup.Add(group.Name, group);
-				}
-
-				groupNames.Sort();
-
-				foreach (string groupName in groupNames)
-				{
-					if (!groupLookup.TryGetValue(groupName, out Configuration.Group? group) || group == null)
-						continue;
-
-					this.DrawGroupEntry(group);
-
-					ImGui.TableNextRow();
-				}
+				groupNames.Add(group.Name);
+				groupLookup.Add(group.Name, group);
 			}
 
-			ImGui.EndTable();
+			groupNames.Sort();
+
+			foreach (string groupName in groupNames)
+			{
+				if (!groupLookup.TryGetValue(groupName, out Configuration.Group? group) || group == null)
+					continue;
+
+				this.DrawGroupEntry(group);
+
+				ImGui.TableNextRow();
+			}
 		}
+
+		ImGui.EndTable();
 
 		startPos = ImGui.GetCursorPos();
 		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
@@ -498,6 +457,18 @@ public class MainWindow : Window, IDisposable
 
 				ImGui.EndTable();
 			}
+		}
+
+		if (ImGui.CollapsingHeader($"Settings"))
+		{
+			int port = Configuration.Current.Port;
+			if (ImGui.InputInt("Custom Port", ref port))
+			{
+				Configuration.Current.Port = (ushort)port;
+				Configuration.Current.Save();
+			}
+
+			ImGui.LabelText("Current Port", Configuration.Current.LastPort.ToString());
 		}
 
 		foreach (SyncProviderBase syncProvider in plugin.SyncProviders)

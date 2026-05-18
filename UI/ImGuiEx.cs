@@ -15,6 +15,43 @@ using Newtonsoft.Json;
 
 public static class ImGuiEx
 {
+	public static bool Header(string label, bool button = false)
+	{
+		Vector2 startPos = ImGui.GetCursorPos();
+		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
+		bool clicked = false;
+
+		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0x00000000);
+		ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0x00000000);
+		ImGui.Button(label);
+		ImGui.PopStyleColor();
+		ImGui.PopStyleColor();
+
+		float height = ImGui.GetCursorPosY() - startPos.Y;
+
+		ImGui.SameLine();
+		Vector2 lineStartPos = ImGui.GetCursorPos();
+		float width = ImGui.GetContentRegionAvail().X;
+
+		if (button)
+			width -= 25;
+
+		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (height / 2) - 1);
+		ImGui.BeginChild(label, new Vector2(width, 1), true);
+		ImGui.EndChild();
+
+		if (button)
+		{
+			ImGui.SameLine();
+			ImGui.SetCursorPosX(lineStartPos.X + width);
+			ImGui.SetCursorPosY(lineStartPos.Y);
+			clicked = ImGui.Button("+", new Vector2(25, 0));
+		}
+
+		ImGui.PopStyleColor();
+		return clicked;
+	}
+
 	public static void Icon(FontAwesomeIcon icon, float size = 0.75f)
 	{
 		if (icon == FontAwesomeIcon.None)

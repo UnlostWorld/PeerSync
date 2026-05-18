@@ -34,6 +34,10 @@ public abstract class SyncProviderBase : IDisposable
 		CharacterSync character,
 		ushort objectIndex);
 
+	public virtual void DrawSettings()
+	{
+	}
+
 	public virtual void DrawStatus()
 	{
 	}

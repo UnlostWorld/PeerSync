@@ -65,9 +65,7 @@ public class CharacterCache : IDisposable
 
 	public void DrawInfo()
 	{
-		ImGui.Text("Character Cache:");
-
-		if (ImGui.Button("Flush##Characters"))
+		if (ImGui.Button("Flush character cache##Characters"))
 		{
 			DialogBox.Show(
 				"Confirm",

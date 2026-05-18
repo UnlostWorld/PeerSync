@@ -46,93 +46,6 @@ public class MainWindow : Window, IDisposable
 		if (plugin == null)
 			return;
 
-		if (ImGui.BeginTable("StatusTable", 3))
-		{
-			ImGui.TableSetupColumn("Icon", ImGuiTableColumnFlags.WidthFixed, 20);
-			ImGui.TableSetupColumn("Text", ImGuiTableColumnFlags.WidthStretch);
-			ImGui.TableSetupColumn("Button", ImGuiTableColumnFlags.WidthFixed);
-			ImGui.TableNextRow();
-
-			ImGui.TableNextColumn();
-			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 5);
-			ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 6);
-			ImGuiEx.Icon(plugin.Status.GetIcon());
-			ImGui.TableNextColumn();
-			ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 7);
-			ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 3);
-			ImGui.Text(plugin.Status.GetMessage());
-			ImGui.TableNextColumn();
-
-			if (plugin.Status == PluginStatus.Online)
-			{
-				ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-				ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
-				ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(12, 6));
-				ImGui.PushStyleColor(ImGuiCol.Border, 0xFF000080);
-				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xFF000080);
-				if (ImGui.Button("Stop"))
-				{
-					plugin.Stop();
-				}
-
-				ImGui.PopStyleColor();
-				ImGui.PopStyleColor();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleColor();
-			}
-			else if (plugin.Status == PluginStatus.Shutdown)
-			{
-				ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-				ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
-				ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(12, 6));
-				ImGui.PushStyleColor(ImGuiCol.Border, 0xFF004000);
-				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xFF004000);
-				if (ImGui.Button("Start"))
-				{
-					plugin.Start();
-				}
-
-				ImGui.PopStyleColor();
-				ImGui.PopStyleColor();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleColor();
-			}
-			else
-			{
-				ImGui.BeginDisabled();
-				ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-				ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1);
-				ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(12, 6));
-				ImGui.PushStyleColor(ImGuiCol.Border, 0xFF808080);
-				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0xFF808080);
-				ImGui.Button("Wait...");
-				ImGui.PopStyleColor();
-				ImGui.PopStyleColor();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleVar();
-				ImGui.PopStyleColor();
-				ImGui.EndDisabled();
-			}
-
-			ImGui.EndTable();
-		}
-
-		ImGui.Spacing();
-
-		if (ImGui.CollapsingHeader($"Settings"))
-		{
-			int port = Configuration.Current.Port;
-			if (ImGui.InputInt("Custom Port", ref port))
-			{
-				Configuration.Current.Port = (ushort)port;
-				Configuration.Current.Save();
-			}
-
-			ImGui.LabelText("Current Port", Configuration.Current.LastPort.ToString());
-		}
-
 		if (ImGui.BeginPopup("AddIndexPopup"))
 		{
 			string newIndex = string.Empty;
@@ -147,231 +60,69 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndPopup();
 		}
 
-		Vector2 startPos = ImGui.GetCursorPos();
-		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
-		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-		if (ImGui.Button("+###AddIndexButton", new Vector2(25, 0)))
+		if (ImGuiEx.Header($"Index Servers", true))
 		{
 			ImGui.OpenPopup("AddIndexPopup");
 		}
 
-		ImGui.PopStyleColor();
-		ImGui.SetCursorPos(startPos);
+		Vector2 startPos = ImGui.GetCursorPos();
 
-		bool indexServersSectionOpen = ImGui.CollapsingHeader("###IndexServersSection");
-		ImGui.SameLine();
-
-		if (Configuration.Current.IndexServers.Count <= 0)
+		if (ImGui.BeginTable("IndexServersTable", 4))
 		{
-			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-			ImGui.SameLine();
-		}
-
-		ImGui.Text($"Index Servers ({Configuration.Current.IndexServers.Count})");
-
-		if (indexServersSectionOpen)
-		{
-			if (ImGui.BeginTable("IndexServersTable", 4))
+			if (Configuration.Current.IndexServers.Count <= 0)
 			{
-				if (Configuration.Current.IndexServers.Count <= 0)
-				{
-					ImGuiEx.BeginCenter("IndexServerWarningBox");
-					ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-					ImGui.SameLine();
-					ImGui.TextColored(0xFF0080FF, $"No index server");
-					ImGuiEx.EndCenter();
-				}
-				else
-				{
-					ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-					ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
-					ImGui.TableSetupColumn("Users", ImGuiTableColumnFlags.WidthFixed);
-					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
-					ImGui.TableNextRow();
-
-					HashSet<string> servers = new(Configuration.Current.IndexServers);
-					foreach (string indexServer in servers)
-					{
-						ServerStatus? serverStatus = null;
-						Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out serverStatus);
-
-						// Tooltip
-						ImGui.TableNextColumn();
-						ImGui.Selectable(
-							$"##RowSelector{indexServer}",
-							false,
-							ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
-
-						if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
-							&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-						{
-							ImGui.OpenPopup($"index_{indexServer}_contextMenu");
-						}
-
-						if (ImGui.BeginPopup(
-							$"index_{indexServer}_contextMenu",
-							ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
-						{
-							ImGui.PushID($"index_{indexServer}_contextMenu");
-							if (ImGui.MenuItem("Remove"))
-							{
-								DialogBox.Show(
-								"Confirm",
-								$"Are you sure you want to remove the index server\n{indexServer} ?",
-								FontAwesomeIcon.ExclamationTriangle,
-								0xFF0080FF,
-								"Remove",
-								"Cancel",
-								() =>
-								{
-									Configuration.Current.IndexServers.Remove(indexServer);
-									Configuration.Current.Save();
-								});
-							}
-
-							ImGui.PopID();
-							ImGui.EndPopup();
-						}
-
-						if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-						{
-							ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
-							ImGui.BeginTooltip();
-
-							ImGui.TextWrapped($"{indexServer}");
-							ImGui.Separator();
-
-							if (serverStatus == null)
-							{
-								ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
-								ImGui.SameLine();
-								ImGui.Text("Offline");
-							}
-							else
-							{
-								ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-								ImGui.SameLine();
-								ImGui.TextWrapped(serverStatus.Motd);
-							}
-
-							ImGui.TextDisabled("Right-click for more options");
-							ImGui.EndTooltip();
-						}
-
-						if (serverStatus != null)
-						{
-							// Url
-							ImGui.TableNextColumn();
-							ImGui.Text(serverStatus.ServerName);
-
-							// Users
-							ImGui.TableNextColumn();
-							ImGui.Text($"{serverStatus.OnlineUsers}");
-
-							// Status
-							ImGui.TableNextColumn();
-							ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-						}
-						else
-						{
-							// Url
-							ImGui.TableNextColumn();
-							string indexServerName = indexServer;
-							indexServerName = indexServerName.Replace("http://", string.Empty);
-							indexServerName = indexServerName.Replace("https://", string.Empty);
-							indexServerName = indexServerName.Replace("www.", string.Empty);
-							indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
-							ImGui.Text(indexServerName);
-
-							// Users
-							ImGui.TableNextColumn();
-							ImGui.Text("-");
-
-							// Status
-							ImGui.TableNextColumn();
-							ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
-						}
-
-						ImGui.TableNextRow();
-					}
-
-					ImGui.EndTable();
-				}
+				ImGuiEx.BeginCenter("IndexServerWarningBox");
+				ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+				ImGui.SameLine();
+				ImGui.TextColored(0xFF0080FF, $"No index server");
+				ImGuiEx.EndCenter();
 			}
-		}
-
-		if (ImGui.CollapsingHeader($"Characters ({Configuration.Current.Characters.Count})###CharactersSection", ImGuiTreeNodeFlags.Framed))
-		{
-			if (ImGui.BeginTable("CharactersTable", 3))
+			else
 			{
 				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Password", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Url", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Users", ImGuiTableColumnFlags.WidthFixed);
+				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
 				ImGui.TableNextRow();
 
-				foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
+				HashSet<string> servers = new(Configuration.Current.IndexServers);
+				foreach (string indexServer in servers)
 				{
-					string cId = character.GetFingerprint();
+					ServerStatus? serverStatus = null;
+					Plugin.Instance?.IndexServersStatus.TryGetValue(indexServer, out serverStatus);
 
 					// Tooltip
 					ImGui.TableNextColumn();
 					ImGui.Selectable(
-						$"##RowSelector{cId}",
+						$"##RowSelector{indexServer}",
 						false,
 						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
 
 					if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
 						&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 					{
-						ImGui.OpenPopup($"character_{cId}_contextMenu");
+						ImGui.OpenPopup($"index_{indexServer}_contextMenu");
 					}
 
 					if (ImGui.BeginPopup(
-						$"character_{cId}_contextMenu",
+						$"index_{indexServer}_contextMenu",
 						ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
 					{
-						ImGui.PushID($"character_{cId}_contextMenu");
-
-						if (plugin.LocalCharacter == character)
-						{
-							if (ImGui.MenuItem("Inspect"))
-							{
-								Plugin.Instance?.InspectWindow.Show();
-							}
-
-							ImGui.Separator();
-						}
-
+						ImGui.PushID($"index_{indexServer}_contextMenu");
 						if (ImGui.MenuItem("Remove"))
 						{
 							DialogBox.Show(
-								"Confirm",
-								$"Are you sure you want to remove the character\n{character.CharacterName} @ {character.World} ?",
-								FontAwesomeIcon.ExclamationTriangle,
-								0xFF0080FF,
-								"Remove",
-								"Cancel",
-								() =>
-								{
-									Configuration.Current.Characters.Remove(character);
-									Configuration.Current.Save();
-								});
-						}
-
-						if (ImGui.MenuItem("Copy Password"))
-						{
-							ImGui.SetClipboardText(character.Password ?? string.Empty);
-						}
-
-						if (ImGui.MenuItem("Edit Password"))
-						{
-							this.editingCharacterPassword = character;
-						}
-
-						if (ImGui.MenuItem("Randomize Password"))
-						{
-							character.GeneratePassword();
-							Configuration.Current.Save();
+							"Confirm",
+							$"Are you sure you want to remove the index server\n{indexServer} ?",
+							FontAwesomeIcon.ExclamationTriangle,
+							0xFF0080FF,
+							"Remove",
+							"Cancel",
+							() =>
+							{
+								Configuration.Current.IndexServers.Remove(indexServer);
+								Configuration.Current.Save();
+							});
 						}
 
 						ImGui.PopID();
@@ -383,130 +134,294 @@ public class MainWindow : Window, IDisposable
 						ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
 						ImGui.BeginTooltip();
 
-						ImGui.Text($"{character.CharacterName} @ {character.World}");
+						ImGui.TextWrapped($"{indexServer}");
 						ImGui.Separator();
 
-						ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
-						ImGui.SameLine();
-						ImGui.SetWindowFontScale(0.75f);
-						ImGui.TextColoredWrapped(0x80FFFFFF, $"{character.GetFingerprint()}");
-						ImGui.SetWindowFontScale(1.0f);
-						ImGui.Separator();
-
-						ImGui.TextWrapped("Peers can only connect to this character if they have this password. It is safe to give this password to people you trust and want to connect with.");
-
-						ImGui.Spacing();
-
-						ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
-						ImGui.SameLine();
-						ImGui.TextColoredWrapped(0xFF0080FF, "Changing this password will break any connections to this character, Peers will be unable to sync with this character until they receive the updated password.");
-
-						ImGui.Spacing();
+						if (serverStatus != null)
+						{
+							ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+							ImGui.SameLine();
+							ImGui.TextWrapped(serverStatus.Motd);
+						}
 
 						ImGui.TextDisabled("Right-click for more options");
 						ImGui.EndTooltip();
 					}
 
-					ImGui.TableNextColumn();
-					ImGui.Text($"{character.CharacterName} @ {character.World}");
-
-					ImGui.TableNextColumn();
-					string password = character.Password ?? string.Empty;
-
-					if (this.editingCharacterPassword == character)
+					if (serverStatus != null)
 					{
-						ImGui.PushItemWidth(-1);
-						ImGui.SetKeyboardFocusHere();
-						if (ImGui.InputText($"###Password{cId}", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
-						{
-							character.Password = password;
-							character.ClearFingerprint();
-							Configuration.Current.Save();
-							this.editingCharacterPassword = null;
-						}
+						// Url
+						ImGui.TableNextColumn();
+						ImGui.Text(serverStatus.ServerName);
 
-						ImGui.PopItemWidth();
+						// Users
+						ImGui.TableNextColumn();
+						ImGui.Text($"{serverStatus.OnlineUsers}");
+
+						// Status
+						ImGui.TableNextColumn();
+						ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 					}
 					else
 					{
-						ImGui.BeginDisabled();
-						ImGui.PushItemWidth(-1);
-						ImGui.InputText("###Password{character}", ref password);
-						ImGui.PopItemWidth();
-						ImGui.EndDisabled();
+						// Url
+						ImGui.TableNextColumn();
+						string indexServerName = indexServer;
+						indexServerName = indexServerName.Replace("http://", string.Empty);
+						indexServerName = indexServerName.Replace("https://", string.Empty);
+						indexServerName = indexServerName.Replace("www.", string.Empty);
+						indexServerName = indexServerName.Replace(".ondigitalocean.app", string.Empty);
+						ImGui.Text(indexServerName);
+						ImGui.TableNextColumn();
+						ImGui.TableNextColumn();
 					}
 
 					ImGui.TableNextRow();
 				}
+
+				ImGui.EndTable();
+			}
+		}
+
+		ImGuiEx.Header($"Characters");
+
+		if (ImGui.BeginTable("CharactersTable", 4))
+		{
+			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Password", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
+			ImGui.TableNextRow();
+
+			foreach (Configuration.Character character in Configuration.Current.Characters.AsReadOnly())
+			{
+				string cId = character.GetFingerprint();
+
+				// Tooltip
+				ImGui.TableNextColumn();
+				ImGui.Selectable(
+					$"##RowSelector{cId}",
+					false,
+					ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap | ImGuiSelectableFlags.Disabled);
+
+				if (ImGui.IsMouseReleased(ImGuiMouseButton.Right)
+					&& ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+				{
+					ImGui.OpenPopup($"character_{cId}_contextMenu");
+				}
+
+				if (ImGui.BeginPopup(
+					$"character_{cId}_contextMenu",
+					ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings))
+				{
+					ImGui.PushID($"character_{cId}_contextMenu");
+
+					if (plugin.LocalCharacter == character)
+					{
+						if (ImGui.MenuItem("Inspect"))
+						{
+							Plugin.Instance?.InspectWindow.Show();
+						}
+
+						ImGui.Separator();
+					}
+
+					if (ImGui.MenuItem("Remove"))
+					{
+						DialogBox.Show(
+							"Confirm",
+							$"Are you sure you want to remove the character\n{character.CharacterName} @ {character.World} ?",
+							FontAwesomeIcon.ExclamationTriangle,
+							0xFF0080FF,
+							"Remove",
+							"Cancel",
+							() =>
+							{
+								Configuration.Current.Characters.Remove(character);
+								Configuration.Current.Save();
+							});
+					}
+
+					if (ImGui.MenuItem("Copy Password"))
+					{
+						ImGui.SetClipboardText(character.Password ?? string.Empty);
+					}
+
+					if (ImGui.MenuItem("Edit Password"))
+					{
+						this.editingCharacterPassword = character;
+					}
+
+					if (ImGui.MenuItem("Randomize Password"))
+					{
+						character.GeneratePassword();
+						Configuration.Current.Save();
+					}
+
+					ImGui.PopID();
+					ImGui.EndPopup();
+				}
+
+				if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+				{
+					ImGui.SetNextWindowSizeConstraints(new Vector2(256, 0), new Vector2(256, 400));
+					ImGui.BeginTooltip();
+
+					ImGui.Text($"{character.CharacterName} @ {character.World}");
+					ImGui.Separator();
+
+					ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
+					ImGui.SameLine();
+					ImGui.SetWindowFontScale(0.75f);
+					ImGui.TextColoredWrapped(0x80FFFFFF, $"{character.GetFingerprint()}");
+					ImGui.SetWindowFontScale(1.0f);
+					ImGui.Separator();
+
+					ImGui.TextWrapped("Peers can only connect to this character if they have this password. It is safe to give this password to people you trust and want to connect with.");
+
+					ImGui.Spacing();
+
+					ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
+					ImGui.SameLine();
+					ImGui.TextColoredWrapped(0xFF0080FF, "Changing this password will break any connections to this character, Peers will be unable to sync with this character until they receive the updated password.");
+
+					ImGui.Spacing();
+
+					ImGui.TextDisabled("Right-click for more options");
+					ImGui.EndTooltip();
+				}
+
+				ImGui.TableNextColumn();
+				ImGui.Text($"{character.CharacterName} @ {character.World}");
+
+				ImGui.TableNextColumn();
+				string password = character.Password ?? string.Empty;
+
+				if (this.editingCharacterPassword == character)
+				{
+					ImGui.PushItemWidth(-1);
+					ImGui.SetKeyboardFocusHere();
+					if (ImGui.InputText($"###Password{cId}", ref password, 256, ImGuiInputTextFlags.EnterReturnsTrue))
+					{
+						character.Password = password;
+						character.ClearFingerprint();
+						Configuration.Current.Save();
+						this.editingCharacterPassword = null;
+					}
+
+					ImGui.PopItemWidth();
+				}
+				else
+				{
+					ImGui.BeginDisabled();
+					ImGui.PushItemWidth(-1);
+					ImGui.InputText("###Password{character}", ref password);
+					ImGui.PopItemWidth();
+					ImGui.EndDisabled();
+				}
+
+				ImGui.TableNextColumn();
+				if (plugin.LocalCharacter == character)
+				{
+					ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+				}
+
+				ImGui.TableNextRow();
+			}
+		}
+
+		ImGui.EndTable();
+
+		ImGuiEx.Header($"Connections");
+		if (ImGui.BeginTable("SyncTable", 4))
+		{
+			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
+
+			List<string> syncNames = new();
+			Dictionary<string, CharacterSync> syncLookup = new();
+			foreach ((string id, CharacterSync sync) in plugin.CharacterSyncs)
+			{
+				string compoundName = $"{sync.Name} @ {sync.World}";
+				if (syncLookup.ContainsKey(compoundName))
+					continue;
+
+				syncNames.Add(compoundName);
+				syncLookup.Add(compoundName, sync);
+			}
+
+			syncNames.Sort();
+
+			foreach (string syncName in syncNames)
+			{
+				if (!syncLookup.TryGetValue(syncName, out CharacterSync? sync) || sync == null)
+					continue;
+
+				List<SyncProgressBase>? progresses = plugin.GetSyncProgress(sync);
+				this.DrawSyncEntry(sync, progresses);
+
+				ImGui.TableNextRow();
 			}
 
 			ImGui.EndTable();
 		}
 
-		startPos = ImGui.GetCursorPos();
-		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
-		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-		if (ImGui.Button("+###AddGroupButton", new Vector2(25, 0)))
+		if (ImGuiEx.Header($"Groups", true))
 		{
 			Plugin.Instance?.AddGroupWindow.Show();
 		}
 
-		ImGui.PopStyleColor();
-
-		ImGui.SetCursorPos(startPos);
-
-		if (ImGui.CollapsingHeader($"Groups ({Configuration.Current.Groups.Count})###GroupsSection"))
+		if (ImGui.BeginTable("GroupsTable", 4))
 		{
-			if (ImGui.BeginTable("GroupsTable", 3))
+			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn("Count", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
+			ImGui.TableNextRow();
+
+			List<string> groupNames = new();
+			Dictionary<string, Configuration.Group> groupLookup = new();
+			foreach (Configuration.Group group in Configuration.Current.Groups)
 			{
-				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Group", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableNextRow();
+				if (group.Name == null)
+					continue;
 
-				List<string> groupNames = new();
-				Dictionary<string, Configuration.Group> groupLookup = new();
-				foreach (Configuration.Group group in Configuration.Current.Groups)
-				{
-					if (group.Name == null)
-						continue;
+				if (groupLookup.ContainsKey(group.Name))
+					continue;
 
-					if (groupLookup.ContainsKey(group.Name))
-						continue;
-
-					groupNames.Add(group.Name);
-					groupLookup.Add(group.Name, group);
-				}
-
-				groupNames.Sort();
-
-				foreach (string groupName in groupNames)
-				{
-					if (!groupLookup.TryGetValue(groupName, out Configuration.Group? group) || group == null)
-						continue;
-
-					this.DrawGroupEntry(group);
-
-					ImGui.TableNextRow();
-				}
+				groupNames.Add(group.Name);
+				groupLookup.Add(group.Name, group);
 			}
 
-			ImGui.EndTable();
+			groupNames.Sort();
+
+			foreach (string groupName in groupNames)
+			{
+				if (!groupLookup.TryGetValue(groupName, out Configuration.Group? group) || group == null)
+					continue;
+
+				this.DrawGroupEntry(group);
+
+				ImGui.TableNextRow();
+			}
 		}
 
-		startPos = ImGui.GetCursorPos();
-		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
-		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-		if (ImGui.Button("+###AddPeerButton", new Vector2(25, 0)))
+		ImGui.EndTable();
+
+		if (ImGuiEx.Header($"Friends", true))
 		{
 			Plugin.Instance?.AddPeerWindow.Show();
 		}
 
-		ImGui.PopStyleColor();
-
-		ImGui.SetCursorPos(startPos);
-
-		if (ImGui.CollapsingHeader($"Peers ({Configuration.Current.Pairs.Count})###PeersSection"))
+		if (Configuration.Current.Pairs.Count <= 0)
+		{
+			ImGui.Indent();
+			ImGuiEx.Icon(FontAwesomeIcon.SadCry, 1.0f);
+			ImGui.Unindent();
+		}
+		else
 		{
 			if (ImGui.BeginTable("PeersTable", 2))
 			{
@@ -541,47 +456,29 @@ public class MainWindow : Window, IDisposable
 			}
 		}
 
-		if (ImGui.CollapsingHeader($"Connections ({plugin.CharacterSyncCount()})###SyncSection"))
-		{
-			if (ImGui.BeginTable("SyncTable", 4))
-			{
-				ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
-				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
-
-				List<string> syncNames = new();
-				Dictionary<string, CharacterSync> syncLookup = new();
-				foreach ((string id, CharacterSync sync) in plugin.CharacterSyncs)
-				{
-					string compoundName = $"{sync.Name} @ {sync.World}";
-					if (syncLookup.ContainsKey(compoundName))
-						continue;
-
-					syncNames.Add(compoundName);
-					syncLookup.Add(compoundName, sync);
-				}
-
-				syncNames.Sort();
-
-				foreach (string syncName in syncNames)
-				{
-					if (!syncLookup.TryGetValue(syncName, out CharacterSync? sync) || sync == null)
-						continue;
-
-					List<SyncProgressBase>? progresses = plugin.GetSyncProgress(sync);
-					this.DrawSyncEntry(sync, progresses);
-
-					ImGui.TableNextRow();
-				}
-
-				ImGui.EndTable();
-			}
-		}
-
 		foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
 		{
 			syncProvider.DrawStatus();
+		}
+
+		ImGui.Spacing();
+		ImGui.Spacing();
+
+		if (ImGui.CollapsingHeader($"Settings"))
+		{
+			int port = Configuration.Current.Port;
+			if (ImGui.InputInt("Custom Port", ref port))
+			{
+				Configuration.Current.Port = (ushort)port;
+				Configuration.Current.Save();
+			}
+
+			ImGui.LabelText("Current Port", Configuration.Current.LastPort.ToString());
+
+			foreach (SyncProviderBase syncProvider in plugin.SyncProviders)
+			{
+				syncProvider.DrawSettings();
+			}
 		}
 	}
 
@@ -742,11 +639,7 @@ public class MainWindow : Window, IDisposable
 		// Count
 		ImGui.TableNextColumn();
 
-		if (sync == null || sync.ServerStatus == null)
-		{
-			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationCircle);
-		}
-		else
+		if (sync != null && sync.ServerStatus != null)
 		{
 			int bestCount = 0;
 			foreach ((string indexServer, ServerStatus? status) in sync.ServerStatus)
@@ -758,6 +651,14 @@ public class MainWindow : Window, IDisposable
 			}
 
 			ImGui.Text($"{bestCount}");
+		}
+
+		// Status
+		ImGui.TableNextColumn();
+
+		if (sync != null && sync.ServerStatus != null)
+		{
+			ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 		}
 	}
 
@@ -865,6 +766,30 @@ public class MainWindow : Window, IDisposable
 
 					foreach (SyncProgressBase progress in progresses)
 					{
+						// This user sent no date for this sync progress
+						if (progress.Status == SyncProgressStatus.Empty
+						|| progress.Status == SyncProgressStatus.None
+						|| progress.Status == SyncProgressStatus.NotApplied)
+							continue;
+
+						ImGui.TableNextColumn();
+						progress.DrawStatus();
+
+						ImGui.TableNextColumn();
+						ImGui.Text(progress.Provider.DisplayName);
+
+						ImGui.TableNextColumn();
+						progress.DrawInfo();
+
+						ImGui.TableNextRow();
+					}
+
+					foreach (SyncProgressBase progress in progresses)
+					{
+						// This user sent no date for this sync progress
+						if (progress.Status != SyncProgressStatus.NotApplied)
+							continue;
+
 						ImGui.TableNextColumn();
 						progress.DrawStatus();
 

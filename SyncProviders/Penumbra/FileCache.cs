@@ -121,7 +121,6 @@ public class FileCache : IDisposable
 
 	public void DrawInfo()
 	{
-		ImGui.Text("File Cache:");
 		if (!this.IsValid())
 		{
 			ImGuiEx.BeginCenter("FileCacheWarningBox");
@@ -132,13 +131,13 @@ public class FileCache : IDisposable
 		}
 
 		string cache = Configuration.Current.CacheDirectory ?? string.Empty;
-		if (ImGui.InputText("Directory", ref cache, 512, ImGuiInputTextFlags.EnterReturnsTrue))
+		if (ImGui.InputText("Cache", ref cache, 512, ImGuiInputTextFlags.EnterReturnsTrue))
 		{
 			Configuration.Current.CacheDirectory = cache;
 			Configuration.Current.Save();
 		}
 
-		if (ImGui.Button("Flush##files"))
+		if (ImGui.Button($"Flush file cache ({this.GetSizeString()})##files"))
 		{
 			DialogBox.Show(
 				"Confirm",

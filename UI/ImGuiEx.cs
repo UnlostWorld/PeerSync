@@ -15,15 +15,47 @@ using Newtonsoft.Json;
 
 public static class ImGuiEx
 {
-	public static bool Header(string label, bool button = false)
+	public static void Header(ref bool expanded, string label, out bool clicked)
 	{
 		Vector2 startPos = ImGui.GetCursorPos();
 		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-		bool clicked = false;
+
+		if (ImGui.Button(label))
+		{
+			expanded = !expanded;
+		}
+
+		float height = ImGui.GetCursorPosY() - startPos.Y;
+
+		ImGui.SameLine();
+		Vector2 lineStartPos = ImGui.GetCursorPos();
+		float width = ImGui.GetContentRegionAvail().X;
+		width -= 25;
+
+		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (height / 2) - 1);
+		ImGui.BeginChild(label, new Vector2(width, 1), true);
+		ImGui.EndChild();
+
+		ImGui.SameLine();
+		ImGui.SetCursorPosX(lineStartPos.X + width);
+		ImGui.SetCursorPosY(lineStartPos.Y);
+		clicked = ImGui.Button($"+###{label}", new Vector2(25, 0));
+
+		ImGui.PopStyleColor();
+	}
+
+	public static void Header(ref bool expanded, string label)
+	{
+		Vector2 startPos = ImGui.GetCursorPos();
+		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
 
 		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0x00000000);
 		ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0x00000000);
-		ImGui.Button(label);
+		if (ImGui.Button(label))
+		{
+			expanded = !expanded;
+		}
+
 		ImGui.PopStyleColor();
 		ImGui.PopStyleColor();
 
@@ -33,23 +65,11 @@ public static class ImGuiEx
 		Vector2 lineStartPos = ImGui.GetCursorPos();
 		float width = ImGui.GetContentRegionAvail().X;
 
-		if (button)
-			width -= 25;
-
 		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (height / 2) - 1);
 		ImGui.BeginChild(label, new Vector2(width, 1), true);
 		ImGui.EndChild();
 
-		if (button)
-		{
-			ImGui.SameLine();
-			ImGui.SetCursorPosX(lineStartPos.X + width);
-			ImGui.SetCursorPosY(lineStartPos.Y);
-			clicked = ImGui.Button($"+###{label}", new Vector2(25, 0));
-		}
-
 		ImGui.PopStyleColor();
-		return clicked;
 	}
 
 	public static void Icon(FontAwesomeIcon icon, float size = 0.75f)

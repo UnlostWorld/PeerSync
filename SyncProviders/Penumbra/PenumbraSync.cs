@@ -71,6 +71,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	private readonly Dictionary<string, Guid> appliedCollections = new();
 	private readonly HashSet<int> hasSeenBefore = new();
 
+	private bool expandDownloads = true;
+	private bool expandUploads = true;
+
 	public PenumbraSync()
 	{
 		this.DownloadGroup.SetCount(Configuration.Current.MaxDownloads);
@@ -439,13 +442,13 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		if (this.DownloadGroup.ActiveCount + this.DownloadGroup.QueueCount > 0)
 		{
-			ImGuiEx.Header("Downloads");
+			ImGuiEx.Header(ref this.expandDownloads, "Downloads");
 			this.DownloadGroup.DrawStatus("DownloadTable");
 		}
 
 		if (this.UploadGroup.ActiveCount + this.UploadGroup.QueueCount > 0)
 		{
-			ImGuiEx.Header("Uploads");
+			ImGuiEx.Header(ref this.expandDownloads, "Uploads");
 			this.UploadGroup.DrawStatus("UploadTable");
 		}
 	}

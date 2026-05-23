@@ -113,7 +113,6 @@ public class NetworkManager : IDisposable
 
 	private void OnIncomingConnectionConnected(Connection connection)
 	{
-		Plugin.Log.Info($"Connected: {connection.EndPoint}");
 		connection.Disconnected += this.OnIncomingConnectionDisconnected;
 
 		lock (this.incomingConnections)
@@ -126,7 +125,6 @@ public class NetworkManager : IDisposable
 
 	private void OnIncomingConnectionDisconnected(Connection connection)
 	{
-		Plugin.Log.Info($"Disconnected: {connection.EndPoint}");
 		lock (this.incomingConnections)
 		{
 			this.incomingConnections.Remove(connection);
@@ -137,7 +135,6 @@ public class NetworkManager : IDisposable
 
 	private void OnOutgoingConnectionConnected(Connection connection)
 	{
-		Plugin.Log.Info($"Connected: {connection.EndPoint}");
 		connection.Disconnected += this.OnOutgoingConnectionDisconnected;
 
 		lock (this.outgoingConnections)
@@ -150,7 +147,6 @@ public class NetworkManager : IDisposable
 
 	private void OnOutgoingConnectionDisconnected(Connection connection)
 	{
-		Plugin.Log.Info($"Disconnected: {connection.EndPoint}");
 		lock (this.outgoingConnections)
 		{
 			this.outgoingConnections.Remove(connection);

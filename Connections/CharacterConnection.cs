@@ -106,6 +106,7 @@ public class CharacterConnection : IDisposable
 
 	public void SetOutgoingNetworkConnection(Connection connection)
 	{
+		Plugin.Log.Information($"Connected to {this.CharacterId} (outgoing)");
 		this.outgoingConnection = connection;
 		this.CurrentStatus = Status.Connected;
 		this.SendIAm();
@@ -113,6 +114,7 @@ public class CharacterConnection : IDisposable
 
 	public void SetIncomingNetworkConnection(Connection connection)
 	{
+		Plugin.Log.Information($"Connected to {this.CharacterId} (incoming)");
 		this.incomingConnection = connection;
 		this.CurrentStatus = Status.Connected;
 		this.SendIAm();
@@ -220,7 +222,6 @@ public class CharacterConnection : IDisposable
 			return false;
 
 		this.CurrentStatus = Status.Connecting;
-		Plugin.Log.Information($"Connect to {this.CharacterId} at {address}:{port}");
 		Connection? outgoingConnection = await Plugin.Instance.Connections.Connect(address, localAddress, port);
 
 		if (outgoingConnection != null)

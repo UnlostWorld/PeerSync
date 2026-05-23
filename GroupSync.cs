@@ -26,7 +26,7 @@ public class GroupSync
 		this.Group = group;
 	}
 
-	public CharacterSync? TrySync(ConnectionManager network, string characterName, string world, ushort objectIndex)
+	public CharacterSync? TrySync(NetworkManager network, string characterName, string world, ushort objectIndex)
 	{
 		string compoundName = $"{characterName}@{world}";
 

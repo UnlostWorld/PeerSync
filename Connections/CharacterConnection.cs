@@ -8,6 +8,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
@@ -15,6 +17,7 @@ using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using PeerSync;
+using PeerSync.Network;
 using PeerSync.Online;
 
 public class CharacterConnection : IDisposable
@@ -27,9 +30,8 @@ public class CharacterConnection : IDisposable
 	private DateTime lastSeen;
 	private DateTime lastIndexAttempt;
 
-	private string? address;
-	private string? localAddress;
-	private ushort port;
+	private Connection? outgoingConnection;
+	private Connection? incomingConnection;
 
 	public CharacterConnection(IPlayerCharacter character)
 	{
@@ -56,6 +58,7 @@ public class CharacterConnection : IDisposable
 		Indexing,
 		IndexingFailed,
 		Connecting,
+		Connected,
 	}
 
 	public string CharacterId { get; init; }
@@ -99,6 +102,39 @@ public class CharacterConnection : IDisposable
 	public void DrawStatus()
 	{
 		ImGui.Text($"{this.CharacterName} @ {this.CharacterWorld} - {this.CurrentStatus}");
+	}
+
+	public void SetOutgoingNetworkConnection(Connection connection)
+	{
+		this.outgoingConnection = connection;
+		this.CurrentStatus = Status.Connected;
+		this.SendIAm();
+	}
+
+	public void SetIncomingNetworkConnection(Connection connection)
+	{
+		this.incomingConnection = connection;
+		this.CurrentStatus = Status.Connected;
+		this.SendIAm();
+	}
+
+	public void SendIAm()
+	{
+		byte[] data = Encoding.UTF8.GetBytes(this.CharacterId);
+		this.Send(PacketTypes.IAm, data);
+	}
+
+	public void Send(PacketTypes type, byte[] data)
+	{
+		if (this.outgoingConnection?.IsConnected == true)
+		{
+			this.outgoingConnection.Send(type, data);
+		}
+
+		if (this.incomingConnection?.IsConnected == true)
+		{
+			this.incomingConnection.Send(type, data);
+		}
 	}
 
 	private async Task<bool> FingerprintIndexConnect()
@@ -162,20 +198,37 @@ public class CharacterConnection : IDisposable
 			if (response != null && response.Address != null)
 			{
 				// We got a peer, connect to them
-				this.address = response.Address;
-				this.localAddress = response.LocalAddress;
-				this.port = response.Port;
-				this.Connect();
-				return true;
+				IPAddress.TryParse(response.Address, out IPAddress? address);
+				IPAddress.TryParse(response.LocalAddress, out IPAddress? localAddress);
+
+				if (address == null)
+					continue;
+
+				if (await this.Connect(address, localAddress, response.Port))
+				{
+					return true;
+				}
 			}
 		}
 
 		return false;
 	}
 
-	private void Connect()
+	private async Task<bool> Connect(IPAddress address, IPAddress? localAddress, ushort port)
 	{
+		if (Plugin.Instance == null)
+			return false;
+
 		this.CurrentStatus = Status.Connecting;
-		Plugin.Log.Information($"Connect to {this.CharacterId} at {this.address}:{this.port}");
+		Plugin.Log.Information($"Connect to {this.CharacterId} at {address}:{port}");
+		Connection? outgoingConnection = await Plugin.Instance.Connections.Connect(address, localAddress, port);
+
+		if (outgoingConnection != null)
+		{
+			this.SetOutgoingNetworkConnection(outgoingConnection);
+			return true;
+		}
+
+		return false;
 	}
 }

@@ -66,7 +66,6 @@ public sealed partial class Plugin : IDalamudPlugin
 	private readonly IDtrBarEntry dtrBarEntry;
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
 	private readonly CancellationTokenSource tokenSource = new();
-	private ConnectionManager? network;
 	private bool isInitialized = false;
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
@@ -127,9 +126,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		{
 			this.providerLookup.Add(provider.Key, provider);
 		}
-
-		this.network = new();
-		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
 	}
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
@@ -270,12 +266,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		this.providerLookup.Clear();
 
-		if (this.network != null)
-		{
-			this.network.IncomingConnected -= this.OnIncomingConnectionConnected;
-			this.network.Dispose();
-			this.network = null;
-		}
+		this.Connections.Dispose();
 
 		this.IndexServersStatus.Clear();
 
@@ -429,10 +420,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		// Setup TCP listen
 		try
 		{
-			if (this.network == null)
-				throw new Exception("No network");
-
-			this.network.BeginListen(port);
+			this.Connections.BeginListen(port);
 			Plugin.Log.Information($"Started listening for connections on port {port}");
 		}
 		catch (Exception ex)
@@ -507,143 +495,6 @@ public sealed partial class Plugin : IDalamudPlugin
 			return;
 
 		this.Connections.FrameworkUpdate();
-
-		Stopwatch sw = new();
-		sw.Start();
-
-		// Update characters, remove missing characters
-		HashSet<string> toRemove = new();
-		SeStringBuilder dtrTooltipBuilder = new();
-		dtrTooltipBuilder.AddText($"Peer Sync");
-
-		int connectedCount = 0;
-		foreach ((string fingerprint, CharacterSync character) in this.CharacterSyncs)
-		{
-			bool isValid = character.Update();
-			if (!isValid)
-			{
-				toRemove.Add(fingerprint);
-				character.Connected -= this.OnCharacterConnected;
-				character.Disconnected -= this.OnCharacterDisconnected;
-
-				lock (this.SyncProviders)
-				{
-					foreach (SyncProviderBase provider in this.SyncProviders)
-					{
-						provider.Reset(character, null);
-					}
-				}
-
-				character.Dispose();
-			}
-			else
-			{
-				if (character.IsConnected)
-				{
-					dtrTooltipBuilder.AddText($"\n・{character.Name} @ {character.World}");
-					connectedCount++;
-				}
-			}
-		}
-
-		foreach (string fingerprint in toRemove)
-		{
-			this.CharacterSyncs.Remove(fingerprint);
-		}
-
-		// Find new characters
-		foreach (IBattleChara battleChara in Plugin.ObjectTable.PlayerObjects)
-		{
-			if (this.network == null)
-				continue;
-
-			if (battleChara is IPlayerCharacter character)
-			{
-				if (character == ObjectTable.LocalPlayer)
-					continue;
-
-				string characterName = character.Name.ToString();
-				string world = character.HomeWorld.Value.Name.ToString();
-				string compoundName = $"{characterName}@{world}";
-
-				// If there's an existing connection for this character
-				if (this.CharacterSyncs.ContainsKey(compoundName))
-				{
-					// Has this connection timed out?
-					if (!this.CharacterSyncs[compoundName].IsConnected &&
-						this.CharacterSyncs[compoundName].ConnectionAttempts > MaxConnectionAttempts)
-					{
-						this.CharacterSyncs[compoundName].Dispose();
-						this.CharacterSyncs[compoundName].Connected -= this.OnCharacterConnected;
-						this.CharacterSyncs[compoundName].Disconnected -= this.OnCharacterDisconnected;
-						this.CharacterSyncs.Remove(compoundName);
-					}
-					else
-					{
-						continue;
-					}
-				}
-
-				// check groups
-				if (!this.CharacterSyncs.ContainsKey(compoundName))
-				{
-					foreach (GroupSync groupSync in this.GroupSyncs.Values)
-					{
-						CharacterSync? charSync = groupSync.TrySync(this.network, characterName, world, character.ObjectIndex);
-						if (charSync != null)
-						{
-							charSync.Connected += this.OnCharacterConnected;
-							charSync.Disconnected += this.OnCharacterDisconnected;
-							this.CharacterSyncs.Add(compoundName, charSync);
-						}
-					}
-				}
-
-				// Check peers
-				if (!this.CharacterSyncs.ContainsKey(compoundName))
-				{
-					Configuration.Peer? peer = Configuration.Current.GetFriend(characterName, world);
-					if (peer != null)
-					{
-						CharacterSync sync = new(this.network, peer, character.ObjectIndex);
-						sync.Connected += this.OnCharacterConnected;
-						sync.Disconnected += this.OnCharacterDisconnected;
-						this.CharacterSyncs.Add(compoundName, sync);
-					}
-				}
-			}
-		}
-
-		sw.Stop();
-		if (sw.ElapsedMilliseconds > 6)
-		{
-			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to check for characters");
-		}
-
-		sw.Restart();
-
-		SeStringBuilder dtrEntryBuilder = new();
-		dtrEntryBuilder.AddText($"\uE0BD");
-
-		if (connectedCount > 0)
-			dtrEntryBuilder.AddText($"{connectedCount}");
-
-		lock (this.SyncProviders)
-		{
-			foreach (SyncProviderBase sync in this.SyncProviders)
-			{
-				sync.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
-			}
-		}
-
-		this.dtrBarEntry.Text = dtrEntryBuilder.ToString();
-		this.dtrBarEntry.Tooltip = dtrTooltipBuilder.ToString();
-
-		sw.Stop();
-		if (sw.ElapsedMilliseconds > 16)
-		{
-			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to update dtr bar");
-		}
 	}
 
 	private Configuration.Character? UpdateLocalCharacter()
@@ -943,28 +794,6 @@ public sealed partial class Plugin : IDalamudPlugin
 				{
 					Plugin.Log.Error(ex, "Error sending character data");
 				}
-			}
-		}
-	}
-
-	private void OnIncomingConnectionConnected(Connection connection)
-	{
-		connection.Received += this.OnReceived;
-	}
-
-	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
-	{
-		if (type == PacketTypes.IAm)
-		{
-			string fingerprint = Encoding.UTF8.GetString(data);
-
-			CharacterSync? sync = this.GetCharacterSync(fingerprint);
-			if (sync == null)
-				return;
-
-			if (sync.SetConnection(connection))
-			{
-				connection.Received -= this.OnReceived;
 			}
 		}
 	}

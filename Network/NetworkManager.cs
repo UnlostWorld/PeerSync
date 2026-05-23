@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 
 public delegate void ConnectionDelegate(Connection connection);
 
-public class ConnectionManager : IDisposable
+public class NetworkManager : IDisposable
 {
 	private readonly List<Connection> incomingConnections = new();
 	private readonly List<Connection> outgoingConnections = new();
@@ -68,7 +68,7 @@ public class ConnectionManager : IDisposable
 		}
 	}
 
-	public async Task<(Connection? Success, Exception? Failure)> Connect(IPEndPoint endPoint, CancellationToken token)
+	public async Task<Connection?> Connect(IPEndPoint endPoint, CancellationToken token)
 	{
 		TcpClient client = new();
 
@@ -76,15 +76,15 @@ public class ConnectionManager : IDisposable
 		{
 			await client.ConnectAsync(endPoint, token);
 		}
-		catch (Exception ex)
+		catch (Exception)
 		{
 			client.Dispose();
-			return (null, ex);
+			throw;
 		}
 
 		Connection connection = new Connection(client);
 		this.OnOutgoingConnectionConnected(connection);
-		return (connection, null);
+		return connection;
 	}
 
 	private async Task Listen()

@@ -229,43 +229,7 @@ public class MainWindow : Window, IDisposable
 		ImGui.EndTable();
 
 		ImGuiEx.Header(ref this.expandedConnections, $"Connections");
-		if (ImGui.BeginTable("SyncTable", 4))
-		{
-			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
-			ImGui.TableSetupColumn("Character", ImGuiTableColumnFlags.WidthStretch);
-			ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed);
-			ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed, 15);
-
-			List<string> syncNames = new();
-			Dictionary<string, CharacterSync> syncLookup = new();
-			foreach ((string id, CharacterSync sync) in plugin.CharacterSyncs)
-			{
-				string compoundName = $"{sync.Name} @ {sync.World}";
-				if (syncLookup.ContainsKey(compoundName))
-					continue;
-
-				syncNames.Add(compoundName);
-				syncLookup.Add(compoundName, sync);
-			}
-
-			syncNames.Sort();
-
-			foreach (string syncName in syncNames)
-			{
-				if (!syncLookup.TryGetValue(syncName, out CharacterSync? sync) || sync == null)
-					continue;
-
-				List<SyncProgressBase>? progresses = plugin.GetSyncProgress(sync);
-				this.DrawSyncEntry(sync, progresses);
-
-				ImGui.TableNextRow();
-			}
-
-			ImGui.EndTable();
-		}
-
-		ImGuiEx.Header(ref this.expandedConnections, $"Connections v2");
-		Plugin.Instance?.Connections.DrawStatus();
+		Plugin.Instance?.Connections.DrawStatus(this.expandedConnections);
 
 		bool addGroup;
 		ImGuiEx.Header(ref this.expandedGroups, $"Groups", out addGroup);

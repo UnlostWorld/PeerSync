@@ -33,14 +33,14 @@ public class CharacterSync : IDisposable
 	public readonly bool IsGroup;
 
 	private readonly CancellationTokenSource tokenSource = new();
-	private readonly ConnectionManager network;
+	private readonly NetworkManager network;
 	private readonly ushort objectIndex;
 
 	private bool isApplyingData = false;
 	private Connection? connection;
 	private int connectionAttempts = 0;
 
-	public CharacterSync(ConnectionManager network, Configuration.Peer peer, ushort objectIndex)
+	public CharacterSync(NetworkManager network, Configuration.Peer peer, ushort objectIndex)
 	{
 		if (Plugin.Instance == null)
 			throw new InvalidOperationException("Attempt to sync with plugin in invalid state");
@@ -61,7 +61,7 @@ public class CharacterSync : IDisposable
 		Task.Run(this.Connect, this.tokenSource.Token);
 	}
 
-	public CharacterSync(ConnectionManager network, Configuration.Group group, string memberFingerprint, string name, string world, ushort objectIndex)
+	public CharacterSync(NetworkManager network, Configuration.Group group, string memberFingerprint, string name, string world, ushort objectIndex)
 	{
 		if (Plugin.Instance == null)
 			throw new InvalidOperationException("Attempt to sync with plugin in invalid state");
@@ -356,57 +356,8 @@ public class CharacterSync : IDisposable
 			// We're the client.
 			this.CurrentStatus = Status.Connecting;
 
-			CancellationTokenSource localCancel = new();
-			CancellationTokenSource wideCancel = new();
-
-			wideCancel.CancelAfter(5000);
-			localCancel.CancelAfter(5000);
-
-			Task wideConnectTask = Task.Run(
-				async () =>
-				{
-					(Connection? connection, Exception? exception) =
-						await this.network.Connect(new(address, response.Port), wideCancel.Token);
-
-					if (connection != null)
-					{
-						this.connection = connection;
-						wideCancel.Cancel();
-					}
-					else if (exception is not TaskCanceledException)
-					{
-						this.LastException = exception;
-					}
-				},
-				wideCancel.Token);
-
-			IPAddress.TryParse(response.LocalAddress, out IPAddress? localAddress);
-			Task? localConnectTask = null;
-			if (localAddress != null)
-			{
-				localConnectTask = Task.Run(
-					async () =>
-					{
-						(Connection? connection, Exception? exception) =
-							await this.network.Connect(new(localAddress, response.Port), localCancel.Token);
-
-						if (connection != null)
-						{
-							this.connection = connection;
-							wideCancel.Cancel();
-						}
-						else if (exception is not TaskCanceledException)
-						{
-							this.LastException = exception;
-						}
-					},
-					localCancel.Token);
-			}
-
-			if (localConnectTask != null)
-				await localConnectTask;
-
-			await wideConnectTask;
+			Plugin.Log.Error("Depreciated");
+			await Task.Delay(5000);
 
 			if (this.connection == null)
 			{

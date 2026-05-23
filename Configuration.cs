@@ -54,7 +54,7 @@ public partial class Configuration : IPluginConfiguration
 		Plugin.PluginInterface.SavePluginConfig(this);
 	}
 
-	public Peer? GetPeer(string characterName, string world)
+	public Peer? GetFriend(string characterName, string world)
 	{
 		foreach (Peer pair in this.Pairs)
 		{

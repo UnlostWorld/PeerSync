@@ -152,6 +152,8 @@ public sealed partial class Plugin : IDalamudPlugin
 	public DialogBoxWindow DialogBox { get; init; }
 	public InspectWindow InspectWindow { get; init; }
 
+	public ConnectionService Connections { get; init; } = new();
+
 	public string Name => "Peer Sync";
 
 	public int CharacterSyncCount() => this.CharacterSyncs.Count;
@@ -320,7 +322,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		string characterName = character.Name.ToString();
 		string world = character.HomeWorld.Value.Name.ToString();
-		Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
+		Configuration.Peer? peer = Configuration.Current.GetFriend(characterName, world);
 
 		if (peer == null)
 		{
@@ -504,6 +506,8 @@ public sealed partial class Plugin : IDalamudPlugin
 		if (this.LocalCharacter == null)
 			return;
 
+		this.Connections.FrameworkUpdate();
+
 		Stopwatch sw = new();
 		sw.Start();
 
@@ -598,7 +602,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				// Check peers
 				if (!this.CharacterSyncs.ContainsKey(compoundName))
 				{
-					Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
+					Configuration.Peer? peer = Configuration.Current.GetFriend(characterName, world);
 					if (peer != null)
 					{
 						CharacterSync sync = new(this.network, peer, character.ObjectIndex);

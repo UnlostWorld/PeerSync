@@ -264,6 +264,9 @@ public class MainWindow : Window, IDisposable
 			ImGui.EndTable();
 		}
 
+		ImGuiEx.Header(ref this.expandedConnections, $"Connections v2");
+		Plugin.Instance?.Connections.DrawStatus();
+
 		bool addGroup;
 		ImGuiEx.Header(ref this.expandedGroups, $"Groups", out addGroup);
 		if (addGroup)

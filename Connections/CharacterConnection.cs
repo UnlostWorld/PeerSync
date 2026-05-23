@@ -122,7 +122,9 @@ public class CharacterConnection : IDisposable
 
 	public void SendIAm()
 	{
-		byte[] data = Encoding.UTF8.GetBytes(this.CharacterId);
+		// TODO: move this into a local character service or something.
+		string localCharacterId = $"{Plugin.Instance?.LocalCharacter?.CharacterName}@{Plugin.Instance?.LocalCharacter?.World}";
+		byte[] data = Encoding.UTF8.GetBytes(localCharacterId);
 		this.Send(PacketTypes.IAm, data);
 	}
 

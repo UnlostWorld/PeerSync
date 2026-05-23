@@ -110,7 +110,7 @@ public class ConnectionService : IDisposable
 				}
 				catch (Exception ex)
 				{
-					if (ex is not TaskCanceledException)
+					if (ex is not TaskCanceledException && ex is not OperationCanceledException)
 					{
 						exception = ex;
 					}
@@ -136,7 +136,7 @@ public class ConnectionService : IDisposable
 					}
 					catch (Exception ex)
 					{
-						if (ex is not TaskCanceledException)
+						if (ex is not TaskCanceledException && ex is not OperationCanceledException)
 						{
 							exception = ex;
 						}
@@ -194,6 +194,10 @@ public class ConnectionService : IDisposable
 			if (this.connectionLookup.TryGetValue(characterId, out characterConnection) && characterConnection != null)
 			{
 				characterConnection.SetIncomingNetworkConnection(connection);
+			}
+			else
+			{
+				Plugin.Log.Warning($"Unrecognized IAm: {characterId} from {connection.EndPoint}");
 			}
 		}
 	}

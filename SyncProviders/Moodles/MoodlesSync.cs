@@ -13,6 +13,7 @@ using System.Buffers.Text;
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
+using PeerSync.Connections;
 
 public class MoodlesSync : SyncProviderBase
 {
@@ -24,7 +25,7 @@ public class MoodlesSync : SyncProviderBase
 	public override async Task Deserialize(
 		string? lastContent,
 		string? content,
-		CharacterSync character,
+		CharacterConnection character,
 		ushort objectIndex)
 	{
 		if (!this.moodles.GetIsAvailable())
@@ -70,7 +71,7 @@ public class MoodlesSync : SyncProviderBase
 		return this.moodles.GetStatusManagerByPC(playerCharacter);
 	}
 
-	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
 	{
 		await base.Reset(character, objectIndex);
 

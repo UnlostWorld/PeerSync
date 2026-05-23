@@ -11,10 +11,11 @@ namespace PeerSync.SyncProviders.Penumbra;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using PeerSync.Connections;
 
 public abstract class FileTransfer : IDisposable
 {
-	public readonly CharacterSync Character;
+	public readonly CharacterConnection Character;
 
 	protected readonly PenumbraSync sync;
 	protected readonly CancellationToken cancellationToken;
@@ -23,7 +24,7 @@ public abstract class FileTransfer : IDisposable
 	private readonly CancellationTokenSource transferTaskTokenSource = new();
 	private bool needsRetry = false;
 
-	public FileTransfer(PenumbraSync sync, string hash, CharacterSync character)
+	public FileTransfer(PenumbraSync sync, string hash, CharacterConnection character)
 	{
 		this.sync = sync;
 		this.hash = hash;

@@ -12,6 +12,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using PeerSync.Connections;
 
 public class FileUpload : FileTransfer
 {
@@ -19,7 +20,7 @@ public class FileUpload : FileTransfer
 	public long BytesToSend = 0;
 	private readonly byte clientQueueIndex;
 
-	public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterSync character)
+	public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterConnection character)
 		: base(sync, hash, character)
 	{
 		this.clientQueueIndex = clientQueueIndex;

@@ -8,12 +8,13 @@
 
 namespace PeerSync.SyncProviders;
 
+using PeerSync.Connections;
 using PeerSync.UI;
 
-public class SyncProgressBase(SyncProviderBase provider, CharacterSync character)
+public class SyncProgressBase(SyncProviderBase provider, CharacterConnection character)
 {
 	public SyncProviderBase Provider = provider;
-	public CharacterSync Character = character;
+	public CharacterConnection Character = character;
 
 	public SyncProgressStatus Status { get; set; }
 	public long Current { get; set; }

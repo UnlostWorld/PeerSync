@@ -6,6 +6,8 @@
 //  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
 //  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.Connections;
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -37,6 +39,21 @@ public class ConnectionService : IDisposable
 		this.network.BeginListen(port);
 	}
 
+	public void Send(PacketTypes type, byte[] data)
+	{
+		foreach (CharacterConnection connection in this.connections)
+		{
+			try
+			{
+				connection.Send(type, data);
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, "Error sending data");
+			}
+		}
+	}
+
 	public void FrameworkUpdate()
 	{
 		for (int i = this.connections.Count - 1; i >= 0; i--)
@@ -66,7 +83,7 @@ public class ConnectionService : IDisposable
 	{
 		foreach (CharacterConnection connection in this.connections)
 		{
-			if (collapse && connection.CurrentStatus == CharacterConnection.Status.IndexingFailed)
+			if (collapse && connection.CurrentStatus == CharacterConnectionStatus.IndexingFailed)
 				continue;
 
 			connection.DrawStatus();

@@ -13,6 +13,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using PeerSync.Connections;
 using PeerSync.Network;
 
 public class FileDownload : FileTransfer
@@ -29,7 +30,7 @@ public class FileDownload : FileTransfer
 		string name,
 		string hash,
 		long expectedSize,
-		CharacterSync character)
+		CharacterConnection character)
 		: base(sync, hash, character)
 	{
 		this.Name = name;
@@ -42,11 +43,7 @@ public class FileDownload : FileTransfer
 	public override void Dispose()
 	{
 		this.fileStream?.Dispose();
-
-		if (this.Character.Connection != null)
-		{
-			this.Character.Connection.Received -= this.OnReceived;
-		}
+		this.Character.Received -= this.OnReceived;
 	}
 
 	protected override async Task Transfer()
@@ -56,8 +53,7 @@ public class FileDownload : FileTransfer
 		if (file == null)
 			return;
 
-		if (this.cancellationToken.IsCancellationRequested
-			|| this.Character.Connection == null)
+		if (this.cancellationToken.IsCancellationRequested)
 			return;
 
 		lock (this.sync)
@@ -65,7 +61,7 @@ public class FileDownload : FileTransfer
 			this.queueIndex = this.sync.LastQueueIndex++;
 		}
 
-		this.Character.Connection.Received += this.OnReceived;
+		this.Character.Received += this.OnReceived;
 
 		byte[] hashBytes = Encoding.UTF8.GetBytes(this.hash);
 		byte[] objectBytes = new byte[hashBytes.Length + 1];
@@ -116,16 +112,13 @@ public class FileDownload : FileTransfer
 		}
 	}
 
-	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
+	private void OnReceived(CharacterConnection character, PacketTypes type, byte[] data)
 	{
 		if (type == PacketTypes.FileData)
 		{
 			byte clientQueueIndex = data[0];
 
 			if (clientQueueIndex != this.queueIndex)
-				return;
-
-			if (connection != this.Character.Connection)
 				return;
 
 			byte[] fileData = new byte[data.Length - 1];

@@ -16,6 +16,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface;
+using PeerSync.Connections;
 
 public class PetNamesSync : SyncProviderBase
 {
@@ -40,7 +41,7 @@ public class PetNamesSync : SyncProviderBase
 	public override async Task Deserialize(
 		string? lastContent,
 		string? content,
-		CharacterSync character,
+		CharacterConnection character,
 		ushort objectIndex)
 	{
 		if (!this.petNames.GetIsAvailable())
@@ -72,7 +73,7 @@ public class PetNamesSync : SyncProviderBase
 		}
 	}
 
-	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
 	{
 		await base.Reset(character, objectIndex);
 
@@ -85,7 +86,7 @@ public class PetNamesSync : SyncProviderBase
 		this.SetStatus(character, SyncProgressStatus.Empty);
 	}
 
-	public override void DrawInspect(CharacterSync? character, string content)
+	public override void DrawInspect(CharacterConnection? character, string content)
 	{
 		if (ImGui.CollapsingHeader(this.DisplayName))
 		{

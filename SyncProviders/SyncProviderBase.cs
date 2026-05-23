@@ -16,10 +16,11 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface;
 using PeerSync;
+using PeerSync.Connections;
 
 public abstract class SyncProviderBase : IDisposable
 {
-	private readonly Dictionary<CharacterSync, SyncProgressBase> perCharacterProgress = new();
+	private readonly Dictionary<CharacterConnection, SyncProgressBase> perCharacterProgress = new();
 	private readonly CancellationTokenSource tokenSource = new();
 
 	public abstract string DisplayName { get; }
@@ -31,7 +32,7 @@ public abstract class SyncProviderBase : IDisposable
 	public abstract Task Deserialize(
 		string? lastContent,
 		string? content,
-		CharacterSync character,
+		CharacterConnection character,
 		ushort objectIndex);
 
 	public virtual void DrawSettings()
@@ -42,7 +43,7 @@ public abstract class SyncProviderBase : IDisposable
 	{
 	}
 
-	public virtual void DrawInspect(CharacterSync? character, string content)
+	public virtual void DrawInspect(CharacterConnection? character, string content)
 	{
 		if (ImGui.CollapsingHeader(this.DisplayName))
 		{
@@ -64,23 +65,23 @@ public abstract class SyncProviderBase : IDisposable
 	{
 	}
 
-	public virtual void OnCharacterConnected(CharacterSync character)
+	public virtual void OnCharacterConnected(CharacterConnection character)
 	{
 		this.perCharacterProgress[character] = this.CreateProgress(character);
 	}
 
-	public virtual void OnCharacterDisconnected(CharacterSync character)
+	public virtual void OnCharacterDisconnected(CharacterConnection character)
 	{
 		this.perCharacterProgress.Remove(character);
 	}
 
-	public virtual SyncProgressBase? GetProgress(CharacterSync character)
+	public virtual SyncProgressBase? GetProgress(CharacterConnection character)
 	{
 		this.perCharacterProgress.TryGetValue(character, out SyncProgressBase? value);
 		return value;
 	}
 
-	public void SetStatus(CharacterSync character, SyncProgressStatus status)
+	public void SetStatus(CharacterConnection character, SyncProgressStatus status)
 	{
 		SyncProgressBase? progress = this.GetProgress(character);
 		if (progress != null)
@@ -89,12 +90,12 @@ public abstract class SyncProviderBase : IDisposable
 		}
 	}
 
-	public virtual Task Reset(CharacterSync character, ushort? objectIndex)
+	public virtual Task Reset(CharacterConnection character, ushort? objectIndex)
 	{
 		return Task.CompletedTask;
 	}
 
-	protected virtual SyncProgressBase CreateProgress(CharacterSync character)
+	protected virtual SyncProgressBase CreateProgress(CharacterConnection character)
 	{
 		return new SyncProgressBase(this, character);
 	}
@@ -103,12 +104,12 @@ public abstract class SyncProviderBase : IDisposable
 public abstract class SyncProviderBase<T> : SyncProviderBase
 	where T : SyncProgressBase
 {
-	public new T? GetProgress(CharacterSync character)
+	public new T? GetProgress(CharacterConnection character)
 	{
 		return base.GetProgress(character) as T;
 	}
 
-	protected sealed override SyncProgressBase CreateProgress(CharacterSync character)
+	protected sealed override SyncProgressBase CreateProgress(CharacterConnection character)
 	{
 		SyncProgressBase? progress = Activator.CreateInstance(typeof(T), [this, character]) as SyncProgressBase;
 		if (progress == null)

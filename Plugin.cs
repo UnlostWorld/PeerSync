@@ -41,6 +41,8 @@ using Dalamud.Game.ClientState.Conditions;
 using System.Diagnostics;
 using Dalamud.Game.Text;
 using PeerSync.SyncBlockers;
+using PeerSync.Connections;
+using Newtonsoft.Json;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
@@ -49,7 +51,6 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	public readonly List<SyncProviderBase> SyncProviders = new();
 	public readonly Dictionary<string, ServerStatus?> IndexServersStatus = new();
-	public readonly Dictionary<string, CharacterSync> CharacterSyncs = new();
 	public readonly Dictionary<string, GroupSync> GroupSyncs = new();
 	public readonly CharacterData LocalCharacterData = new();
 
@@ -152,43 +153,6 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	public string Name => "Peer Sync";
 
-	public int CharacterSyncCount() => this.CharacterSyncs.Count;
-
-	public CharacterSync? GetCharacterSync(string characterName, string world)
-	{
-		string compoundName = $"{characterName}@{world}";
-		if (!this.CharacterSyncs.ContainsKey(compoundName))
-			return null;
-
-		return this.CharacterSyncs[compoundName];
-	}
-
-	public CharacterSync? GetCharacterSync(Connection connection)
-	{
-		foreach (CharacterSync sync in this.CharacterSyncs.Values)
-		{
-			if (sync.Connection == connection)
-			{
-				return sync;
-			}
-		}
-
-		return null;
-	}
-
-	public CharacterSync? GetCharacterSync(string fingerprint)
-	{
-		foreach (CharacterSync sync in this.CharacterSyncs.Values)
-		{
-			if (sync.MemberFingerprint == fingerprint)
-			{
-				return sync;
-			}
-		}
-
-		return null;
-	}
-
 	public GroupSync? GetGroupSync(Configuration.Group group)
 	{
 		foreach (GroupSync sync in this.GroupSyncs.Values)
@@ -210,7 +174,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		return null;
 	}
 
-	public List<SyncProgressBase> GetSyncProgress(CharacterSync character)
+	public List<SyncProgressBase> GetSyncProgress(CharacterConnection character)
 	{
 		List<SyncProgressBase> progresses = new();
 
@@ -229,30 +193,9 @@ public sealed partial class Plugin : IDalamudPlugin
 		return progresses;
 	}
 
-	public void ClearConnection(CharacterSync sync)
-	{
-		sync.Connected -= this.OnCharacterConnected;
-		sync.Disconnected -= this.OnCharacterDisconnected;
-		sync.Reset();
-		sync.Dispose();
-
-		string compoundName = $"{sync.Name}@{sync.World}";
-		this.CharacterSyncs.Remove(compoundName);
-	}
-
 	public void Dispose()
 	{
 		this.tokenSource.Cancel();
-
-		foreach (CharacterSync sync in this.CharacterSyncs.Values)
-		{
-			sync.Connected -= this.OnCharacterConnected;
-			sync.Disconnected -= this.OnCharacterDisconnected;
-			sync.Reset();
-			sync.Dispose();
-		}
-
-		this.CharacterSyncs.Clear();
 
 		lock (this.SyncProviders)
 		{
@@ -311,7 +254,8 @@ public sealed partial class Plugin : IDalamudPlugin
 		if (target.TargetObject is not IPlayerCharacter character)
 			return;
 
-		string characterName = character.Name.ToString();
+		// TODO
+		/*string characterName = character.Name.ToString();
 		string world = character.HomeWorld.Value.Name.ToString();
 		Configuration.Peer? peer = Configuration.Current.GetFriend(characterName, world);
 
@@ -327,8 +271,8 @@ public sealed partial class Plugin : IDalamudPlugin
 			});
 		}
 
-		CharacterSync? sync = this.GetCharacterSync(characterName, world);
-		if (sync != null && sync.CurrentStatus == CharacterSync.Status.Connected)
+		CharacterConnection? sync = this.GetCharacterSync(characterName, world);
+		if (sync != null && sync.CurrentStatus == CharacterConnection.Status.Connected)
 		{
 			args.AddMenuItem(new MenuItem()
 			{
@@ -338,7 +282,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				PrefixChar = 'S',
 				PrefixColor = 526,
 			});
-		}
+		}*/
 	}
 
 	private void AddPeer(IPlayerCharacter character)
@@ -348,7 +292,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		this.AddPeerWindow.Show(characterName, world);
 	}
 
-	private void ResyncPeer(CharacterSync sync, IPlayerCharacter character)
+	private void ResyncPeer(CharacterConnection sync, IPlayerCharacter character)
 	{
 		sync.Reset();
 	}
@@ -544,37 +488,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		Configuration.Current.Characters.Add(newCharacter);
 		Configuration.Current.Save();
 		return newCharacter;
-	}
-
-	private void OnCharacterConnected(CharacterSync character)
-	{
-		lock (this.SyncProviders)
-		{
-			foreach (SyncProviderBase sync in this.SyncProviders)
-			{
-				sync.OnCharacterConnected(character);
-			}
-
-			try
-			{
-				character.SendData(this.LocalCharacterData);
-			}
-			catch (Exception ex)
-			{
-				Plugin.Log.Error(ex, "Error sending character data");
-			}
-		}
-	}
-
-	private void OnCharacterDisconnected(CharacterSync character)
-	{
-		lock (this.SyncProviders)
-		{
-			foreach (SyncProviderBase sync in this.SyncProviders)
-			{
-				sync.OnCharacterDisconnected(character);
-			}
-		}
 	}
 
 	private async Task UpdateIndex(ushort port, IPAddress? localIp)
@@ -781,20 +694,9 @@ public sealed partial class Plugin : IDalamudPlugin
 			timeSinceLastSendTimer.Restart();
 			data.CopyTo(this.LocalCharacterData);
 
-			foreach (CharacterSync sync in this.CharacterSyncs.Values)
-			{
-				if (!sync.IsConnected)
-					continue;
-
-				try
-				{
-					sync.SendData(data);
-				}
-				catch (Exception ex)
-				{
-					Plugin.Log.Error(ex, "Error sending character data");
-				}
-			}
+			string json = JsonConvert.SerializeObject(data);
+			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+			this.Connections.Send(PacketTypes.CharacterData, jsonBytes);
 		}
 	}
 }

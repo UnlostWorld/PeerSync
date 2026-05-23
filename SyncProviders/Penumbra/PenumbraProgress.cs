@@ -10,9 +10,10 @@ namespace PeerSync.SyncProviders.Penumbra;
 
 using System.Collections.Generic;
 using Dalamud.Bindings.ImGui;
+using PeerSync.Connections;
 using PeerSync.UI;
 
-public class PenumbraProgress(PenumbraSync provider, CharacterSync character)
+public class PenumbraProgress(PenumbraSync provider, CharacterConnection character)
 	: SyncProgressBase(provider, character)
 {
 	public override void DrawInfo()

@@ -20,6 +20,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface;
 using Newtonsoft.Json;
+using PeerSync.Connections;
 using PeerSync.Network;
 using PeerSync.UI;
 
@@ -101,18 +102,15 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		}
 	}
 
-	public override void OnCharacterConnected(CharacterSync character)
+	public override void OnCharacterConnected(CharacterConnection character)
 	{
-		if (character.Connection != null)
-			character.Connection.Received += this.OnReceived;
-
+		character.Received += this.OnReceived;
 		base.OnCharacterConnected(character);
 	}
 
-	public override void OnCharacterDisconnected(CharacterSync character)
+	public override void OnCharacterDisconnected(CharacterConnection character)
 	{
-		if (character.Connection != null)
-			character.Connection.Received -= this.OnReceived;
+		character.Received -= this.OnReceived;
 
 		this.UploadGroup.Cancel(character);
 		this.DownloadGroup.Cancel(character);
@@ -226,7 +224,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	public override async Task Deserialize(
 		string? lastContent,
 		string? content,
-		CharacterSync character,
+		CharacterConnection character,
 		ushort objectIndex)
 	{
 		if (!this.penumbra.GetIsAvailable())
@@ -372,7 +370,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		}
 	}
 
-	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
 	{
 		await base.Reset(character, objectIndex);
 		await Plugin.Framework.RunOnUpdate();
@@ -482,13 +480,13 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		this.UploadGroup.Cancel();
 	}
 
-	public override void DrawInspect(CharacterSync? character, string content)
+	public override void DrawInspect(CharacterConnection? character, string content)
 	{
 		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(content);
 		data?.DrawInspect(this);
 	}
 
-	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
+	private void OnReceived(CharacterConnection character, PacketTypes type, byte[] data)
 	{
 		if (type == PacketTypes.FileRequest)
 		{
@@ -505,26 +503,19 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			if (!AllowedFileExtensions.Contains(fileExtension))
 				throw new Exception("Attempt to request forbidden file extension");
 
-			this.OnFileRequest(connection, clientQueueIndex, hash);
+			this.OnFileRequest(character, clientQueueIndex, hash);
 		}
 	}
 
-	private void OnFileRequest(Connection connection, byte clientQueueIndex, string hash)
+	private void OnFileRequest(CharacterConnection character, byte clientQueueIndex, string hash)
 	{
-		CharacterSync? character = Plugin.Instance?.GetCharacterSync(connection);
-		if (character == null)
-		{
-			Plugin.Log.Warning($"File request from unknown connection!");
-			return;
-		}
-
 		FileUpload upload = new(this, clientQueueIndex, hash, character);
 		this.UploadGroup.Enqueue(upload);
 	}
 
-	private string GetTemporaryCollectionIdentifier(CharacterSync character, ushort objectId)
+	private string GetTemporaryCollectionIdentifier(CharacterConnection character, ushort objectId)
 	{
-		return $"{character.MemberFingerprint}_{objectId}";
+		return $"{character.CharacterId}";
 	}
 }
 
@@ -552,7 +543,7 @@ public class TransferGroup
 		}
 	}
 
-	public void Cancel(CharacterSync character)
+	public void Cancel(CharacterConnection character)
 	{
 		foreach (FileTransfer transfer in this.active)
 		{
@@ -572,7 +563,7 @@ public class TransferGroup
 		}
 	}
 
-	public void GetCharacterProgress(CharacterSync character, out long current, out long total)
+	public void GetCharacterProgress(CharacterConnection character, out long current, out long total)
 	{
 		total = 0;
 		current = 0;
@@ -587,7 +578,7 @@ public class TransferGroup
 		}
 	}
 
-	public bool IsCharacterPending(CharacterSync character)
+	public bool IsCharacterPending(CharacterConnection character)
 	{
 		foreach (FileTransfer transfer in this.pending)
 		{
@@ -666,7 +657,7 @@ public class TransferGroup
 			ImGui.Text(transfer.Name);
 
 			ImGui.Text($"{(transfer.Progress * 100).ToString("F0")}%");
-			ImGui.Text($"{transfer.Character.Name} @ {transfer.Character.World}");
+			ImGui.Text($"{transfer.Character.CharacterName} @ {transfer.Character.CharacterWorld}");
 
 			ImGui.EndTooltip();
 		}

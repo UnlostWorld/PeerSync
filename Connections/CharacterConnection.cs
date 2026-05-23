@@ -6,6 +6,8 @@
 //  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
 //  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
+namespace PeerSync.Connections;
+
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -13,25 +15,31 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using Newtonsoft.Json;
 using PeerSync;
 using PeerSync.Network;
 using PeerSync.Online;
+using PeerSync.SyncProviders;
+using PeerSync.UI;
 
-public class CharacterConnection : IDisposable
+using CharacterData = PeerSync.CharacterData;
+
+public partial class CharacterConnection : IDisposable
 {
 	private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 	private static readonly TimeSpan ReIndex = TimeSpan.FromSeconds(10);
 
-	private readonly int objectIndex;
+	private readonly ushort objectIndex;
 	private readonly CancellationTokenSource cancellationTokenSource = new();
 	private DateTime lastSeen;
 	private DateTime lastIndexAttempt;
-
 	private Connection? outgoingConnection;
 	private Connection? incomingConnection;
+	private bool isApplyingData = false;
 
 	public CharacterConnection(IPlayerCharacter character)
 	{
@@ -45,6 +53,10 @@ public class CharacterConnection : IDisposable
 		Task.Run(this.FingerprintIndexConnect);
 	}
 
+	public delegate void DataDelegate(CharacterConnection character, PacketTypes type, byte[] data);
+
+	public event DataDelegate? Received;
+
 	public enum States
 	{
 		Found,
@@ -52,23 +64,42 @@ public class CharacterConnection : IDisposable
 		TimedOut,
 	}
 
-	public enum Status
-	{
-		Initializing,
-		Indexing,
-		IndexingFailed,
-		Connecting,
-		HandShaking,
-		Connected,
-	}
-
 	public string CharacterId { get; init; }
 	public string CharacterName { get; init; }
 	public string CharacterWorld { get; init; }
-	public Status CurrentStatus { get; private set; }
+	public CharacterConnectionStatus CurrentStatus { get; private set; }
+	public CharacterData? LastData { get; private set; }
 
 	public TimeSpan TimeSinceLastSeen => DateTime.Now - this.lastSeen;
 	public TimeSpan TimeSinceLastIndexAttempt => DateTime.Now - this.lastIndexAttempt;
+
+	public void Reset()
+	{
+		this.LastData = null;
+
+		if (Plugin.Instance == null)
+			return;
+
+		foreach (SyncProviderBase provider in Plugin.Instance.SyncProviders)
+		{
+			provider.Reset(this, this.objectIndex);
+		}
+	}
+
+	public void OnCharacterData(CharacterData characterData)
+	{
+		// Do not sync characters if the local player is in combat
+		// or is loading areas.
+		if (Plugin.Condition[ConditionFlag.InCombat]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
+			return;
+
+		if (this.isApplyingData)
+			return;
+
+		Task.Run(() => this.ApplyCharacterData(characterData));
+	}
 
 	public States Update()
 	{
@@ -79,7 +110,7 @@ public class CharacterConnection : IDisposable
 		{
 			this.lastSeen = DateTime.Now;
 
-			if (this.CurrentStatus == Status.IndexingFailed && this.TimeSinceLastIndexAttempt > ReIndex)
+			if (this.CurrentStatus == CharacterConnectionStatus.IndexingFailed && this.TimeSinceLastIndexAttempt > ReIndex)
 			{
 				Task.Run(this.FingerprintIndexConnect);
 			}
@@ -100,28 +131,21 @@ public class CharacterConnection : IDisposable
 		this.cancellationTokenSource.Cancel();
 	}
 
-	public void DrawStatus()
-	{
-		ImGui.Text($"{this.CharacterName} @ {this.CharacterWorld} - {this.CurrentStatus}");
-	}
-
 	public void SetOutgoingNetworkConnection(Connection connection)
 	{
-		Plugin.Log.Information($"Connected to {this.CharacterId} (outgoing)");
 		this.outgoingConnection = connection;
 		this.outgoingConnection.Received += this.OnReceived;
 		this.outgoingConnection.Disconnected += this.OnOutgoingDisconnected;
-		this.CurrentStatus = Status.HandShaking;
+		this.CurrentStatus = CharacterConnectionStatus.HandShaking;
 		this.SendIAm();
 	}
 
 	public void SetIncomingNetworkConnection(Connection connection)
 	{
-		Plugin.Log.Information($"Connected to {this.CharacterId} (incoming)");
 		this.incomingConnection = connection;
 		this.incomingConnection.Received += this.OnReceived;
 		this.incomingConnection.Disconnected += this.OnIncomingDisconnected;
-		this.CurrentStatus = Status.HandShaking;
+		this.CurrentStatus = CharacterConnectionStatus.HandShaking;
 		this.SendIAm();
 	}
 
@@ -148,7 +172,7 @@ public class CharacterConnection : IDisposable
 
 	private async Task<bool> FingerprintIndexConnect()
 	{
-		this.CurrentStatus = Status.Indexing;
+		this.CurrentStatus = CharacterConnectionStatus.Indexing;
 		this.lastIndexAttempt = DateTime.Now;
 		GetPeer request = new();
 
@@ -184,7 +208,7 @@ public class CharacterConnection : IDisposable
 		}
 
 		// We didn't find a valid peer.
-		this.CurrentStatus = Status.IndexingFailed;
+		this.CurrentStatus = CharacterConnectionStatus.IndexingFailed;
 		return false;
 	}
 
@@ -228,7 +252,7 @@ public class CharacterConnection : IDisposable
 		if (Plugin.Instance == null)
 			return false;
 
-		this.CurrentStatus = Status.Connecting;
+		this.CurrentStatus = CharacterConnectionStatus.Connecting;
 		Connection? outgoingConnection = await Plugin.Instance.Connections.Connect(address, localAddress, port);
 
 		if (outgoingConnection != null)
@@ -249,7 +273,7 @@ public class CharacterConnection : IDisposable
 
 		if (this.incomingConnection == null && this.outgoingConnection == null)
 		{
-			this.CurrentStatus = Status.Initializing;
+			this.OnDisconnected();
 		}
 	}
 
@@ -262,7 +286,33 @@ public class CharacterConnection : IDisposable
 
 		if (this.incomingConnection == null && this.outgoingConnection == null)
 		{
-			this.CurrentStatus = Status.Initializing;
+			this.OnDisconnected();
+		}
+	}
+
+	private void OnConnected()
+	{
+		this.CurrentStatus = CharacterConnectionStatus.Connected;
+
+		if (Plugin.Instance == null)
+			return;
+
+		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
+		{
+			sync.OnCharacterConnected(this);
+		}
+	}
+
+	private void OnDisconnected()
+	{
+		this.CurrentStatus = CharacterConnectionStatus.Initializing;
+
+		if (Plugin.Instance == null)
+			return;
+
+		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
+		{
+			sync.OnCharacterDisconnected(this);
 		}
 	}
 
@@ -277,7 +327,101 @@ public class CharacterConnection : IDisposable
 			}
 			else
 			{
-				this.CurrentStatus = Status.Connected;
+				this.OnConnected();
+			}
+		}
+		else if (type == PacketTypes.CharacterData)
+		{
+			string json = Encoding.UTF8.GetString(data);
+			CharacterData? characterData = JsonConvert.DeserializeObject<CharacterData>(json);
+			if (characterData == null)
+				throw new Exception();
+
+			this.OnCharacterData(characterData);
+		}
+		else
+		{
+			this.Received?.Invoke(this, type, data);
+		}
+	}
+
+	private async Task ApplyCharacterData(CharacterData characterData)
+	{
+		if (this.isApplyingData)
+			return;
+
+		if (await Plugin.Lightless.GetIsGameObjectHandled(this.objectIndex))
+		{
+			return;
+		}
+
+		this.isApplyingData = true;
+
+		await this.ApplySyncData(
+			characterData.Character,
+			this.LastData?.Character,
+			this.objectIndex);
+
+		await this.ApplySyncData(
+			characterData.MountOrMinion,
+			this.LastData?.MountOrMinion,
+			(ushort)(this.objectIndex + 1));
+
+		await Plugin.Framework.RunOnUpdate();
+		IGameObject? pet = null;
+		unsafe
+		{
+			IGameObject? character = Plugin.ObjectTable[this.objectIndex];
+			if (character != null)
+			{
+				BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)character.Address);
+				if (pPet != null)
+				{
+					pet = Plugin.ObjectTable[pPet->ObjectIndex];
+				}
+			}
+		}
+
+		await Plugin.Framework.RunOutsideUpdate();
+		if (pet != null)
+		{
+			await this.ApplySyncData(
+				characterData.Pet,
+				this.LastData?.Pet,
+				pet.ObjectIndex);
+		}
+
+		this.isApplyingData = false;
+		this.LastData = characterData;
+	}
+
+	private async Task ApplySyncData(
+		Dictionary<string, string?> sync,
+		Dictionary<string, string?>? lastSync,
+		ushort objectIndex)
+	{
+		foreach ((string key, string? content) in sync)
+		{
+			try
+			{
+				if (Plugin.Instance == null)
+					return;
+
+				SyncProviderBase? provider = Plugin.Instance?.GetSyncProvider(key);
+				if (provider == null)
+					continue;
+
+				string? lastContent = null;
+				lastSync?.TryGetValue(key, out lastContent);
+
+				await provider.Deserialize(lastContent, content, this, objectIndex);
+			}
+			catch (TaskCanceledException)
+			{
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, $"Error applying sync data: {key}");
 			}
 		}
 	}

@@ -58,6 +58,7 @@ public class CharacterConnection : IDisposable
 		Indexing,
 		IndexingFailed,
 		Connecting,
+		HandShaking,
 		Connected,
 	}
 
@@ -108,7 +109,9 @@ public class CharacterConnection : IDisposable
 	{
 		Plugin.Log.Information($"Connected to {this.CharacterId} (outgoing)");
 		this.outgoingConnection = connection;
-		this.CurrentStatus = Status.Connected;
+		this.outgoingConnection.Received += this.OnReceived;
+		this.outgoingConnection.Disconnected += this.OnOutgoingDisconnected;
+		this.CurrentStatus = Status.HandShaking;
 		this.SendIAm();
 	}
 
@@ -116,7 +119,9 @@ public class CharacterConnection : IDisposable
 	{
 		Plugin.Log.Information($"Connected to {this.CharacterId} (incoming)");
 		this.incomingConnection = connection;
-		this.CurrentStatus = Status.Connected;
+		this.incomingConnection.Received += this.OnReceived;
+		this.incomingConnection.Disconnected += this.OnIncomingDisconnected;
+		this.CurrentStatus = Status.HandShaking;
 		this.SendIAm();
 	}
 
@@ -233,5 +238,47 @@ public class CharacterConnection : IDisposable
 		}
 
 		return false;
+	}
+
+	private void OnIncomingDisconnected(Connection connection)
+	{
+		connection.Received -= this.OnReceived;
+		connection.Disconnected -= this.OnOutgoingDisconnected;
+		connection.Dispose();
+		this.incomingConnection = null;
+
+		if (this.incomingConnection == null && this.outgoingConnection == null)
+		{
+			this.CurrentStatus = Status.Initializing;
+		}
+	}
+
+	private void OnOutgoingDisconnected(Connection connection)
+	{
+		connection.Received -= this.OnReceived;
+		connection.Disconnected -= this.OnOutgoingDisconnected;
+		connection.Dispose();
+		this.outgoingConnection = null;
+
+		if (this.incomingConnection == null && this.outgoingConnection == null)
+		{
+			this.CurrentStatus = Status.Initializing;
+		}
+	}
+
+	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
+	{
+		if (type == PacketTypes.IAm)
+		{
+			string characterId = Encoding.UTF8.GetString(data);
+			if (characterId != this.CharacterId)
+			{
+				Plugin.Log.Warning($"Unrecognized IAm: {characterId} from {connection.EndPoint}, expected {this.CharacterId}");
+			}
+			else
+			{
+				this.CurrentStatus = Status.Connected;
+			}
+		}
 	}
 }

@@ -154,9 +154,14 @@ public class ConnectionService : IDisposable
 		{
 			if (exception != null)
 				Plugin.Log.Warning(exception, "Failed to connect to peer");
-		}
 
-		return connection;
+			return null;
+		}
+		else
+		{
+			connection.Received += this.OnReceived;
+			return connection;
+		}
 	}
 
 	private CharacterConnection GetOrCreate(IPlayerCharacter character)
@@ -194,6 +199,7 @@ public class ConnectionService : IDisposable
 			if (this.connectionLookup.TryGetValue(characterId, out characterConnection) && characterConnection != null)
 			{
 				characterConnection.SetIncomingNetworkConnection(connection);
+				connection.Received -= this.OnReceived;
 			}
 			else
 			{

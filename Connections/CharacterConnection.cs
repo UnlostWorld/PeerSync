@@ -301,6 +301,14 @@ public partial class CharacterConnection : IDisposable
 		{
 			sync.OnCharacterConnected(this);
 		}
+
+		// send the most recent version of our character data to this new connection.
+		if (Plugin.Instance.LocalCharacterData != null)
+		{
+			string json = JsonConvert.SerializeObject(Plugin.Instance.LocalCharacterData);
+			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+			this.Send(PacketTypes.CharacterData, jsonBytes);
+		}
 	}
 
 	private void OnDisconnected()

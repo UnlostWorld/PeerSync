@@ -21,10 +21,11 @@ using Dalamud.Game.ClientState.Objects.Types;
 using PeerSync;
 using PeerSync.Network;
 
-public class ConnectionService : IDisposable
+public partial class ConnectionService : IDisposable
 {
 	private readonly ConcurrentDictionary<string, CharacterConnection> connectionLookup = new();
 	private readonly List<CharacterConnection> connections = new();
+	private readonly List<string> alphabeticalIds = new();
 
 	private readonly NetworkManager network = new();
 
@@ -76,17 +77,6 @@ public class ConnectionService : IDisposable
 
 				this.GetOrCreate(tCharacter);
 			}
-		}
-	}
-
-	public void DrawStatus(bool collapse)
-	{
-		foreach (CharacterConnection connection in this.connections)
-		{
-			if (collapse && connection.CurrentStatus == CharacterConnectionStatus.IndexingFailed)
-				continue;
-
-			connection.DrawStatus();
 		}
 	}
 
@@ -191,6 +181,8 @@ public class ConnectionService : IDisposable
 		CharacterConnection newConnection = new(character);
 		this.connections.Add(newConnection);
 		this.connectionLookup.TryAdd(id, newConnection);
+		this.alphabeticalIds.Add(id);
+		this.alphabeticalIds.Sort();
 		return newConnection;
 	}
 
@@ -200,6 +192,7 @@ public class ConnectionService : IDisposable
 		connection.Dispose();
 		this.connections.Remove(connection);
 		this.connectionLookup.TryRemove(id, out _);
+		this.alphabeticalIds.Remove(id);
 	}
 
 	private void OnIncomingConnectionConnected(Connection connection)

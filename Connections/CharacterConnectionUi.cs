@@ -19,30 +19,8 @@ public partial class CharacterConnection
 {
 	public void DrawStatus()
 	{
-		ImGui.Text($"{this.CharacterName} @ {this.CharacterWorld}");
+		List<SyncProgressBase>? progresses = Plugin.Instance?.GetSyncProgress(this);
 
-		if (this.outgoingConnection?.IsConnected == true && this.incomingConnection?.IsConnected == true)
-		{
-			ImGui.SameLine();
-			ImGuiEx.Icon(Dalamud.Interface.FontAwesomeIcon.ArrowsUpDown);
-		}
-		else if (this.outgoingConnection?.IsConnected == true)
-		{
-			ImGui.SameLine();
-			ImGuiEx.Icon(Dalamud.Interface.FontAwesomeIcon.ArrowUp);
-		}
-		else if (this.outgoingConnection?.IsConnected == true)
-		{
-			ImGui.SameLine();
-			ImGuiEx.Icon(Dalamud.Interface.FontAwesomeIcon.ArrowDown);
-		}
-
-		ImGui.SameLine();
-		ImGuiEx.Icon(this.CurrentStatus.GetIcon());
-	}
-
-	private void DrawSyncEntry(CharacterConnection sync, List<SyncProgressBase>? progresses)
-	{
 		string sId = this.CharacterId;
 
 		// Tooltip
@@ -66,7 +44,7 @@ public partial class CharacterConnection
 
 			if (ImGui.MenuItem("Inspect"))
 			{
-				Plugin.Instance?.InspectWindow.Show(sync);
+				Plugin.Instance?.InspectWindow.Show(this);
 			}
 
 			ImGui.Separator();
@@ -99,8 +77,29 @@ public partial class CharacterConnection
 			ImGui.Separator();
 
 			ImGuiEx.Icon(this.CurrentStatus.GetIcon());
+
 			ImGui.SameLine();
 			ImGui.TextWrapped(this.CurrentStatus.GetMessage());
+
+			// Direction
+			if (this.outgoingConnection?.IsConnected == true && this.incomingConnection?.IsConnected == true)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.ArrowsUpDown);
+				ImGui.SameLine();
+				ImGui.Text("Duplex");
+			}
+			else if (this.outgoingConnection?.IsConnected == true)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.ArrowUp);
+				ImGui.SameLine();
+				ImGui.Text("Client");
+			}
+			else if (this.outgoingConnection?.IsConnected == true)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.ArrowDown);
+				ImGui.SameLine();
+				ImGui.Text("Host");
+			}
 
 			ImGui.Separator();
 
@@ -195,9 +194,6 @@ public partial class CharacterConnection
 
 		// Status
 		ImGui.TableNextColumn();
-		if (sync != null)
-		{
-			ImGuiEx.Icon(this.CurrentStatus.GetIcon());
-		}
+		ImGuiEx.Icon(this.CurrentStatus.GetIcon());
 	}
 }

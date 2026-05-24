@@ -83,7 +83,10 @@ public class FileDownload : FileTransfer
 
 			// Abort, we're not connected
 			if (this.Character.CurrentStatus != CharacterConnectionStatus.Connected)
+			{
+				file.Delete();
 				return;
+			}
 
 			await Task.Delay(10, this.cancellationToken);
 		}

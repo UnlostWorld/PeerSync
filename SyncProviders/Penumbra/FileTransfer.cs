@@ -38,6 +38,8 @@ public abstract class FileTransfer : IDisposable
 	public float Progress => (float)this.Current / (float)this.Total;
 	public string Name { get; protected set; } = string.Empty;
 
+	public bool IsCanceled => this.transferTaskTokenSource.IsCancellationRequested;
+
 	public void Cancel()
 	{
 		this.transferTaskTokenSource.Cancel();

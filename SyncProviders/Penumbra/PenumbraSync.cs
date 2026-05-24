@@ -552,6 +552,14 @@ public class TransferGroup
 
 			transfer.Cancel();
 		}
+
+		foreach (FileTransfer transfer in this.pending)
+		{
+			if (transfer.Character != character)
+				continue;
+
+			transfer.Cancel();
+		}
 	}
 
 	public void SetCount(int count)
@@ -680,6 +688,9 @@ public class TransferGroup
 			await Task.Delay(100, this.transferTaskTokenSource.Token);
 
 			if (!this.pending.TryDequeue(out FileTransfer? transfer) || transfer == null)
+				continue;
+
+			if (transfer.IsCanceled)
 				continue;
 
 			this.active.Add(transfer);

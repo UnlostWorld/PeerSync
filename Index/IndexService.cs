@@ -28,6 +28,7 @@ public partial class IndexService : IDisposable
 	private bool isUpdatingIndexes = false;
 	private bool expandedIndex = false;
 	private bool expandedGroups = false;
+	private bool isDisposed = false;
 
 	public IndexService()
 	{
@@ -49,6 +50,7 @@ public partial class IndexService : IDisposable
 
 	public void Dispose()
 	{
+		this.isDisposed = true;
 		this.Servers.Clear();
 		this.Groups.Clear();
 	}
@@ -158,11 +160,17 @@ public partial class IndexService : IDisposable
 		{
 			foreach (IndexServer indexServer in this.Servers)
 			{
+				if (this.isDisposed)
+					return;
+
 				await indexServer.UpdatePeer(Plugin.Characters.Current, localIp, port);
 			}
 
 			foreach (GroupServer groupServer in this.Groups)
 			{
+				if (this.isDisposed)
+					return;
+
 				await groupServer.UpdatePeer(Plugin.Characters.Current, localIp, port);
 			}
 		}

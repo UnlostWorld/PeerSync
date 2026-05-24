@@ -31,7 +31,6 @@ public static class CharacterConnectionStatusExtensions
 			case CharacterConnectionStatus.Indexing: return FontAwesomeIcon.Search;
 			case CharacterConnectionStatus.Offline: return FontAwesomeIcon.None;
 			case CharacterConnectionStatus.Connecting: return FontAwesomeIcon.Link;
-			case CharacterConnectionStatus.HandShaking: return FontAwesomeIcon.Handshake;
 			case CharacterConnectionStatus.Connected: return FontAwesomeIcon.Wifi;
 		}
 
@@ -46,7 +45,6 @@ public static class CharacterConnectionStatusExtensions
 			case CharacterConnectionStatus.Indexing: return "Searching";
 			case CharacterConnectionStatus.Offline: return "Offline";
 			case CharacterConnectionStatus.Connecting: return "Connecting...";
-			case CharacterConnectionStatus.HandShaking: return "Handshaking...";
 			case CharacterConnectionStatus.Connected: return "Connected";
 		}
 

@@ -116,7 +116,8 @@ public partial class CharacterConnection : IDisposable
 			// and the index servers are connected.
 			if (this.CurrentStatus == CharacterConnectionStatus.Offline
 				&& this.TimeSinceLastIndexAttempt > ReIndex
-				&& Plugin.Index.HasInitialIndexingCompleted)
+				&& Plugin.Index.HasInitialIndexingCompleted
+				&& Plugin.Characters.Current != null)
 			{
 				Task.Run(this.FingerprintIndexConnect);
 			}

@@ -21,6 +21,7 @@ using Dalamud.Game.ClientState.Objects.Types;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Newtonsoft.Json;
 using PeerSync;
+using PeerSync.Index;
 using PeerSync.Network;
 using PeerSync.Online;
 using PeerSync.SyncProviders;
@@ -110,7 +111,7 @@ public partial class CharacterConnection : IDisposable
 		{
 			this.lastSeen = DateTime.Now;
 
-			if (this.CurrentStatus == CharacterConnectionStatus.IndexingFailed && this.TimeSinceLastIndexAttempt > ReIndex)
+			if (this.CurrentStatus == CharacterConnectionStatus.Offline && this.TimeSinceLastIndexAttempt > ReIndex)
 			{
 				Task.Run(this.FingerprintIndexConnect);
 			}
@@ -191,13 +192,13 @@ public partial class CharacterConnection : IDisposable
 		// any groups.
 		if (Plugin.Instance != null)
 		{
-			foreach (GroupSync group in Plugin.Instance.GroupSyncs.Values)
+			foreach (GroupServer group in Plugin.Index.Groups)
 			{
-				string memberFingerprint = group.Group.GetMemberFingerprint(this.CharacterName, this.CharacterWorld);
+				string memberFingerprint = group.GetMemberFingerprint(this.CharacterName, this.CharacterWorld);
 
-				if (group.MemberFingerprints.Contains(memberFingerprint))
+				if (group.IsMember(memberFingerprint))
 				{
-					request.GroupFingerprint = group.Group.GetFingerprint();
+					request.GroupFingerprint = group.GetFingerprint();
 					request.MemberFingerprint = memberFingerprint;
 					if (await this.IndexConnect(request))
 					{
@@ -208,7 +209,7 @@ public partial class CharacterConnection : IDisposable
 		}
 
 		// We didn't find a valid peer.
-		this.CurrentStatus = CharacterConnectionStatus.IndexingFailed;
+		this.CurrentStatus = CharacterConnectionStatus.Offline;
 		return false;
 	}
 
@@ -253,7 +254,7 @@ public partial class CharacterConnection : IDisposable
 			return false;
 
 		this.CurrentStatus = CharacterConnectionStatus.Connecting;
-		Connection? outgoingConnection = await Plugin.Instance.Connections.Connect(address, localAddress, port);
+		Connection? outgoingConnection = await Plugin.Connections.Connect(address, localAddress, port);
 
 		if (outgoingConnection != null)
 		{
@@ -313,7 +314,7 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnDisconnected()
 	{
-		this.CurrentStatus = CharacterConnectionStatus.Initializing;
+		this.CurrentStatus = CharacterConnectionStatus.Offline;
 
 		if (Plugin.Instance == null)
 			return;

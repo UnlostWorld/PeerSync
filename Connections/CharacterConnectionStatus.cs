@@ -15,7 +15,7 @@ public enum CharacterConnectionStatus
 {
 	Initializing,
 	Indexing,
-	IndexingFailed,
+	Offline,
 	Connecting,
 	HandShaking,
 	Connected,
@@ -29,7 +29,7 @@ public static class CharacterConnectionStatusExtensions
 		{
 			case CharacterConnectionStatus.Initializing: return FontAwesomeIcon.Hourglass;
 			case CharacterConnectionStatus.Indexing: return FontAwesomeIcon.Search;
-			case CharacterConnectionStatus.IndexingFailed: return FontAwesomeIcon.None;
+			case CharacterConnectionStatus.Offline: return FontAwesomeIcon.None;
 			case CharacterConnectionStatus.Connecting: return FontAwesomeIcon.HandshakeSimple;
 			case CharacterConnectionStatus.HandShaking: return FontAwesomeIcon.Handshake;
 			case CharacterConnectionStatus.Connected: return FontAwesomeIcon.Wifi;
@@ -44,7 +44,7 @@ public static class CharacterConnectionStatusExtensions
 		{
 			case CharacterConnectionStatus.Initializing: return "Initializing";
 			case CharacterConnectionStatus.Indexing: return "Searching";
-			case CharacterConnectionStatus.IndexingFailed: return "Offline";
+			case CharacterConnectionStatus.Offline: return "Offline";
 			case CharacterConnectionStatus.Connecting: return "Connecting...";
 			case CharacterConnectionStatus.HandShaking: return "Handshaking...";
 			case CharacterConnectionStatus.Connected: return "Connected";

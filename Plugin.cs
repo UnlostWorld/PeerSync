@@ -43,6 +43,7 @@ using Dalamud.Game.Text;
 using PeerSync.SyncBlockers;
 using PeerSync.Connections;
 using Newtonsoft.Json;
+using PeerSync.Index;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
@@ -50,11 +51,11 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static readonly LightlessCommunicator Lightless = new();
 
 	public readonly List<SyncProviderBase> SyncProviders = new();
-	public readonly Dictionary<string, ServerStatus?> IndexServersStatus = new();
-	public readonly Dictionary<string, GroupSync> GroupSyncs = new();
 	public readonly CharacterData LocalCharacterData = new();
 
 	public Configuration.Character? LocalCharacter;
+	public IPAddress? LocalIpAddress;
+	public ushort LocalPort;
 
 	private const long ForceSendDataMs = 10000;
 	private readonly string[] commandNames = [
@@ -102,6 +103,9 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		Instance = this;
 
+		Connections = new();
+		Index = new();
+
 		Framework.Update += this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
 		PluginInterface.UiBuilder.Draw += this.OnDalamudDrawUI;
@@ -129,6 +133,9 @@ public sealed partial class Plugin : IDalamudPlugin
 		}
 	}
 
+	public static ConnectionService Connections { get; private set; } = null!;
+	public static IndexService Index { get; private set; } = null!;
+
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
 	[PluginService] public static ICommandManager CommandManager { get; private set; } = null!;
@@ -149,22 +156,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public DialogBoxWindow DialogBox { get; init; }
 	public InspectWindow InspectWindow { get; init; }
 
-	public ConnectionService Connections { get; init; } = new();
-
 	public string Name => "Peer Sync";
-
-	public GroupSync? GetGroupSync(Configuration.Group group)
-	{
-		foreach (GroupSync sync in this.GroupSyncs.Values)
-		{
-			if (sync.Group == group)
-			{
-				return sync;
-			}
-		}
-
-		return null;
-	}
 
 	public SyncProviderBase? GetSyncProvider(string key)
 	{
@@ -209,9 +201,8 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		this.providerLookup.Clear();
 
-		this.Connections.Dispose();
-
-		this.IndexServersStatus.Clear();
+		Connections.Dispose();
+		Index.Dispose();
 
 		foreach (string str in this.commandNames)
 		{
@@ -364,7 +355,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		// Setup TCP listen
 		try
 		{
-			this.Connections.BeginListen(port);
+			Connections.BeginListen(port);
 			Plugin.Log.Information($"Started listening for connections on port {port}");
 		}
 		catch (Exception ex)
@@ -414,14 +405,15 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		Plugin.Log.Information($"Got Local Address: {localIp}");
 
+		this.LocalIpAddress = localIp;
+		this.LocalPort = port;
+
 		// Start the main tasks
-		Task updateIndexTask = Task.Run(async () => await this.UpdateIndex(port, localIp));
 		Task updateDataTask = Task.Run(this.UpdateData);
 
 		this.isInitialized = true;
 
 		await updateDataTask;
-		await updateIndexTask;
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)
@@ -438,7 +430,8 @@ public sealed partial class Plugin : IDalamudPlugin
 		if (this.LocalCharacter == null)
 			return;
 
-		this.Connections.FrameworkUpdate();
+		Connections.FrameworkUpdate();
+		Index.FrameworkUpdate();
 	}
 
 	private Configuration.Character? UpdateLocalCharacter()
@@ -488,125 +481,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		Configuration.Current.Characters.Add(newCharacter);
 		Configuration.Current.Save();
 		return newCharacter;
-	}
-
-	private async Task UpdateIndex(ushort port, IPAddress? localIp)
-	{
-		while (!this.tokenSource.IsCancellationRequested)
-		{
-			await Task.Delay(500);
-
-			if (this.tokenSource.IsCancellationRequested)
-				return;
-
-			try
-			{
-				if (this.LocalCharacter == null)
-					continue;
-
-				SetPeer setPeerRequest = new();
-				setPeerRequest.MemberFingerprint = this.LocalCharacter.GetFingerprint();
-				setPeerRequest.Port = port;
-				setPeerRequest.LocalAddress = localIp?.ToString();
-				foreach (string indexServer in Configuration.Current.IndexServers)
-				{
-					try
-					{
-						bool wasConnected = this.IndexServersStatus.ContainsKey(indexServer)
-							&& this.IndexServersStatus[indexServer] != null;
-						this.IndexServersStatus[indexServer] = await setPeerRequest.Send(indexServer);
-
-						if (!wasConnected)
-						{
-							ServerStatus? status = this.IndexServersStatus[indexServer];
-							if (status != null)
-							{
-								SeStringBuilder str = new();
-								str.AddText("\uE0BC");
-								str.AddText(" Connected to ");
-								str.AddText(status.ServerName ?? string.Empty);
-
-								if (status.Motd != null)
-								{
-									str.AddText(": ");
-									str.AddText(status.Motd);
-								}
-
-								XivChatEntry entry = new();
-								entry.Type = XivChatType.Debug;
-								entry.Message = str.Build();
-								ChatGui.Print(entry);
-							}
-						}
-					}
-					catch (Exception ex)
-					{
-						this.IndexServersStatus[indexServer] = null;
-						Plugin.Log.Warning(ex, $"Failed to connect to index server: {indexServer}");
-						await Task.Delay(20000, this.tokenSource.Token);
-						continue;
-					}
-				}
-
-				foreach (Configuration.Group group in Configuration.Current.Groups)
-				{
-					if (group.Name == null)
-						continue;
-
-					GroupSync? sync;
-					this.GroupSyncs.TryGetValue(group.Name, out sync);
-					if (sync == null)
-					{
-						sync = new(group);
-						this.GroupSyncs.Add(group.Name, sync);
-					}
-
-					SetPeer setGroupPeerRequest = new();
-					setGroupPeerRequest.GroupFingerprint = group.GetFingerprint();
-					setGroupPeerRequest.MemberFingerprint = group.GetMemberFingerprint(this.LocalCharacter);
-					setGroupPeerRequest.Port = port;
-					setGroupPeerRequest.LocalAddress = localIp?.ToString();
-
-					GetMembers getGroupMembersRequest = new();
-					getGroupMembersRequest.GroupFingerprint = group.GetFingerprint();
-
-					sync.MemberFingerprints.Clear();
-
-					foreach (string indexServer in Configuration.Current.IndexServers)
-					{
-						try
-						{
-							ServerStatus status = await setGroupPeerRequest.Send(indexServer);
-							sync.ServerStatus[indexServer] = status;
-
-							GetMembers? response = await getGroupMembersRequest.Send(indexServer);
-							if (response != null && response.Members != null)
-							{
-								foreach (string memberFingerprint in response.Members)
-								{
-									sync.MemberFingerprints.Add(memberFingerprint);
-								}
-							}
-						}
-						catch (Exception)
-						{
-							continue;
-						}
-					}
-				}
-
-				await Task.Delay(20000);
-			}
-			catch (TaskCanceledException)
-			{
-				return;
-			}
-			catch (Exception ex)
-			{
-				Plugin.Log.Error(ex, $"Error updating index server status");
-				return;
-			}
-		}
 	}
 
 	private async Task UpdateData()
@@ -696,7 +570,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 			string json = JsonConvert.SerializeObject(data);
 			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
-			this.Connections.Send(PacketTypes.CharacterData, jsonBytes);
+			Connections.Send(PacketTypes.CharacterData, jsonBytes);
 		}
 	}
 }

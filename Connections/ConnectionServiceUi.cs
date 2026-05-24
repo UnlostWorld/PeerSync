@@ -26,7 +26,7 @@ public partial class ConnectionService
 				if (!this.connectionLookup.TryGetValue(id, out CharacterConnection? connection) || connection == null)
 					continue;
 
-				if (collapse && connection.CurrentStatus == CharacterConnectionStatus.IndexingFailed)
+				if (collapse && connection.CurrentStatus == CharacterConnectionStatus.Offline)
 					continue;
 
 				connection.DrawStatus();

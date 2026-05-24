@@ -673,6 +673,8 @@ public class TransferGroup
 			ImGui.Text($"{(transfer.Progress * 100).ToString("F0")}%");
 			ImGui.Text($"{transfer.Character.CharacterName} @ {transfer.Character.CharacterWorld}");
 
+			ImGui.Text($"{transfer.ClientQueueIndex}");
+
 			ImGui.EndTooltip();
 		}
 

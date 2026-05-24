@@ -22,7 +22,6 @@ public class FileDownload : FileTransfer
 	public long BytesReceived = 0;
 
 	private FileStream? fileStream;
-	private byte queueIndex;
 	private Exception? receiveError;
 
 	public FileDownload(
@@ -58,14 +57,14 @@ public class FileDownload : FileTransfer
 
 		lock (this.sync)
 		{
-			this.queueIndex = this.sync.LastQueueIndex++;
+			this.ClientQueueIndex = this.sync.LastQueueIndex++;
 		}
 
 		this.Character.Received += this.OnReceived;
 
 		byte[] hashBytes = Encoding.UTF8.GetBytes(this.hash);
 		byte[] objectBytes = new byte[hashBytes.Length + 1];
-		objectBytes[0] = this.queueIndex;
+		objectBytes[0] = (byte)this.ClientQueueIndex;
 		Array.Copy(hashBytes, 0, objectBytes, 1, hashBytes.Length);
 
 		this.Character.Send(PacketTypes.FileRequest, objectBytes);
@@ -127,7 +126,7 @@ public class FileDownload : FileTransfer
 		{
 			byte clientQueueIndex = data[0];
 
-			if (clientQueueIndex != this.queueIndex)
+			if (clientQueueIndex != this.ClientQueueIndex)
 				return;
 
 			if (data.Length > PenumbraSync.FileChunkSize + 1)

@@ -24,16 +24,18 @@ public abstract class FileTransfer : IDisposable
 	private readonly CancellationTokenSource transferTaskTokenSource = new();
 	private bool needsRetry = false;
 
-	public FileTransfer(PenumbraSync sync, string hash, CharacterConnection character)
+	public FileTransfer(PenumbraSync sync, string hash, CharacterConnection character, byte queueIndex = 255)
 	{
 		this.sync = sync;
 		this.hash = hash;
 		this.cancellationToken = this.transferTaskTokenSource.Token;
 		this.Character = character;
+		this.ClientQueueIndex = queueIndex;
 	}
 
 	public abstract long Total { get; }
 	public abstract long Current { get; }
+	public byte ClientQueueIndex { get; protected set; }
 
 	public float Progress => (float)this.Current / (float)this.Total;
 	public string Name { get; protected set; } = string.Empty;

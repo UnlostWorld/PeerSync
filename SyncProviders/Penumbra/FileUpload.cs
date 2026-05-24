@@ -18,12 +18,10 @@ public class FileUpload : FileTransfer
 {
 	public long BytesSent = 0;
 	public long BytesToSend = 0;
-	private readonly byte clientQueueIndex;
 
 	public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterConnection character)
-		: base(sync, hash, character)
+		: base(sync, hash, character, clientQueueIndex)
 	{
-		this.clientQueueIndex = clientQueueIndex;
 		this.Name = sync.FileCache.GetFileName(hash);
 	}
 
@@ -36,7 +34,7 @@ public class FileUpload : FileTransfer
 		if (fileInfo == null || !fileInfo.Exists)
 		{
 			Plugin.Log.Warning($"File: {this.hash} missing!");
-			this.Character.Send(PacketTypes.FileData, [this.clientQueueIndex]);
+			this.Character.Send(PacketTypes.FileData, [this.ClientQueueIndex]);
 			return;
 		}
 
@@ -79,7 +77,7 @@ public class FileUpload : FileTransfer
 			int thisChunkSize = (int)Math.Min(PenumbraSync.FileChunkSize, bytesLeft);
 
 			byte[] bytes = new byte[thisChunkSize + 1];
-			bytes[0] = this.clientQueueIndex;
+			bytes[0] = this.ClientQueueIndex;
 			stream.ReadExactly(bytes, 1, thisChunkSize);
 
 			this.Character.Send(PacketTypes.FileData, bytes);
@@ -89,6 +87,6 @@ public class FileUpload : FileTransfer
 		while (this.BytesSent < this.BytesToSend && !this.cancellationToken.IsCancellationRequested);
 
 		// Send the complete flag
-		this.Character.Send(PacketTypes.FileData, [this.clientQueueIndex]);
+		this.Character.Send(PacketTypes.FileData, [this.ClientQueueIndex]);
 	}
 }

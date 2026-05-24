@@ -71,6 +71,7 @@ public partial class CharacterConnection : IDisposable
 	public string CharacterWorld { get; init; }
 	public CharacterConnectionStatus CurrentStatus { get; private set; }
 	public CharacterData? LastData { get; private set; }
+	public bool IsConnected { get; private set; }
 
 	public TimeSpan TimeSinceLastSeen => DateTime.Now - this.lastSeen;
 	public TimeSpan TimeSinceLastIndexAttempt => DateTime.Now - this.lastIndexAttempt;
@@ -114,7 +115,7 @@ public partial class CharacterConnection : IDisposable
 
 			// Begin connecting if this character is offline, enough time has passed,
 			// and the index servers are connected.
-			if ((this.CurrentStatus == CharacterConnectionStatus.Offline || this.outgoingConnection == null)
+			if ((this.CurrentStatus == CharacterConnectionStatus.Offline || (this.CurrentStatus == CharacterConnectionStatus.Connected && this.outgoingConnection == null))
 				&& this.TimeSinceLastIndexAttempt > ReIndex
 				&& Plugin.Index.HasInitialIndexingCompleted
 				&& Plugin.Characters.Current != null)
@@ -328,9 +329,10 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnConnected()
 	{
-		if (this.CurrentStatus == CharacterConnectionStatus.Connected)
+		if (this.IsConnected)
 			return;
 
+		this.IsConnected = true;
 		this.CurrentStatus = CharacterConnectionStatus.Connected;
 
 		if (Plugin.Instance == null)
@@ -352,6 +354,10 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnDisconnected()
 	{
+		if (!this.IsConnected)
+			return;
+
+		this.IsConnected = false;
 		this.CurrentStatus = CharacterConnectionStatus.Offline;
 
 		if (Plugin.Instance == null)

@@ -18,58 +18,17 @@ public static class ImGuiEx
 	public static void Header(ref bool expanded, string label, out bool clicked)
 	{
 		Vector2 startPos = ImGui.GetCursorPos();
+		ImGui.SetCursorPosX(startPos.X + (ImGui.GetContentRegionAvail().X - 25));
 		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-
-		if (ImGui.Button(label))
-		{
-			expanded = !expanded;
-		}
-
-		float height = ImGui.GetCursorPosY() - startPos.Y;
-
-		ImGui.SameLine();
-		Vector2 lineStartPos = ImGui.GetCursorPos();
-		float width = ImGui.GetContentRegionAvail().X;
-		width -= 25;
-
-		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (height / 2) - 1);
-		ImGui.BeginChild(label, new Vector2(width, 1), true);
-		ImGui.EndChild();
-
-		ImGui.SameLine();
-		ImGui.SetCursorPosX(lineStartPos.X + width);
-		ImGui.SetCursorPosY(lineStartPos.Y);
 		clicked = ImGui.Button($"+###{label}", new Vector2(25, 0));
-
 		ImGui.PopStyleColor();
+		ImGui.SetCursorPos(startPos);
+		expanded = ImGui.CollapsingHeader(label);
 	}
 
 	public static void Header(ref bool expanded, string label)
 	{
-		Vector2 startPos = ImGui.GetCursorPos();
-		ImGui.PushStyleColor(ImGuiCol.Button, 0x00000000);
-
-		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, 0x00000000);
-		ImGui.PushStyleColor(ImGuiCol.ButtonActive, 0x00000000);
-		if (ImGui.Button(label))
-		{
-			expanded = !expanded;
-		}
-
-		ImGui.PopStyleColor();
-		ImGui.PopStyleColor();
-
-		float height = ImGui.GetCursorPosY() - startPos.Y;
-
-		ImGui.SameLine();
-		Vector2 lineStartPos = ImGui.GetCursorPos();
-		float width = ImGui.GetContentRegionAvail().X;
-
-		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (height / 2) - 1);
-		ImGui.BeginChild(label, new Vector2(width, 1), true);
-		ImGui.EndChild();
-
-		ImGui.PopStyleColor();
+		expanded = ImGui.CollapsingHeader(label);
 	}
 
 	public static void Icon(FontAwesomeIcon icon, float size = 0.75f)

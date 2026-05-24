@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
 using Newtonsoft.Json;
+using PeerSync.Connections;
 using PeerSync.UI;
 
 public class CustomizePlusSync : SyncProviderBase
@@ -26,7 +27,7 @@ public class CustomizePlusSync : SyncProviderBase
 	public override async Task Deserialize(
 		string? lastContent,
 		string? content,
-		CharacterSync character,
+		CharacterConnection character,
 		ushort objectIndex)
 	{
 		if (!this.customizePlus.GetIsAvailable())
@@ -44,10 +45,10 @@ public class CustomizePlusSync : SyncProviderBase
 
 		if (content == null)
 		{
-			if (this.appliedProfiles.TryGetValue(character.MemberFingerprint, out Guid guid))
+			if (this.appliedProfiles.TryGetValue(character.CharacterId, out Guid guid))
 			{
 				this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
-				this.appliedProfiles.Remove(character.MemberFingerprint);
+				this.appliedProfiles.Remove(character.CharacterId);
 			}
 
 			this.SetStatus(character, SyncProgressStatus.Empty);
@@ -58,7 +59,7 @@ public class CustomizePlusSync : SyncProviderBase
 			if (guid == null)
 				return;
 
-			this.appliedProfiles[character.MemberFingerprint] = guid.Value;
+			this.appliedProfiles[character.CharacterId] = guid.Value;
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}
@@ -77,21 +78,21 @@ public class CustomizePlusSync : SyncProviderBase
 		return this.customizePlus.GetProfileByUniqueId(guid.Value);
 	}
 
-	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
 	{
 		await base.Reset(character, objectIndex);
 		await Plugin.Framework.RunOnUpdate();
 
-		if (this.appliedProfiles.TryGetValue(character.MemberFingerprint, out Guid guid))
+		if (this.appliedProfiles.TryGetValue(character.CharacterId, out Guid guid))
 		{
 			this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
-			this.appliedProfiles.Remove(character.MemberFingerprint);
+			this.appliedProfiles.Remove(character.CharacterId);
 		}
 
 		this.SetStatus(character, SyncProgressStatus.Empty);
 	}
 
-	public override void DrawInspect(CharacterSync? character, string content)
+	public override void DrawInspect(CharacterConnection? character, string content)
 	{
 		if (ImGui.CollapsingHeader(this.DisplayName))
 		{

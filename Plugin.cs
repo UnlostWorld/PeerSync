@@ -41,6 +41,10 @@ using Dalamud.Game.ClientState.Conditions;
 using System.Diagnostics;
 using Dalamud.Game.Text;
 using PeerSync.SyncBlockers;
+using PeerSync.Connections;
+using Newtonsoft.Json;
+using PeerSync.Index;
+using PeerSync.Characters;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
@@ -48,12 +52,10 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static readonly LightlessCommunicator Lightless = new();
 
 	public readonly List<SyncProviderBase> SyncProviders = new();
-	public readonly Dictionary<string, ServerStatus?> IndexServersStatus = new();
-	public readonly Dictionary<string, CharacterSync> CharacterSyncs = new();
-	public readonly Dictionary<string, GroupSync> GroupSyncs = new();
 	public readonly CharacterData LocalCharacterData = new();
 
-	public Configuration.Character? LocalCharacter;
+	public IPAddress? LocalIpAddress;
+	public ushort LocalPort;
 
 	private const long ForceSendDataMs = 10000;
 	private readonly string[] commandNames = [
@@ -66,7 +68,6 @@ public sealed partial class Plugin : IDalamudPlugin
 	private readonly IDtrBarEntry dtrBarEntry;
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
 	private readonly CancellationTokenSource tokenSource = new();
-	private ConnectionManager? network;
 	private bool isInitialized = false;
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
@@ -102,6 +103,10 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		Instance = this;
 
+		Connections = new();
+		Index = new();
+		Characters = new();
+
 		Framework.Update += this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
 		PluginInterface.UiBuilder.Draw += this.OnDalamudDrawUI;
@@ -127,10 +132,11 @@ public sealed partial class Plugin : IDalamudPlugin
 		{
 			this.providerLookup.Add(provider.Key, provider);
 		}
-
-		this.network = new();
-		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
 	}
+
+	public static ConnectionService Connections { get; private set; } = null!;
+	public static IndexService Index { get; private set; } = null!;
+	public static CharacterService Characters { get; private set; } = null!;
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -154,56 +160,6 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	public string Name => "Peer Sync";
 
-	public int CharacterSyncCount() => this.CharacterSyncs.Count;
-
-	public CharacterSync? GetCharacterSync(string characterName, string world)
-	{
-		string compoundName = $"{characterName}@{world}";
-		if (!this.CharacterSyncs.ContainsKey(compoundName))
-			return null;
-
-		return this.CharacterSyncs[compoundName];
-	}
-
-	public CharacterSync? GetCharacterSync(Connection connection)
-	{
-		foreach (CharacterSync sync in this.CharacterSyncs.Values)
-		{
-			if (sync.Connection == connection)
-			{
-				return sync;
-			}
-		}
-
-		return null;
-	}
-
-	public CharacterSync? GetCharacterSync(string fingerprint)
-	{
-		foreach (CharacterSync sync in this.CharacterSyncs.Values)
-		{
-			if (sync.MemberFingerprint == fingerprint)
-			{
-				return sync;
-			}
-		}
-
-		return null;
-	}
-
-	public GroupSync? GetGroupSync(Configuration.Group group)
-	{
-		foreach (GroupSync sync in this.GroupSyncs.Values)
-		{
-			if (sync.Group == group)
-			{
-				return sync;
-			}
-		}
-
-		return null;
-	}
-
 	public SyncProviderBase? GetSyncProvider(string key)
 	{
 		if (this.providerLookup.TryGetValue(key, out var provider))
@@ -212,7 +168,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		return null;
 	}
 
-	public List<SyncProgressBase> GetSyncProgress(CharacterSync character)
+	public List<SyncProgressBase> GetSyncProgress(CharacterConnection character)
 	{
 		List<SyncProgressBase> progresses = new();
 
@@ -231,30 +187,9 @@ public sealed partial class Plugin : IDalamudPlugin
 		return progresses;
 	}
 
-	public void ClearConnection(CharacterSync sync)
-	{
-		sync.Connected -= this.OnCharacterConnected;
-		sync.Disconnected -= this.OnCharacterDisconnected;
-		sync.Reset();
-		sync.Dispose();
-
-		string compoundName = $"{sync.Name}@{sync.World}";
-		this.CharacterSyncs.Remove(compoundName);
-	}
-
 	public void Dispose()
 	{
 		this.tokenSource.Cancel();
-
-		foreach (CharacterSync sync in this.CharacterSyncs.Values)
-		{
-			sync.Connected -= this.OnCharacterConnected;
-			sync.Disconnected -= this.OnCharacterDisconnected;
-			sync.Reset();
-			sync.Dispose();
-		}
-
-		this.CharacterSyncs.Clear();
 
 		lock (this.SyncProviders)
 		{
@@ -268,14 +203,9 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		this.providerLookup.Clear();
 
-		if (this.network != null)
-		{
-			this.network.IncomingConnected -= this.OnIncomingConnectionConnected;
-			this.network.Dispose();
-			this.network = null;
-		}
-
-		this.IndexServersStatus.Clear();
+		Connections.Dispose();
+		Index.Dispose();
+		Characters.Dispose();
 
 		foreach (string str in this.commandNames)
 		{
@@ -318,9 +248,10 @@ public sealed partial class Plugin : IDalamudPlugin
 		if (target.TargetObject is not IPlayerCharacter character)
 			return;
 
-		string characterName = character.Name.ToString();
+		// TODO
+		/*string characterName = character.Name.ToString();
 		string world = character.HomeWorld.Value.Name.ToString();
-		Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
+		Configuration.Peer? peer = Configuration.Current.GetFriend(characterName, world);
 
 		if (peer == null)
 		{
@@ -334,8 +265,8 @@ public sealed partial class Plugin : IDalamudPlugin
 			});
 		}
 
-		CharacterSync? sync = this.GetCharacterSync(characterName, world);
-		if (sync != null && sync.CurrentStatus == CharacterSync.Status.Connected)
+		CharacterConnection? sync = this.GetCharacterSync(characterName, world);
+		if (sync != null && sync.CurrentStatus == CharacterConnection.Status.Connected)
 		{
 			args.AddMenuItem(new MenuItem()
 			{
@@ -345,7 +276,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				PrefixChar = 'S',
 				PrefixColor = 526,
 			});
-		}
+		}*/
 	}
 
 	private void AddPeer(IPlayerCharacter character)
@@ -355,7 +286,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		this.AddPeerWindow.Show(characterName, world);
 	}
 
-	private void ResyncPeer(CharacterSync sync, IPlayerCharacter character)
+	private void ResyncPeer(CharacterConnection sync, IPlayerCharacter character)
 	{
 		sync.Reset();
 	}
@@ -368,9 +299,11 @@ public sealed partial class Plugin : IDalamudPlugin
 		// Open port
 		ushort port = 0;
 		bool isCustomPort = Configuration.Current.Port != 0;
+		int attempts = 0;
 		while (!this.tokenSource.IsCancellationRequested && port == 0)
 		{
 			port = Configuration.Current.Port;
+			attempts++;
 
 			if (port <= 0)
 				port = Configuration.Current.LastPort;
@@ -393,6 +326,14 @@ public sealed partial class Plugin : IDalamudPlugin
 			{
 				if (!isCustomPort)
 				{
+					// first attempt always fails in debug for some reason, so don't bother
+					// logging, and just try again quickly.
+					if (attempts == 1)
+					{
+						await Task.Delay(250, this.tokenSource.Token);
+						continue;
+					}
+
 					Plugin.Log.Error("Failed to open port, no NAT device found");
 					await Task.Delay(5000, this.tokenSource.Token);
 					continue;
@@ -427,10 +368,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		// Setup TCP listen
 		try
 		{
-			if (this.network == null)
-				throw new Exception("No network");
-
-			this.network.BeginListen(port);
+			Connections.BeginListen(port);
 			Plugin.Log.Information($"Started listening for connections on port {port}");
 		}
 		catch (Exception ex)
@@ -480,14 +418,15 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		Plugin.Log.Information($"Got Local Address: {localIp}");
 
+		this.LocalIpAddress = localIp;
+		this.LocalPort = port;
+
 		// Start the main tasks
-		Task updateIndexTask = Task.Run(async () => await this.UpdateIndex(port, localIp));
 		Task updateDataTask = Task.Run(this.UpdateData);
 
 		this.isInitialized = true;
 
 		await updateDataTask;
-		await updateIndexTask;
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)
@@ -495,350 +434,9 @@ public sealed partial class Plugin : IDalamudPlugin
 		if (!this.isInitialized)
 			return;
 
-		Configuration.Character? localCharacter = this.UpdateLocalCharacter();
-		if (this.LocalCharacter != localCharacter)
-		{
-			this.LocalCharacter = localCharacter;
-		}
-
-		if (this.LocalCharacter == null)
-			return;
-
-		Stopwatch sw = new();
-		sw.Start();
-
-		// Update characters, remove missing characters
-		HashSet<string> toRemove = new();
-		SeStringBuilder dtrTooltipBuilder = new();
-		dtrTooltipBuilder.AddText($"Peer Sync");
-
-		int connectedCount = 0;
-		foreach ((string fingerprint, CharacterSync character) in this.CharacterSyncs)
-		{
-			bool isValid = character.Update();
-			if (!isValid)
-			{
-				toRemove.Add(fingerprint);
-				character.Connected -= this.OnCharacterConnected;
-				character.Disconnected -= this.OnCharacterDisconnected;
-
-				lock (this.SyncProviders)
-				{
-					foreach (SyncProviderBase provider in this.SyncProviders)
-					{
-						provider.Reset(character, null);
-					}
-				}
-
-				character.Dispose();
-			}
-			else
-			{
-				if (character.IsConnected)
-				{
-					dtrTooltipBuilder.AddText($"\n・{character.Name} @ {character.World}");
-					connectedCount++;
-				}
-			}
-		}
-
-		foreach (string fingerprint in toRemove)
-		{
-			this.CharacterSyncs.Remove(fingerprint);
-		}
-
-		// Find new characters
-		foreach (IBattleChara battleChara in Plugin.ObjectTable.PlayerObjects)
-		{
-			if (this.network == null)
-				continue;
-
-			if (battleChara is IPlayerCharacter character)
-			{
-				if (character == ObjectTable.LocalPlayer)
-					continue;
-
-				string characterName = character.Name.ToString();
-				string world = character.HomeWorld.Value.Name.ToString();
-				string compoundName = $"{characterName}@{world}";
-
-				// If there's an existing connection for this character
-				if (this.CharacterSyncs.ContainsKey(compoundName))
-				{
-					// Has this connection timed out?
-					if (!this.CharacterSyncs[compoundName].IsConnected &&
-						this.CharacterSyncs[compoundName].ConnectionAttempts > MaxConnectionAttempts)
-					{
-						this.CharacterSyncs[compoundName].Dispose();
-						this.CharacterSyncs[compoundName].Connected -= this.OnCharacterConnected;
-						this.CharacterSyncs[compoundName].Disconnected -= this.OnCharacterDisconnected;
-						this.CharacterSyncs.Remove(compoundName);
-					}
-					else
-					{
-						continue;
-					}
-				}
-
-				// check groups
-				if (!this.CharacterSyncs.ContainsKey(compoundName))
-				{
-					foreach (GroupSync groupSync in this.GroupSyncs.Values)
-					{
-						CharacterSync? charSync = groupSync.TrySync(this.network, characterName, world, character.ObjectIndex);
-						if (charSync != null)
-						{
-							charSync.Connected += this.OnCharacterConnected;
-							charSync.Disconnected += this.OnCharacterDisconnected;
-							this.CharacterSyncs.Add(compoundName, charSync);
-						}
-					}
-				}
-
-				// Check peers
-				if (!this.CharacterSyncs.ContainsKey(compoundName))
-				{
-					Configuration.Peer? peer = Configuration.Current.GetPeer(characterName, world);
-					if (peer != null)
-					{
-						CharacterSync sync = new(this.network, peer, character.ObjectIndex);
-						sync.Connected += this.OnCharacterConnected;
-						sync.Disconnected += this.OnCharacterDisconnected;
-						this.CharacterSyncs.Add(compoundName, sync);
-					}
-				}
-			}
-		}
-
-		sw.Stop();
-		if (sw.ElapsedMilliseconds > 6)
-		{
-			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to check for characters");
-		}
-
-		sw.Restart();
-
-		SeStringBuilder dtrEntryBuilder = new();
-		dtrEntryBuilder.AddText($"\uE0BD");
-
-		if (connectedCount > 0)
-			dtrEntryBuilder.AddText($"{connectedCount}");
-
-		lock (this.SyncProviders)
-		{
-			foreach (SyncProviderBase sync in this.SyncProviders)
-			{
-				sync.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
-			}
-		}
-
-		this.dtrBarEntry.Text = dtrEntryBuilder.ToString();
-		this.dtrBarEntry.Tooltip = dtrTooltipBuilder.ToString();
-
-		sw.Stop();
-		if (sw.ElapsedMilliseconds > 16)
-		{
-			Plugin.Log.Information($"Took {sw.ElapsedMilliseconds}ms to update dtr bar");
-		}
-	}
-
-	private Configuration.Character? UpdateLocalCharacter()
-	{
-		if (Plugin.Condition[ConditionFlag.BetweenAreas]
-			|| Plugin.Condition[ConditionFlag.BetweenAreas51]
-			|| Plugin.Condition[ConditionFlag.LoggingOut])
-		{
-			return null;
-		}
-
-		if (!ClientState.IsLoggedIn)
-		{
-			return null;
-		}
-
-		IPlayerCharacter? player = ObjectTable.LocalPlayer;
-		if (player == null)
-		{
-			return null;
-		}
-
-		string characterName = player.Name.ToString();
-		string world = player.HomeWorld.Value.Name.ToString();
-
-		if (this.LocalCharacter != null)
-		{
-			if (this.LocalCharacter.CharacterName == characterName
-				&& this.LocalCharacter.World == world)
-			{
-				return this.LocalCharacter;
-			}
-		}
-
-		foreach (Configuration.Character character in Configuration.Current.Characters)
-		{
-			if (character.CharacterName == characterName && character.World == world)
-			{
-				return character;
-			}
-		}
-
-		Configuration.Character newCharacter = new();
-		newCharacter.CharacterName = characterName;
-		newCharacter.World = world;
-		newCharacter.GeneratePassword();
-		Configuration.Current.Characters.Add(newCharacter);
-		Configuration.Current.Save();
-		return newCharacter;
-	}
-
-	private void OnCharacterConnected(CharacterSync character)
-	{
-		lock (this.SyncProviders)
-		{
-			foreach (SyncProviderBase sync in this.SyncProviders)
-			{
-				sync.OnCharacterConnected(character);
-			}
-
-			try
-			{
-				character.SendData(this.LocalCharacterData);
-			}
-			catch (Exception ex)
-			{
-				Plugin.Log.Error(ex, "Error sending character data");
-			}
-		}
-	}
-
-	private void OnCharacterDisconnected(CharacterSync character)
-	{
-		lock (this.SyncProviders)
-		{
-			foreach (SyncProviderBase sync in this.SyncProviders)
-			{
-				sync.OnCharacterDisconnected(character);
-			}
-		}
-	}
-
-	private async Task UpdateIndex(ushort port, IPAddress? localIp)
-	{
-		while (!this.tokenSource.IsCancellationRequested)
-		{
-			await Task.Delay(500);
-
-			if (this.tokenSource.IsCancellationRequested)
-				return;
-
-			try
-			{
-				if (this.LocalCharacter == null)
-					continue;
-
-				SetPeer setPeerRequest = new();
-				setPeerRequest.MemberFingerprint = this.LocalCharacter.GetFingerprint();
-				setPeerRequest.Port = port;
-				setPeerRequest.LocalAddress = localIp?.ToString();
-				foreach (string indexServer in Configuration.Current.IndexServers)
-				{
-					try
-					{
-						bool wasConnected = this.IndexServersStatus.ContainsKey(indexServer)
-							&& this.IndexServersStatus[indexServer] != null;
-						this.IndexServersStatus[indexServer] = await setPeerRequest.Send(indexServer);
-
-						if (!wasConnected)
-						{
-							ServerStatus? status = this.IndexServersStatus[indexServer];
-							if (status != null)
-							{
-								SeStringBuilder str = new();
-								str.AddText("\uE0BC");
-								str.AddText(" Connected to ");
-								str.AddText(status.ServerName ?? string.Empty);
-
-								if (status.Motd != null)
-								{
-									str.AddText(": ");
-									str.AddText(status.Motd);
-								}
-
-								XivChatEntry entry = new();
-								entry.Type = XivChatType.Debug;
-								entry.Message = str.Build();
-								ChatGui.Print(entry);
-							}
-						}
-					}
-					catch (Exception ex)
-					{
-						this.IndexServersStatus[indexServer] = null;
-						Plugin.Log.Warning(ex, $"Failed to connect to index server: {indexServer}");
-						await Task.Delay(20000, this.tokenSource.Token);
-						continue;
-					}
-				}
-
-				foreach (Configuration.Group group in Configuration.Current.Groups)
-				{
-					if (group.Name == null)
-						continue;
-
-					GroupSync? sync;
-					this.GroupSyncs.TryGetValue(group.Name, out sync);
-					if (sync == null)
-					{
-						sync = new(group);
-						this.GroupSyncs.Add(group.Name, sync);
-					}
-
-					SetPeer setGroupPeerRequest = new();
-					setGroupPeerRequest.GroupFingerprint = group.GetFingerprint();
-					setGroupPeerRequest.MemberFingerprint = group.GetMemberFingerprint(this.LocalCharacter);
-					setGroupPeerRequest.Port = port;
-					setGroupPeerRequest.LocalAddress = localIp?.ToString();
-
-					GetMembers getGroupMembersRequest = new();
-					getGroupMembersRequest.GroupFingerprint = group.GetFingerprint();
-
-					sync.MemberFingerprints.Clear();
-
-					foreach (string indexServer in Configuration.Current.IndexServers)
-					{
-						try
-						{
-							ServerStatus status = await setGroupPeerRequest.Send(indexServer);
-							sync.ServerStatus[indexServer] = status;
-
-							GetMembers? response = await getGroupMembersRequest.Send(indexServer);
-							if (response != null && response.Members != null)
-							{
-								foreach (string memberFingerprint in response.Members)
-								{
-									sync.MemberFingerprints.Add(memberFingerprint);
-								}
-							}
-						}
-						catch (Exception)
-						{
-							continue;
-						}
-					}
-				}
-
-				await Task.Delay(20000);
-			}
-			catch (TaskCanceledException)
-			{
-				return;
-			}
-			catch (Exception ex)
-			{
-				Plugin.Log.Error(ex, $"Error updating index server status");
-				return;
-			}
-		}
+		Characters.FrameworkUpdate();
+		Connections.FrameworkUpdate();
+		Index.FrameworkUpdate();
 	}
 
 	private async Task UpdateData()
@@ -853,7 +451,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 			data.Clear();
 
-			if (this.LocalCharacter == null)
+			if (Plugin.Characters.Current == null)
 				continue;
 
 			await Plugin.Framework.RunOnUpdate();
@@ -870,11 +468,11 @@ public sealed partial class Plugin : IDalamudPlugin
 			}
 
 			IPlayerCharacter? player = ObjectTable.LocalPlayer;
-			if (this.LocalCharacter == null || player == null)
+			if (Plugin.Characters.Current == null || player == null)
 				continue;
 
 			IGameObject? mountOrMinion = Plugin.ObjectTable[player.ObjectIndex + 1];
-			data.Fingerprint = this.LocalCharacter.GetFingerprint();
+			data.Fingerprint = Plugin.Characters.Current.GetFingerprint();
 
 			IGameObject? pet = null;
 			unsafe
@@ -899,18 +497,18 @@ public sealed partial class Plugin : IDalamudPlugin
 
 				try
 				{
-					string? content = await sync.Serialize(this.LocalCharacter, player.ObjectIndex);
+					string? content = await sync.Serialize(Plugin.Characters.Current, player.ObjectIndex);
 					data.Character.Add(sync.Key, content);
 
 					if (mountOrMinion != null)
 					{
-						content = await sync.Serialize(this.LocalCharacter, mountOrMinion.ObjectIndex);
+						content = await sync.Serialize(Plugin.Characters.Current, mountOrMinion.ObjectIndex);
 						data.MountOrMinion.Add(sync.Key, content);
 					}
 
 					if (pet != null)
 					{
-						content = await sync.Serialize(this.LocalCharacter, pet.ObjectIndex);
+						content = await sync.Serialize(Plugin.Characters.Current, pet.ObjectIndex);
 						data.Pet.Add(sync.Key, content);
 					}
 				}
@@ -926,42 +524,9 @@ public sealed partial class Plugin : IDalamudPlugin
 			timeSinceLastSendTimer.Restart();
 			data.CopyTo(this.LocalCharacterData);
 
-			foreach (CharacterSync sync in this.CharacterSyncs.Values)
-			{
-				if (!sync.IsConnected)
-					continue;
-
-				try
-				{
-					sync.SendData(data);
-				}
-				catch (Exception ex)
-				{
-					Plugin.Log.Error(ex, "Error sending character data");
-				}
-			}
-		}
-	}
-
-	private void OnIncomingConnectionConnected(Connection connection)
-	{
-		connection.Received += this.OnReceived;
-	}
-
-	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
-	{
-		if (type == PacketTypes.IAm)
-		{
-			string fingerprint = Encoding.UTF8.GetString(data);
-
-			CharacterSync? sync = this.GetCharacterSync(fingerprint);
-			if (sync == null)
-				return;
-
-			if (sync.SetConnection(connection))
-			{
-				connection.Received -= this.OnReceived;
-			}
+			string json = JsonConvert.SerializeObject(data);
+			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+			Connections.Send(PacketTypes.CharacterData, jsonBytes);
 		}
 	}
 }

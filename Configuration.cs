@@ -54,7 +54,7 @@ public partial class Configuration : IPluginConfiguration
 		Plugin.PluginInterface.SavePluginConfig(this);
 	}
 
-	public Peer? GetPeer(string characterName, string world)
+	public Peer? GetFriend(string characterName, string world)
 	{
 		foreach (Peer pair in this.Pairs)
 		{
@@ -134,14 +134,6 @@ public partial class Configuration : IPluginConfiguration
 			}
 
 			return this.fingerprint;
-		}
-
-		public string? GetMemberFingerprint(Configuration.Character character)
-		{
-			if (character.CharacterName == null || character.World == null)
-				return null;
-
-			return this.GetMemberFingerprint(character.CharacterName, character.World);
 		}
 
 		public string GetMemberFingerprint(string characterName, string world)

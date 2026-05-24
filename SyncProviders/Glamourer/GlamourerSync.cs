@@ -14,6 +14,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Threading.Tasks;
 using Dalamud.Bindings.ImGui;
+using PeerSync.Connections;
 using PeerSync.UI;
 
 public class GlamourerSync : SyncProviderBase
@@ -34,7 +35,7 @@ public class GlamourerSync : SyncProviderBase
 	public override async Task Deserialize(
 		string? lastContent,
 		string? content,
-		CharacterSync character,
+		CharacterConnection character,
 		ushort objectIndex)
 	{
 		if (!this.glamourer.GetIsAvailable())
@@ -60,7 +61,7 @@ public class GlamourerSync : SyncProviderBase
 		}
 	}
 
-	public override async Task Reset(CharacterSync character, ushort? objectIndex)
+	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
 	{
 		if (objectIndex != null)
 			await this.glamourer.RevertState(objectIndex.Value);
@@ -69,7 +70,7 @@ public class GlamourerSync : SyncProviderBase
 		await base.Reset(character, objectIndex);
 	}
 
-	public override void DrawInspect(CharacterSync? character, string content)
+	public override void DrawInspect(CharacterConnection? character, string content)
 	{
 		if (ImGui.CollapsingHeader(this.DisplayName))
 		{

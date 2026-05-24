@@ -11,10 +11,11 @@ namespace PeerSync.SyncProviders.Penumbra;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using PeerSync.Connections;
 
 public abstract class FileTransfer : IDisposable
 {
-	public readonly CharacterSync Character;
+	public readonly CharacterConnection Character;
 
 	protected readonly PenumbraSync sync;
 	protected readonly CancellationToken cancellationToken;
@@ -23,19 +24,23 @@ public abstract class FileTransfer : IDisposable
 	private readonly CancellationTokenSource transferTaskTokenSource = new();
 	private bool needsRetry = false;
 
-	public FileTransfer(PenumbraSync sync, string hash, CharacterSync character)
+	public FileTransfer(PenumbraSync sync, string hash, CharacterConnection character, byte queueIndex = 255)
 	{
 		this.sync = sync;
 		this.hash = hash;
 		this.cancellationToken = this.transferTaskTokenSource.Token;
 		this.Character = character;
+		this.ClientQueueIndex = queueIndex;
 	}
 
 	public abstract long Total { get; }
 	public abstract long Current { get; }
+	public byte ClientQueueIndex { get; protected set; }
 
 	public float Progress => (float)this.Current / (float)this.Total;
 	public string Name { get; protected set; } = string.Empty;
+
+	public bool IsCanceled => this.transferTaskTokenSource.IsCancellationRequested;
 
 	public void Cancel()
 	{
@@ -74,6 +79,11 @@ public abstract class FileTransfer : IDisposable
 
 	public virtual void Dispose()
 	{
+	}
+
+	public bool IsSame(FileTransfer other)
+	{
+		return this.hash == other.hash;
 	}
 
 	protected abstract Task Transfer();

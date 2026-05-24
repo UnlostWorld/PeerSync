@@ -11,13 +11,14 @@ namespace PeerSync.UI;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
+using PeerSync.Connections;
 using PeerSync.SyncProviders;
 using System;
 using System.Numerics;
 
 public class InspectWindow : Window, IDisposable
 {
-	private CharacterSync? character;
+	private CharacterConnection? character;
 
 	public InspectWindow()
 		: base("Inspect##InspectWindow")
@@ -29,7 +30,7 @@ public class InspectWindow : Window, IDisposable
 		};
 	}
 
-	public void Show(CharacterSync? character = null)
+	public void Show(CharacterConnection? character = null)
 	{
 		this.character = character;
 		this.IsOpen = true;
@@ -47,11 +48,7 @@ public class InspectWindow : Window, IDisposable
 
 		if (this.character != null)
 		{
-			ImGui.Text($"{this.character.Name} @ {this.character.World}");
-
-			ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
-			ImGui.SameLine();
-			ImGui.Text($"{this.character.MemberFingerprint}");
+			ImGui.Text($"{this.character.CharacterName} @ {this.character.CharacterWorld}");
 
 			ImGuiEx.Icon(this.character.CurrentStatus.GetIcon());
 			ImGui.SameLine();
@@ -59,13 +56,13 @@ public class InspectWindow : Window, IDisposable
 
 			this.character.LastData?.DrawInspect();
 		}
-		else if (Plugin.Instance?.LocalCharacter != null)
+		else if (Plugin.Characters.Current != null)
 		{
-			ImGui.Text($"{Plugin.Instance.LocalCharacter.CharacterName} @ {Plugin.Instance.LocalCharacter.World}");
+			ImGui.Text($"{Plugin.Characters.Current.CharacterName} @ {Plugin.Characters.Current.World}");
 
 			ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
 			ImGui.SameLine();
-			ImGui.Text($"{Plugin.Instance.LocalCharacter.GetFingerprint()}");
+			ImGui.Text($"{Plugin.Characters.Current.GetFingerprint()}");
 
 			plugin.LocalCharacterData.DrawInspect();
 		}

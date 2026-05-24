@@ -134,7 +134,7 @@ public class AddPeerWindow : Window, IDisposable
 
 		if (ImGui.Button($"Add Peer", new(100, 0)))
 		{
-			Configuration.Peer? peer = Configuration.Current.GetPeer(name, world);
+			Configuration.Peer? peer = Configuration.Current.GetFriend(name, world);
 
 			if (peer == null)
 			{

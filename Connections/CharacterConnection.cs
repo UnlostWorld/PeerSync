@@ -31,7 +31,7 @@ using CharacterData = PeerSync.CharacterData;
 
 public partial class CharacterConnection : IDisposable
 {
-	private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+	private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 	private static readonly TimeSpan ReIndex = TimeSpan.FromSeconds(10);
 
 	private readonly ushort objectIndex;

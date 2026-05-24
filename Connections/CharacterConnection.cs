@@ -145,6 +145,13 @@ public partial class CharacterConnection : IDisposable
 
 	public void SetOutgoingNetworkConnection(Connection connection)
 	{
+		if (this.outgoingConnection != null)
+		{
+			this.outgoingConnection.Received -= this.OnReceived;
+			this.outgoingConnection.Disconnected -= this.OnOutgoingDisconnected;
+			this.outgoingConnection.Dispose();
+		}
+
 		this.outgoingConnection = connection;
 		this.outgoingConnection.Received += this.OnReceived;
 		this.outgoingConnection.Disconnected += this.OnOutgoingDisconnected;
@@ -154,6 +161,13 @@ public partial class CharacterConnection : IDisposable
 
 	public void SetIncomingNetworkConnection(Connection connection)
 	{
+		if (this.incomingConnection != null)
+		{
+			this.incomingConnection.Received -= this.OnReceived;
+			this.incomingConnection.Disconnected -= this.OnIncomingDisconnected;
+			this.incomingConnection.Dispose();
+		}
+
 		this.incomingConnection = connection;
 		this.incomingConnection.Received += this.OnReceived;
 		this.incomingConnection.Disconnected += this.OnIncomingDisconnected;

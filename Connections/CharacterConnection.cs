@@ -302,7 +302,7 @@ public partial class CharacterConnection : IDisposable
 	private void OnIncomingDisconnected(Connection connection)
 	{
 		connection.Received -= this.OnReceived;
-		connection.Disconnected -= this.OnOutgoingDisconnected;
+		connection.Disconnected -= this.OnIncomingDisconnected;
 		connection.Dispose();
 		this.incomingConnection = null;
 

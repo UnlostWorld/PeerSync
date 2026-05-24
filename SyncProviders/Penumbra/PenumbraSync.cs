@@ -536,6 +536,24 @@ public class TransferGroup
 
 	public void Enqueue(FileTransfer transfer)
 	{
+		foreach (FileTransfer otherTransfer in this.active)
+		{
+			if (otherTransfer.ClientQueueIndex == transfer.ClientQueueIndex)
+			{
+				Plugin.Log.Warning($"Duplicate client queue index in file transfer: {transfer.Name} and {otherTransfer.Name}");
+				return;
+			}
+		}
+
+		foreach (FileTransfer otherTransfer in this.pending)
+		{
+			if (otherTransfer.ClientQueueIndex == transfer.ClientQueueIndex)
+			{
+				Plugin.Log.Warning($"Duplicate client queue index in file transfer: {transfer.Name} and {otherTransfer.Name}");
+				return;
+			}
+		}
+
 		this.pending.Enqueue(transfer);
 	}
 

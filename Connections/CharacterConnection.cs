@@ -90,21 +90,6 @@ public partial class CharacterConnection : IDisposable
 		}
 	}
 
-	public void OnCharacterData(CharacterData characterData)
-	{
-		// Do not sync characters if the local player is in combat
-		// or is loading areas.
-		if (Plugin.Condition[ConditionFlag.InCombat]
-			|| Plugin.Condition[ConditionFlag.BetweenAreas]
-			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
-			return;
-
-		if (this.isApplyingData)
-			return;
-
-		Task.Run(() => this.ApplyCharacterData(characterData));
-	}
-
 	public States Update()
 	{
 		IGameObject? obj = Plugin.ObjectTable[this.objectIndex];
@@ -348,14 +333,6 @@ public partial class CharacterConnection : IDisposable
 		if (Plugin.Instance == null)
 			return;
 
-		// send the most recent version of our character data to this new connection.
-		if (Plugin.Instance.LocalCharacterData != null)
-		{
-			string json = JsonConvert.SerializeObject(Plugin.Instance.LocalCharacterData);
-			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
-			this.Send(PacketTypes.CharacterData, jsonBytes);
-		}
-
 		if (this.IsConnected)
 			return;
 
@@ -367,6 +344,16 @@ public partial class CharacterConnection : IDisposable
 		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
 		{
 			sync.OnCharacterConnected(this);
+		}
+
+		this.SendIAm();
+
+		// send the most recent version of our character data to this new connection.
+		if (Plugin.Instance.LocalCharacterData != null)
+		{
+			string json = JsonConvert.SerializeObject(Plugin.Instance.LocalCharacterData);
+			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+			this.Send(PacketTypes.CharacterData, jsonBytes);
 		}
 	}
 
@@ -391,6 +378,12 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
 	{
+		if (!this.IsConnected && type != PacketTypes.IAm)
+		{
+			Plugin.Log.Warning($"Received {type} packet from peer who have not identified themselves. Ignoring");
+			return;
+		}
+
 		if (type == PacketTypes.IAm)
 		{
 			string characterId = Encoding.UTF8.GetString(data);
@@ -414,9 +407,23 @@ public partial class CharacterConnection : IDisposable
 		}
 		else
 		{
-			Plugin.Log.Info($"REC {type} {connection == this.incomingConnection} {connection == this.outgoingConnection}");
 			this.Received?.Invoke(this, type, data);
 		}
+	}
+
+	private void OnCharacterData(CharacterData characterData)
+	{
+		// Do not sync characters if the local player is in combat
+		// or is loading areas.
+		if (Plugin.Condition[ConditionFlag.InCombat]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
+			return;
+
+		if (this.isApplyingData)
+			return;
+
+		Task.Run(() => this.ApplyCharacterData(characterData));
 	}
 
 	private async Task ApplyCharacterData(CharacterData characterData)

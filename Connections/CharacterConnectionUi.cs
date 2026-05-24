@@ -76,25 +76,28 @@ public partial class CharacterConnection
 			ImGui.Text($"{this.CharacterName} @ {this.CharacterWorld}");
 			ImGui.Separator();
 
-			ImGuiEx.Icon(this.CurrentStatus.GetIcon());
-			ImGui.SameLine();
-			ImGui.Text(this.CurrentStatus.GetMessage());
+			if (this.IsConnected)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+				ImGui.SameLine();
+				ImGui.Text("(Connected)");
 
-			// Direction
-			if (this.outgoingConnection?.IsConnected == true && this.incomingConnection?.IsConnected == true)
-			{
-				ImGui.SameLine();
-				ImGui.Text("(Duplex)");
-			}
-			else if (this.outgoingConnection?.IsConnected == true)
-			{
-				ImGui.SameLine();
-				ImGui.Text("(Client)");
-			}
-			else if (this.incomingConnection?.IsConnected == true)
-			{
-				ImGui.SameLine();
-				ImGui.Text("(Host)");
+				// Direction
+				if (this.outgoingConnection?.IsConnected == true && this.incomingConnection?.IsConnected == true)
+				{
+					ImGui.SameLine();
+					ImGui.Text("(Duplex)");
+				}
+				else if (this.outgoingConnection?.IsConnected == true)
+				{
+					ImGui.SameLine();
+					ImGui.Text("(Client)");
+				}
+				else if (this.incomingConnection?.IsConnected == true)
+				{
+					ImGui.SameLine();
+					ImGui.Text("(Host)");
+				}
 			}
 
 			ImGui.Separator();
@@ -196,6 +199,9 @@ public partial class CharacterConnection
 
 		// Status
 		ImGui.TableNextColumn();
-		ImGuiEx.Icon(this.CurrentStatus.GetIcon());
+		if (this.IsConnected)
+		{
+			ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+		}
 	}
 }

@@ -271,7 +271,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		if (lastData != null && data.IsSame(lastData))
 			return;
 
-		if (character.CurrentStatus != CharacterConnectionStatus.Connected)
+		if (!character.IsConnected)
 			return;
 
 		this.SetStatus(character, SyncProgressStatus.Syncing);
@@ -307,7 +307,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		await Task.Delay(100, this.CancellationToken);
 
-		if (character.CurrentStatus != CharacterConnectionStatus.Connected)
+		if (!character.IsConnected)
 			return;
 
 		Dictionary<string, string> paths = new();

@@ -70,7 +70,7 @@ public partial class CharacterConnection : IDisposable
 	public string CharacterId { get; init; }
 	public string CharacterName { get; init; }
 	public string CharacterWorld { get; init; }
-	public CharacterConnectionStatus CurrentStatus { get; private set; }
+
 	public CharacterData? LastData { get; private set; }
 	public bool IsConnected { get; private set; }
 
@@ -101,7 +101,7 @@ public partial class CharacterConnection : IDisposable
 
 			// Begin connecting if this character is offline, enough time has passed,
 			// and the index servers are connected.
-			if ((this.CurrentStatus == CharacterConnectionStatus.Offline || (this.CurrentStatus == CharacterConnectionStatus.Connected && this.outgoingConnection == null))
+			if (this.outgoingConnection == null
 				&& this.TimeSinceLastIndexAttempt > ReIndex
 				&& Plugin.Index.HasInitialIndexingCompleted
 				&& Plugin.Characters.Current != null)
@@ -193,7 +193,6 @@ public partial class CharacterConnection : IDisposable
 
 	private async Task<bool> FingerprintIndexConnect()
 	{
-		this.CurrentStatus = CharacterConnectionStatus.Indexing;
 		this.lastIndexAttempt = DateTime.Now;
 		GetPeer request = new();
 
@@ -226,7 +225,6 @@ public partial class CharacterConnection : IDisposable
 		}
 
 		// We didn't find a valid peer.
-		this.CurrentStatus = CharacterConnectionStatus.Offline;
 		return false;
 	}
 
@@ -269,9 +267,6 @@ public partial class CharacterConnection : IDisposable
 	{
 		if (Plugin.Instance == null)
 			return false;
-
-		if (this.CurrentStatus <= CharacterConnectionStatus.Connecting)
-			this.CurrentStatus = CharacterConnectionStatus.Connecting;
 
 		Connection? outgoingConnection = null;
 
@@ -339,7 +334,6 @@ public partial class CharacterConnection : IDisposable
 		Plugin.Log.Debug($"Connected to {this.CharacterId}");
 
 		this.IsConnected = true;
-		this.CurrentStatus = CharacterConnectionStatus.Connected;
 
 		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
 		{
@@ -365,7 +359,6 @@ public partial class CharacterConnection : IDisposable
 		Plugin.Log.Debug($"Disconnected from {this.CharacterId}");
 
 		this.IsConnected = false;
-		this.CurrentStatus = CharacterConnectionStatus.Offline;
 
 		if (Plugin.Instance == null)
 			return;

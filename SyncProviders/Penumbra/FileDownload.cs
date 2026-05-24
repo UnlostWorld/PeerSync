@@ -100,6 +100,15 @@ public class FileDownload : FileTransfer
 			return;
 		}
 
+		if (this.BytesReceived != this.BytesToReceive)
+		{
+			Plugin.Log.Warning($"File was wrong size. Expected: {this.BytesToReceive}, got {this.BytesReceived}");
+			file.Delete();
+			this.BytesReceived = 0;
+			this.Retry();
+			return;
+		}
+
 		// hash verify
 		this.sync.FileCache.GetFileHash(file.FullName, out string gotHash, out long fileSize);
 		if (gotHash != this.hash)
@@ -120,6 +129,12 @@ public class FileDownload : FileTransfer
 
 			if (clientQueueIndex != this.queueIndex)
 				return;
+
+			if (data.Length > PenumbraSync.FileChunkSize + 1)
+			{
+				Plugin.Log.Warning($"Got file data larger than chunk size. got {data.Length} bytes, maximum {PenumbraSync.FileChunkSize} bytes");
+				return;
+			}
 
 			byte[] fileData = new byte[data.Length - 1];
 			Array.Copy(data, 1, fileData, 0, data.Length - 1);

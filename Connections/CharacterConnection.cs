@@ -334,7 +334,6 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnDisconnected()
 	{
-		Plugin.Log.Info($"Disconnected: {this.CharacterId}");
 		this.CurrentStatus = CharacterConnectionStatus.Offline;
 
 		if (Plugin.Instance == null)

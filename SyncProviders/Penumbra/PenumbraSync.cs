@@ -306,6 +306,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		await Task.Delay(100, this.CancellationToken);
 
+		if (character.CurrentStatus != CharacterConnectionStatus.Connected)
+			return;
+
 		Dictionary<string, string> paths = new();
 		foreach ((string gamePath, string hash) in data.Files)
 		{

@@ -50,6 +50,7 @@ public partial class CharacterConnection : IDisposable
 		this.objectIndex = character.ObjectIndex;
 
 		this.lastSeen = DateTime.Now;
+		this.lastIndexAttempt = DateTime.MinValue;
 
 		Task.Run(this.FingerprintIndexConnect);
 	}
@@ -111,7 +112,11 @@ public partial class CharacterConnection : IDisposable
 		{
 			this.lastSeen = DateTime.Now;
 
-			if (this.CurrentStatus == CharacterConnectionStatus.Offline && this.TimeSinceLastIndexAttempt > ReIndex)
+			// Begin connecting if this character is offline, enough time has passed,
+			// and the index servers are connected.
+			if (this.CurrentStatus == CharacterConnectionStatus.Offline
+				&& this.TimeSinceLastIndexAttempt > ReIndex
+				&& Plugin.Index.HasInitialIndexingCompleted)
 			{
 				Task.Run(this.FingerprintIndexConnect);
 			}

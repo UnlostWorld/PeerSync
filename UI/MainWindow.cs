@@ -11,8 +11,6 @@ namespace PeerSync.UI;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
-using Lumina.Excel.Sheets;
-using PeerSync.Online;
 using PeerSync.SyncProviders;
 using System;
 using System.Collections.Generic;
@@ -22,10 +20,8 @@ public class MainWindow : Window, IDisposable
 {
 	private Configuration.Character? editingCharacterPassword = null;
 
-	private bool expandedIndex = true;
 	private bool expandedCharacters = false;
 	private bool expandedConnections = true;
-	private bool expandedGroups = true;
 	private bool expandedFriends = false;
 
 	public MainWindow()

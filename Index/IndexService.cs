@@ -44,6 +44,7 @@ public partial class IndexService : IDisposable
 		}
 	}
 
+	public bool HasInitialIndexingCompleted { get; private set; }
 	private TimeSpan TimeSinceLastIndex => DateTime.Now - this.lastIndex;
 
 	public void Dispose()
@@ -181,6 +182,7 @@ public partial class IndexService : IDisposable
 		finally
 		{
 			this.isUpdatingIndexes = false;
+			this.HasInitialIndexingCompleted = true;
 		}
 	}
 }

@@ -197,20 +197,17 @@ public partial class CharacterConnection : IDisposable
 
 		// If that character is not a friend, or we could not get their details, check if they're a member of
 		// any groups.
-		if (Plugin.Instance != null)
+		foreach (GroupServer group in Plugin.Index.Groups)
 		{
-			foreach (GroupServer group in Plugin.Index.Groups)
-			{
-				string memberFingerprint = group.GetMemberFingerprint(this.CharacterName, this.CharacterWorld);
+			string memberFingerprint = group.GetMemberFingerprint(this.CharacterName, this.CharacterWorld);
 
-				if (group.IsMember(memberFingerprint))
+			if (group.IsMember(memberFingerprint))
+			{
+				request.GroupFingerprint = group.GetFingerprint();
+				request.MemberFingerprint = memberFingerprint;
+				if (await this.IndexConnect(request))
 				{
-					request.GroupFingerprint = group.GetFingerprint();
-					request.MemberFingerprint = memberFingerprint;
-					if (await this.IndexConnect(request))
-					{
-						return true;
-					}
+					return true;
 				}
 			}
 		}

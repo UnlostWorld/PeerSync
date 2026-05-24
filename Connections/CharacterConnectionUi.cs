@@ -94,7 +94,7 @@ public partial class CharacterConnection
 				ImGui.SameLine();
 				ImGui.Text("Client");
 			}
-			else if (this.outgoingConnection?.IsConnected == true)
+			else if (this.incomingConnection?.IsConnected == true)
 			{
 				ImGuiEx.Icon(FontAwesomeIcon.ArrowDown);
 				ImGui.SameLine();

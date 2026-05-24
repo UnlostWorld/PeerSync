@@ -287,13 +287,13 @@ public partial class CharacterConnection : IDisposable
 			if (Plugin.Characters.Current == null)
 			{
 				outgoingConnection.Dispose();
+				return false;
 			}
 			else
 			{
 				this.SetOutgoingNetworkConnection(outgoingConnection);
+				return true;
 			}
-
-			return true;
 		}
 
 		return false;

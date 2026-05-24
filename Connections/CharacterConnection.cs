@@ -135,6 +135,11 @@ public partial class CharacterConnection : IDisposable
 
 	public void Dispose()
 	{
+		if (this.CurrentStatus == CharacterConnectionStatus.Connected)
+		{
+			this.OnDisconnected();
+		}
+
 		this.cancellationTokenSource.Cancel();
 	}
 
@@ -171,11 +176,13 @@ public partial class CharacterConnection : IDisposable
 		if (this.outgoingConnection?.IsConnected == true)
 		{
 			this.outgoingConnection.Send(type, data);
+			return;
 		}
 
 		if (this.incomingConnection?.IsConnected == true)
 		{
 			this.incomingConnection.Send(type, data);
+			return;
 		}
 	}
 
@@ -263,7 +270,15 @@ public partial class CharacterConnection : IDisposable
 
 		if (outgoingConnection != null)
 		{
-			this.SetOutgoingNetworkConnection(outgoingConnection);
+			if (Plugin.Characters.Current == null)
+			{
+				outgoingConnection.Dispose();
+			}
+			else
+			{
+				this.SetOutgoingNetworkConnection(outgoingConnection);
+			}
+
 			return true;
 		}
 
@@ -319,6 +334,7 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnDisconnected()
 	{
+		Plugin.Log.Info($"Disconnected: {this.CharacterId}");
 		this.CurrentStatus = CharacterConnectionStatus.Offline;
 
 		if (Plugin.Instance == null)

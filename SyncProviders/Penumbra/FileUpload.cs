@@ -76,6 +76,9 @@ public class FileUpload : FileTransfer
 			long bytesLeft = this.BytesToSend - this.BytesSent;
 			int thisChunkSize = (int)Math.Min(PenumbraSync.FileChunkSize, bytesLeft);
 
+			if (bytesLeft <= 0)
+				continue;
+
 			byte[] bytes = new byte[thisChunkSize + 1];
 			bytes[0] = this.ClientQueueIndex;
 			stream.ReadExactly(bytes, 1, thisChunkSize);

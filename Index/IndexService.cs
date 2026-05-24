@@ -58,13 +58,10 @@ public partial class IndexService : IDisposable
 		if (this.isUpdatingIndexes)
 			return;
 
-		if (Plugin.Instance?.LocalCharacter == null)
-			return;
-
 		if (this.TimeSinceLastIndex < IndexDelay)
 			return;
 
-		if (Plugin.Instance.LocalIpAddress == null)
+		if (Plugin.Instance?.LocalIpAddress == null)
 			return;
 
 		Task.Run(async () => await this.UpdateIndex(Plugin.Instance.LocalPort, Plugin.Instance.LocalIpAddress));
@@ -154,20 +151,19 @@ public partial class IndexService : IDisposable
 		this.isUpdatingIndexes = true;
 		this.lastIndex = DateTime.Now;
 
-		Configuration.Character? localCharacter = Plugin.Instance?.LocalCharacter;
-		if (localCharacter == null)
+		if (Plugin.Characters.Current == null)
 			return;
 
 		try
 		{
 			foreach (IndexServer indexServer in this.Servers)
 			{
-				await indexServer.UpdatePeer(localCharacter, localIp, port);
+				await indexServer.UpdatePeer(Plugin.Characters.Current, localIp, port);
 			}
 
 			foreach (GroupServer groupServer in this.Groups)
 			{
-				await groupServer.UpdatePeer(localCharacter, localIp, port);
+				await groupServer.UpdatePeer(Plugin.Characters.Current, localIp, port);
 			}
 		}
 		catch (TaskCanceledException)

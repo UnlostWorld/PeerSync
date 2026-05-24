@@ -9,11 +9,16 @@
 namespace PeerSync.Connections;
 
 using Dalamud.Bindings.ImGui;
+using PeerSync.UI;
 
 public partial class ConnectionService
 {
-	public void DrawStatus(bool collapse)
+	private bool expandedConnections = false;
+
+	public void DrawStatus()
 	{
+		ImGuiEx.Header(ref this.expandedConnections, $"Connections");
+
 		if (ImGui.BeginTable("SyncTable", 4))
 		{
 			ImGui.TableSetupColumn("Hover", ImGuiTableColumnFlags.WidthFixed);
@@ -26,7 +31,7 @@ public partial class ConnectionService
 				if (!this.connectionLookup.TryGetValue(id, out CharacterConnection? connection) || connection == null)
 					continue;
 
-				if (collapse && connection.CurrentStatus == CharacterConnectionStatus.Offline)
+				if (!this.expandedConnections && connection.CurrentStatus == CharacterConnectionStatus.Offline)
 					continue;
 
 				connection.DrawStatus();

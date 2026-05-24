@@ -446,7 +446,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		if (this.UploadGroup.ActiveCount + this.UploadGroup.QueueCount > 0)
 		{
-			ImGuiEx.Header(ref this.expandDownloads, "Uploads");
+			ImGuiEx.Header(ref this.expandUploads, "Uploads");
 			this.UploadGroup.DrawStatus("UploadTable");
 		}
 	}

@@ -44,6 +44,7 @@ using PeerSync.SyncBlockers;
 using PeerSync.Connections;
 using Newtonsoft.Json;
 using PeerSync.Index;
+using PeerSync.Characters;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
@@ -53,7 +54,6 @@ public sealed partial class Plugin : IDalamudPlugin
 	public readonly List<SyncProviderBase> SyncProviders = new();
 	public readonly CharacterData LocalCharacterData = new();
 
-	public Configuration.Character? LocalCharacter;
 	public IPAddress? LocalIpAddress;
 	public ushort LocalPort;
 
@@ -105,6 +105,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		Connections = new();
 		Index = new();
+		Characters = new();
 
 		Framework.Update += this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
@@ -135,6 +136,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	public static ConnectionService Connections { get; private set; } = null!;
 	public static IndexService Index { get; private set; } = null!;
+	public static CharacterService Characters { get; private set; } = null!;
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -203,6 +205,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		Connections.Dispose();
 		Index.Dispose();
+		Characters.Dispose();
 
 		foreach (string str in this.commandNames)
 		{
@@ -421,66 +424,9 @@ public sealed partial class Plugin : IDalamudPlugin
 		if (!this.isInitialized)
 			return;
 
-		Configuration.Character? localCharacter = this.UpdateLocalCharacter();
-		if (this.LocalCharacter != localCharacter)
-		{
-			this.LocalCharacter = localCharacter;
-		}
-
-		if (this.LocalCharacter == null)
-			return;
-
+		Characters.FrameworkUpdate();
 		Connections.FrameworkUpdate();
 		Index.FrameworkUpdate();
-	}
-
-	private Configuration.Character? UpdateLocalCharacter()
-	{
-		if (Plugin.Condition[ConditionFlag.BetweenAreas]
-			|| Plugin.Condition[ConditionFlag.BetweenAreas51]
-			|| Plugin.Condition[ConditionFlag.LoggingOut])
-		{
-			return null;
-		}
-
-		if (!ClientState.IsLoggedIn)
-		{
-			return null;
-		}
-
-		IPlayerCharacter? player = ObjectTable.LocalPlayer;
-		if (player == null)
-		{
-			return null;
-		}
-
-		string characterName = player.Name.ToString();
-		string world = player.HomeWorld.Value.Name.ToString();
-
-		if (this.LocalCharacter != null)
-		{
-			if (this.LocalCharacter.CharacterName == characterName
-				&& this.LocalCharacter.World == world)
-			{
-				return this.LocalCharacter;
-			}
-		}
-
-		foreach (Configuration.Character character in Configuration.Current.Characters)
-		{
-			if (character.CharacterName == characterName && character.World == world)
-			{
-				return character;
-			}
-		}
-
-		Configuration.Character newCharacter = new();
-		newCharacter.CharacterName = characterName;
-		newCharacter.World = world;
-		newCharacter.GeneratePassword();
-		Configuration.Current.Characters.Add(newCharacter);
-		Configuration.Current.Save();
-		return newCharacter;
 	}
 
 	private async Task UpdateData()
@@ -495,7 +441,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 			data.Clear();
 
-			if (this.LocalCharacter == null)
+			if (Plugin.Characters.Current == null)
 				continue;
 
 			await Plugin.Framework.RunOnUpdate();
@@ -512,11 +458,11 @@ public sealed partial class Plugin : IDalamudPlugin
 			}
 
 			IPlayerCharacter? player = ObjectTable.LocalPlayer;
-			if (this.LocalCharacter == null || player == null)
+			if (Plugin.Characters.Current == null || player == null)
 				continue;
 
 			IGameObject? mountOrMinion = Plugin.ObjectTable[player.ObjectIndex + 1];
-			data.Fingerprint = this.LocalCharacter.GetFingerprint();
+			data.Fingerprint = Plugin.Characters.Current.GetFingerprint();
 
 			IGameObject? pet = null;
 			unsafe
@@ -541,18 +487,18 @@ public sealed partial class Plugin : IDalamudPlugin
 
 				try
 				{
-					string? content = await sync.Serialize(this.LocalCharacter, player.ObjectIndex);
+					string? content = await sync.Serialize(Plugin.Characters.Current, player.ObjectIndex);
 					data.Character.Add(sync.Key, content);
 
 					if (mountOrMinion != null)
 					{
-						content = await sync.Serialize(this.LocalCharacter, mountOrMinion.ObjectIndex);
+						content = await sync.Serialize(Plugin.Characters.Current, mountOrMinion.ObjectIndex);
 						data.MountOrMinion.Add(sync.Key, content);
 					}
 
 					if (pet != null)
 					{
-						content = await sync.Serialize(this.LocalCharacter, pet.ObjectIndex);
+						content = await sync.Serialize(Plugin.Characters.Current, pet.ObjectIndex);
 						data.Pet.Add(sync.Key, content);
 					}
 				}

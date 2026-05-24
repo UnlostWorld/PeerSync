@@ -56,13 +56,13 @@ public class InspectWindow : Window, IDisposable
 
 			this.character.LastData?.DrawInspect();
 		}
-		else if (Plugin.Instance?.LocalCharacter != null)
+		else if (Plugin.Characters.Current != null)
 		{
-			ImGui.Text($"{Plugin.Instance.LocalCharacter.CharacterName} @ {Plugin.Instance.LocalCharacter.World}");
+			ImGui.Text($"{Plugin.Characters.Current.CharacterName} @ {Plugin.Characters.Current.World}");
 
 			ImGuiEx.Icon(FontAwesomeIcon.Fingerprint);
 			ImGui.SameLine();
-			ImGui.Text($"{Plugin.Instance.LocalCharacter.GetFingerprint()}");
+			ImGui.Text($"{Plugin.Characters.Current.GetFingerprint()}");
 
 			plugin.LocalCharacterData.DrawInspect();
 		}

@@ -149,13 +149,13 @@ public class GroupServer
 			ImGui.SetWindowFontScale(1.0f);
 			ImGui.Separator();
 
-			if (Plugin.Instance != null && Plugin.Instance.LocalCharacter != null)
+			if (Plugin.Instance != null && Plugin.Characters.Current != null)
 			{
 				ImGui.Text("You:");
 				ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);
 				ImGui.SameLine();
 				ImGui.SetWindowFontScale(0.75f);
-				ImGui.TextColoredWrapped(0x80FFFFFF, $"{this.GetMemberFingerprint(Plugin.Instance.LocalCharacter)}");
+				ImGui.TextColoredWrapped(0x80FFFFFF, $"{this.GetMemberFingerprint(Plugin.Characters.Current)}");
 				ImGui.SetWindowFontScale(1.0f);
 				ImGui.Separator();
 			}

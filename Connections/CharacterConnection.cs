@@ -157,8 +157,10 @@ public partial class CharacterConnection : IDisposable
 
 	public void SendIAm()
 	{
-		// TODO: move this into a local character service or something.
-		string localCharacterId = $"{Plugin.Instance?.LocalCharacter?.CharacterName}@{Plugin.Instance?.LocalCharacter?.World}";
+		string? localCharacterId = Plugin.Characters.GetCurrentCharacterId();
+		if (localCharacterId == null)
+			throw new Exception("Attempt to send IAm without a current character");
+
 		byte[] data = Encoding.UTF8.GetBytes(localCharacterId);
 		this.Send(PacketTypes.IAm, data);
 	}

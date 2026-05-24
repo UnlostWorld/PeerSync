@@ -270,6 +270,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		if (lastData != null && data.IsSame(lastData))
 			return;
 
+		if (character.CurrentStatus != CharacterConnectionStatus.Connected)
+			return;
+
 		this.SetStatus(character, SyncProgressStatus.Syncing);
 
 		foreach ((string gamePath, string hash) in data.Files)

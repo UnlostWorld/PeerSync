@@ -153,6 +153,9 @@ public partial class CharacterConnection : IDisposable
 			this.outgoingConnection.Dispose();
 		}
 
+		if (connection == this.incomingConnection)
+			throw new Exception($"Attempt to set current incoming connection ({connection.Name}) as outgoing");
+
 		this.outgoingConnection = connection;
 		this.outgoingConnection.Received += this.OnReceived;
 		this.outgoingConnection.Disconnected += this.OnOutgoingDisconnected;
@@ -167,6 +170,9 @@ public partial class CharacterConnection : IDisposable
 			this.incomingConnection.Disconnected -= this.OnIncomingDisconnected;
 			this.incomingConnection.Dispose();
 		}
+
+		if (connection == this.outgoingConnection)
+			throw new Exception($"Attempt to set current outgoing connection ({connection.Name}) as incoming");
 
 		this.incomingConnection = connection;
 		this.incomingConnection.Received += this.OnReceived;
@@ -341,7 +347,7 @@ public partial class CharacterConnection : IDisposable
 		if (this.IsConnected)
 			return;
 
-		Plugin.Log.Information($"Connected to {this.CharacterId}");
+		Plugin.Log.Debug($"Connected to {this.CharacterId}");
 
 		this.IsConnected = true;
 		this.CurrentStatus = CharacterConnectionStatus.Connected;
@@ -357,7 +363,7 @@ public partial class CharacterConnection : IDisposable
 		if (!this.IsConnected)
 			return;
 
-		Plugin.Log.Information($"Disconnected from {this.CharacterId}");
+		Plugin.Log.Debug($"Disconnected from {this.CharacterId}");
 
 		this.IsConnected = false;
 		this.CurrentStatus = CharacterConnectionStatus.Offline;
@@ -396,6 +402,7 @@ public partial class CharacterConnection : IDisposable
 		}
 		else
 		{
+			Plugin.Log.Info($"REC {type} {connection == this.incomingConnection} {connection == this.outgoingConnection}");
 			this.Received?.Invoke(this, type, data);
 		}
 	}

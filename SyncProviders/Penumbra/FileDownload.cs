@@ -49,7 +49,7 @@ public class FileDownload : FileTransfer
 
 	protected override async Task Transfer()
 	{
-		Plugin.Log.Information($"Start download {this.hash}");
+		Plugin.Log.Debug($"Start download {this.hash}");
 
 		FileInfo? file = this.sync.FileCache.GetFile(this.hash);
 

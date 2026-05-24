@@ -39,6 +39,7 @@ public class Connection : IDisposable
 	public event ConnectionDelegate? Disconnected;
 	public event ObjectDelegate? Received;
 
+	public string Name { get; set; } = string.Empty;
 	public EndPoint? EndPoint { get; private set; }
 	public bool IsConnected => this.client.Connected;
 

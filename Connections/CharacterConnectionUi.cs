@@ -77,28 +77,24 @@ public partial class CharacterConnection
 			ImGui.Separator();
 
 			ImGuiEx.Icon(this.CurrentStatus.GetIcon());
-
 			ImGui.SameLine();
-			ImGui.TextWrapped(this.CurrentStatus.GetMessage());
+			ImGui.Text(this.CurrentStatus.GetMessage());
 
 			// Direction
 			if (this.outgoingConnection?.IsConnected == true && this.incomingConnection?.IsConnected == true)
 			{
-				ImGuiEx.Icon(FontAwesomeIcon.ArrowsUpDown);
 				ImGui.SameLine();
-				ImGui.Text("Duplex");
+				ImGui.Text("(Duplex)");
 			}
 			else if (this.outgoingConnection?.IsConnected == true)
 			{
-				ImGuiEx.Icon(FontAwesomeIcon.ArrowUp);
 				ImGui.SameLine();
-				ImGui.Text("Client");
+				ImGui.Text("(Client)");
 			}
 			else if (this.incomingConnection?.IsConnected == true)
 			{
-				ImGuiEx.Icon(FontAwesomeIcon.ArrowDown);
 				ImGui.SameLine();
-				ImGui.Text("Host");
+				ImGui.Text("(Host)");
 			}
 
 			ImGui.Separator();

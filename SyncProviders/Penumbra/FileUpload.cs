@@ -30,7 +30,7 @@ public class FileUpload : FileTransfer
 
 	protected override async Task Transfer()
 	{
-		Plugin.Log.Information($"Start upload {this.hash}");
+		Plugin.Log.Debug($"Start upload {this.hash}");
 
 		FileInfo? fileInfo = this.sync.FileCache.GetFileInfo(this.hash);
 		if (fileInfo == null || !fileInfo.Exists)

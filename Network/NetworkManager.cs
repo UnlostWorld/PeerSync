@@ -83,6 +83,7 @@ public class NetworkManager : IDisposable
 		}
 
 		Connection connection = new Connection(client);
+		connection.Name = $"Out";
 		this.OnOutgoingConnectionConnected(connection);
 		return connection;
 	}

@@ -66,8 +66,6 @@ public class FileDownload : FileTransfer
 		byte[] objectBytes = new byte[hashBytes.Length + 1];
 		objectBytes[0] = this.ClientQueueIndex;
 		Array.Copy(hashBytes, 0, objectBytes, 1, hashBytes.Length);
-
-		Plugin.Log.Info($"Send file request: {this.ClientQueueIndex}");
 		this.Character.Send(PacketTypes.FileRequest, objectBytes);
 
 		bool gotAllData = false;

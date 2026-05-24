@@ -515,7 +515,6 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 	private void OnFileRequest(CharacterConnection character, byte clientQueueIndex, string hash)
 	{
-		Plugin.Log.Info($"Got file request: {character.CharacterId} {clientQueueIndex} {hash}");
 		FileUpload upload = new(this, clientQueueIndex, hash, character);
 		this.UploadGroup.Enqueue(upload);
 	}
@@ -537,6 +536,26 @@ public class TransferGroup
 
 	public void Enqueue(FileTransfer transfer)
 	{
+		foreach (FileTransfer otherTransfer in this.active)
+		{
+			if (otherTransfer.IsSame(transfer))
+			{
+				transfer.Cancel();
+				Plugin.Log.Warning("Attempt to add duplicate file transfer");
+				return;
+			}
+		}
+
+		foreach (FileTransfer otherTransfer in this.pending)
+		{
+			if (otherTransfer.IsSame(transfer))
+			{
+				transfer.Cancel();
+				Plugin.Log.Warning("Attempt to add duplicate file transfer");
+				return;
+			}
+		}
+
 		this.pending.Enqueue(transfer);
 	}
 

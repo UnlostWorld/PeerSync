@@ -81,6 +81,11 @@ public abstract class FileTransfer : IDisposable
 	{
 	}
 
+	public bool IsSame(FileTransfer other)
+	{
+		return this.hash == other.hash;
+	}
+
 	protected abstract Task Transfer();
 
 	protected void Retry()

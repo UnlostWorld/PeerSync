@@ -327,6 +327,9 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnConnected()
 	{
+		if (this.CurrentStatus == CharacterConnectionStatus.Connected)
+			return;
+
 		this.CurrentStatus = CharacterConnectionStatus.Connected;
 
 		if (Plugin.Instance == null)

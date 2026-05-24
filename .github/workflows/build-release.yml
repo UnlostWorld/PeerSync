@@ -28,7 +28,7 @@ jobs:
         Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev"
 
     - name: Build PeerSync
-      run: dotnet build PeerSync.sln /p:Configuration=Release /p:Version=1.0.1.${{ github.run_number }}
+      run: dotnet build PeerSync.sln /p:Configuration=Release /p:Version=1.1.0.${{ github.run_number }}
 
     - name: Zip Release
       uses: TheDoctor0/zip-release@0.6.0

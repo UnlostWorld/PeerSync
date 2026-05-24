@@ -10,6 +10,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 
 using System;
 using System.IO;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,7 +24,7 @@ public class FileDownload : FileTransfer
 
 	private FileStream? fileStream;
 	private Exception? receiveError;
-	private byte lastPart;
+	private byte nextPart = 0;
 
 	public FileDownload(
 		PenumbraSync sync,
@@ -126,23 +127,26 @@ public class FileDownload : FileTransfer
 	{
 		if (type == PacketTypes.FileData)
 		{
+			if (data.Length < 2)
+				return;
+
 			byte clientQueueIndex = data[0];
 
 			if (clientQueueIndex != this.ClientQueueIndex)
 				return;
 
 			byte part = data[1];
-			if (part != this.lastPart + 1)
+			if (part != this.nextPart)
 			{
-				Plugin.Log.Warning($"Got parts out of order. Expected part {this.lastPart + 1}, got {part}");
+				Plugin.Log.Warning($"Got parts out of order. Expected part {this.nextPart}, got {part}");
 				return;
 			}
 
-			this.lastPart = part;
+			this.nextPart++;
 
-			if (data.Length > PenumbraSync.FileChunkSize + 1)
+			if (data.Length > PenumbraSync.FileChunkSize + 2)
 			{
-				Plugin.Log.Warning($"Got file data larger than chunk size. got {data.Length} bytes, maximum {PenumbraSync.FileChunkSize} bytes");
+				Plugin.Log.Warning($"Got file data larger than chunk size. got {data.Length} bytes, maximum {PenumbraSync.FileChunkSize + 2} bytes");
 				return;
 			}
 

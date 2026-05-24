@@ -104,7 +104,6 @@ public class MainWindow : Window, IDisposable
 		}
 
 		ImGui.Spacing();
-		ImGui.Spacing();
 
 		if (ImGui.CollapsingHeader($"Settings"))
 		{

@@ -39,8 +39,7 @@ public class GroupServer
 		GetMembers getGroupMembersRequest = new();
 		getGroupMembersRequest.GroupFingerprint = this.groupConfiguration.GetFingerprint();
 
-		this.memberFingerprints.Clear();
-
+		HashSet<string> newMemberFingerprints = new();
 		foreach (string indexServer in Configuration.Current.IndexServers)
 		{
 			try
@@ -52,7 +51,7 @@ public class GroupServer
 				{
 					foreach (string memberFingerprint in response.Members)
 					{
-						this.memberFingerprints.Add(memberFingerprint);
+						newMemberFingerprints.Add(memberFingerprint);
 					}
 				}
 			}
@@ -60,6 +59,12 @@ public class GroupServer
 			{
 				continue;
 			}
+		}
+
+		this.memberFingerprints.Clear();
+		foreach (string fingerprint in newMemberFingerprints)
+		{
+			this.memberFingerprints.Add(fingerprint);
 		}
 	}
 
@@ -172,7 +177,10 @@ public class GroupServer
 
 		// Count
 		ImGui.TableNextColumn();
-		ImGui.Text($"{this.memberFingerprints.Count}");
+		if (this.memberFingerprints.Count > 0)
+		{
+			ImGui.Text($"{this.memberFingerprints.Count}");
+		}
 
 		// Status
 		ImGui.TableNextColumn();

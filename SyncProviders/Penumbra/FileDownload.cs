@@ -81,6 +81,10 @@ public class FileDownload : FileTransfer
 			if (this.receiveError != null)
 				throw this.receiveError;
 
+			// Abort, we're not connected
+			if (this.Character.CurrentStatus != CharacterConnectionStatus.Connected)
+				return;
+
 			await Task.Delay(10, this.cancellationToken);
 		}
 

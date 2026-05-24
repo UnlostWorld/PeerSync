@@ -82,6 +82,10 @@ public class FileUpload : FileTransfer
 			bytes[0] = this.clientQueueIndex;
 			stream.ReadExactly(bytes, 1, thisChunkSize);
 
+			// Abort, we're not connected
+			if (this.Character.CurrentStatus != CharacterConnectionStatus.Connected)
+				return;
+
 			this.Character.Send(PacketTypes.FileData, bytes);
 			this.BytesSent += thisChunkSize;
 			await Task.Delay(10, this.cancellationToken);

@@ -83,7 +83,7 @@ public class FileUpload : FileTransfer
 			if (bytesLeft <= 0)
 				continue;
 
-			byte[] bytes = new byte[thisChunkSize + 1];
+			byte[] bytes = new byte[thisChunkSize + 2];
 			bytes[0] = this.ClientQueueIndex;
 			bytes[1] = part;
 			stream.ReadExactly(bytes, 2, thisChunkSize);

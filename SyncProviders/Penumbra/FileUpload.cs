@@ -86,7 +86,7 @@ public class FileUpload : FileTransfer
 			byte[] bytes = new byte[thisChunkSize + 1];
 			bytes[0] = this.ClientQueueIndex;
 			bytes[1] = part;
-			stream.ReadExactly(bytes, 1, thisChunkSize);
+			stream.ReadExactly(bytes, 2, thisChunkSize);
 
 			this.Character.Send(PacketTypes.FileData, bytes);
 			this.BytesSent += thisChunkSize;

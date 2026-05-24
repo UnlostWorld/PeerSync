@@ -41,6 +41,7 @@ public partial class CharacterConnection : IDisposable
 	private Connection? outgoingConnection;
 	private Connection? incomingConnection;
 	private bool isApplyingData = false;
+	private Exception? lastConnectionException;
 
 	public CharacterConnection(IPlayerCharacter character)
 	{
@@ -287,7 +288,18 @@ public partial class CharacterConnection : IDisposable
 		if (this.CurrentStatus <= CharacterConnectionStatus.Connecting)
 			this.CurrentStatus = CharacterConnectionStatus.Connecting;
 
-		Connection? outgoingConnection = await Plugin.Connections.Connect(address, localAddress, port);
+		Connection? outgoingConnection = null;
+
+		try
+		{
+			this.lastConnectionException = null;
+			outgoingConnection = await Plugin.Connections.Connect(address, localAddress, port);
+		}
+		catch (Exception ex)
+		{
+			this.lastConnectionException = ex;
+		}
+
 		if (outgoingConnection != null)
 		{
 			if (Plugin.Characters.Current == null)

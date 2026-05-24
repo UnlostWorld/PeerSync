@@ -159,16 +159,12 @@ public partial class ConnectionService : IDisposable
 
 		await wideConnectTask;
 
-		if (connection == null)
+		if (connection == null && exception != null)
 		{
-			if (exception != null)
-				Plugin.Log.Warning(exception, "Failed to connect to peer");
-
-			return null;
+			throw exception;
 		}
 		else
 		{
-			////connection.Received += this.OnReceived;
 			return connection;
 		}
 	}

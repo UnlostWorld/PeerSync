@@ -99,6 +99,12 @@ public partial class CharacterConnection
 
 			ImGui.Separator();
 
+			if (this.lastConnectionException != null)
+			{
+				ImGui.TextColoredWrapped(0xFF0080FF, this.lastConnectionException.Message);
+				ImGui.Separator();
+			}
+
 			if (progresses != null)
 			{
 				if (ImGui.BeginTable("PeerProgressInfoTable", 3))

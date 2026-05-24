@@ -279,7 +279,9 @@ public partial class CharacterConnection : IDisposable
 		if (Plugin.Instance == null)
 			return false;
 
-		this.CurrentStatus = CharacterConnectionStatus.Connecting;
+		if (this.CurrentStatus <= CharacterConnectionStatus.Connecting)
+			this.CurrentStatus = CharacterConnectionStatus.Connecting;
+
 		Connection? outgoingConnection = await Plugin.Connections.Connect(address, localAddress, port);
 
 		if (outgoingConnection != null)

@@ -136,7 +136,7 @@ public partial class CharacterConnection : IDisposable
 
 	public void Dispose()
 	{
-		if (this.CurrentStatus == CharacterConnectionStatus.Connected)
+		if (this.IsConnected)
 		{
 			this.OnDisconnected();
 		}
@@ -156,7 +156,6 @@ public partial class CharacterConnection : IDisposable
 		this.outgoingConnection = connection;
 		this.outgoingConnection.Received += this.OnReceived;
 		this.outgoingConnection.Disconnected += this.OnOutgoingDisconnected;
-		this.CurrentStatus = CharacterConnectionStatus.HandShaking;
 		this.SendIAm();
 	}
 
@@ -172,7 +171,6 @@ public partial class CharacterConnection : IDisposable
 		this.incomingConnection = connection;
 		this.incomingConnection.Received += this.OnReceived;
 		this.incomingConnection.Disconnected += this.OnIncomingDisconnected;
-		this.CurrentStatus = CharacterConnectionStatus.HandShaking;
 		this.SendIAm();
 	}
 
@@ -329,19 +327,8 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnConnected()
 	{
-		if (this.IsConnected)
-			return;
-
-		this.IsConnected = true;
-		this.CurrentStatus = CharacterConnectionStatus.Connected;
-
 		if (Plugin.Instance == null)
 			return;
-
-		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
-		{
-			sync.OnCharacterConnected(this);
-		}
 
 		// send the most recent version of our character data to this new connection.
 		if (Plugin.Instance.LocalCharacterData != null)
@@ -350,12 +337,27 @@ public partial class CharacterConnection : IDisposable
 			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
 			this.Send(PacketTypes.CharacterData, jsonBytes);
 		}
+
+		if (this.IsConnected)
+			return;
+
+		Plugin.Log.Information($"Connected to {this.CharacterId}");
+
+		this.IsConnected = true;
+		this.CurrentStatus = CharacterConnectionStatus.Connected;
+
+		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
+		{
+			sync.OnCharacterConnected(this);
+		}
 	}
 
 	private void OnDisconnected()
 	{
 		if (!this.IsConnected)
 			return;
+
+		Plugin.Log.Information($"Disconnected from {this.CharacterId}");
 
 		this.IsConnected = false;
 		this.CurrentStatus = CharacterConnectionStatus.Offline;

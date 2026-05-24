@@ -11,6 +11,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -330,6 +331,8 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			paths[gamePath] = redirectPath;
 		}
 
+		this.DownloadGroup.ClearCompleted(character);
+
 		await Plugin.Framework.RunOnUpdate();
 
 		Guid collectionId;
@@ -529,12 +532,14 @@ public class TransferGroup
 {
 	private readonly ConcurrentQueue<FileTransfer> pending = new();
 	private readonly ConcurrentHashSet<FileTransfer> active = new();
+	private readonly ConcurrentHashSet<FileTransfer> completed = new();
 	private CancellationTokenSource transferTaskTokenSource = new();
 
 	public int ActiveCount => this.active.Count;
 	public int QueueCount => this.pending.Count;
+	public int CompletedCount => this.completed.Count;
 
-	public void Enqueue(FileTransfer transfer)
+	public bool Enqueue(FileTransfer transfer)
 	{
 		foreach (FileTransfer otherTransfer in this.active)
 		{
@@ -542,7 +547,7 @@ public class TransferGroup
 			{
 				transfer.Cancel();
 				Plugin.Log.Warning("Attempt to add duplicate file transfer");
-				return;
+				return false;
 			}
 		}
 
@@ -552,11 +557,12 @@ public class TransferGroup
 			{
 				transfer.Cancel();
 				Plugin.Log.Warning("Attempt to add duplicate file transfer");
-				return;
+				return false;
 			}
 		}
 
 		this.pending.Enqueue(transfer);
+		return true;
 	}
 
 	public void Cancel()
@@ -564,6 +570,11 @@ public class TransferGroup
 		this.transferTaskTokenSource.Cancel();
 
 		foreach (FileTransfer transfer in this.active)
+		{
+			transfer.Cancel();
+		}
+
+		foreach (FileTransfer transfer in this.pending)
 		{
 			transfer.Cancel();
 		}
@@ -586,6 +597,8 @@ public class TransferGroup
 
 			transfer.Cancel();
 		}
+
+		this.ClearCompleted(character);
 	}
 
 	public void SetCount(int count)
@@ -602,6 +615,15 @@ public class TransferGroup
 		total = 0;
 		current = 0;
 
+		foreach (FileTransfer transfer in this.completed)
+		{
+			if (transfer.Character != character)
+				continue;
+
+			total += transfer.Total;
+			current += transfer.Current;
+		}
+
 		foreach (FileTransfer transfer in this.active)
 		{
 			if (transfer.Character != character)
@@ -609,6 +631,14 @@ public class TransferGroup
 
 			total += transfer.Total;
 			current += transfer.Current;
+		}
+
+		foreach (FileTransfer transfer in this.pending)
+		{
+			if (transfer.Character != character)
+				continue;
+
+			total += transfer.Total;
 		}
 	}
 
@@ -631,6 +661,17 @@ public class TransferGroup
 		}
 
 		return false;
+	}
+
+	public void ClearCompleted(CharacterConnection character)
+	{
+		foreach (FileTransfer transfer in this.completed)
+		{
+			if (transfer.Character == character)
+			{
+				this.completed.TryRemove(transfer);
+			}
+		}
 	}
 
 	public void DrawStatus(string label)
@@ -726,6 +767,7 @@ public class TransferGroup
 			await transfer.TransferSafe();
 
 			this.active.TryRemove(transfer);
+			this.completed.Add(transfer);
 		}
 	}
 }

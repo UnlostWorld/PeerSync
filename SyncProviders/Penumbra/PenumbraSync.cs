@@ -515,7 +515,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 	private void OnFileRequest(CharacterConnection character, byte clientQueueIndex, string hash)
 	{
-		Plugin.Log.Info($"Got file request: {clientQueueIndex}");
+		Plugin.Log.Info($"Got file request: {character.CharacterId} {clientQueueIndex} {hash}");
 		FileUpload upload = new(this, clientQueueIndex, hash, character);
 		this.UploadGroup.Enqueue(upload);
 	}

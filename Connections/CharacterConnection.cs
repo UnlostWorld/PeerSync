@@ -359,21 +359,8 @@ public partial class CharacterConnection : IDisposable
 		}
 	}
 
-#pragma warning disable
-	PacketTypes lastType;
-	byte[] lastData;
-
 	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
 	{
-		if (type == lastType && data.SequenceEqual(lastData))
-		{
-			Plugin.Log.Error("DUPE");
-			return;
-		}
-
-		lastType = type;
-		lastData = data;
-
 		if (type == PacketTypes.IAm)
 		{
 			string characterId = Encoding.UTF8.GetString(data);

@@ -299,9 +299,11 @@ public sealed partial class Plugin : IDalamudPlugin
 		// Open port
 		ushort port = 0;
 		bool isCustomPort = Configuration.Current.Port != 0;
+		int attempts = 0;
 		while (!this.tokenSource.IsCancellationRequested && port == 0)
 		{
 			port = Configuration.Current.Port;
+			attempts++;
 
 			if (port <= 0)
 				port = Configuration.Current.LastPort;
@@ -324,6 +326,14 @@ public sealed partial class Plugin : IDalamudPlugin
 			{
 				if (!isCustomPort)
 				{
+					// first attempt always fails in debug for some reason, so don't bother
+					// logging, and just try again quickly.
+					if (attempts == 1)
+					{
+						await Task.Delay(250, this.tokenSource.Token);
+						continue;
+					}
+
 					Plugin.Log.Error("Failed to open port, no NAT device found");
 					await Task.Delay(5000, this.tokenSource.Token);
 					continue;

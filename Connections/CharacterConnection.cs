@@ -114,7 +114,7 @@ public partial class CharacterConnection : IDisposable
 
 			// Begin connecting if this character is offline, enough time has passed,
 			// and the index servers are connected.
-			if (this.CurrentStatus == CharacterConnectionStatus.Offline
+			if ((this.CurrentStatus == CharacterConnectionStatus.Offline || this.outgoingConnection == null)
 				&& this.TimeSinceLastIndexAttempt > ReIndex
 				&& Plugin.Index.HasInitialIndexingCompleted
 				&& Plugin.Characters.Current != null)
@@ -283,7 +283,6 @@ public partial class CharacterConnection : IDisposable
 			this.CurrentStatus = CharacterConnectionStatus.Connecting;
 
 		Connection? outgoingConnection = await Plugin.Connections.Connect(address, localAddress, port);
-
 		if (outgoingConnection != null)
 		{
 			if (Plugin.Characters.Current == null)

@@ -23,6 +23,7 @@ public class FileDownload : FileTransfer
 
 	private FileStream? fileStream;
 	private Exception? receiveError;
+	private byte lastPart;
 
 	public FileDownload(
 		PenumbraSync sync,
@@ -130,14 +131,23 @@ public class FileDownload : FileTransfer
 			if (clientQueueIndex != this.ClientQueueIndex)
 				return;
 
+			byte part = data[1];
+			if (part != this.lastPart + 1)
+			{
+				Plugin.Log.Warning($"Got parts out of order. Expected part {this.lastPart + 1}, got {part}");
+				return;
+			}
+
+			this.lastPart = part;
+
 			if (data.Length > PenumbraSync.FileChunkSize + 1)
 			{
 				Plugin.Log.Warning($"Got file data larger than chunk size. got {data.Length} bytes, maximum {PenumbraSync.FileChunkSize} bytes");
 				return;
 			}
 
-			byte[] fileData = new byte[data.Length - 1];
-			Array.Copy(data, 1, fileData, 0, data.Length - 1);
+			byte[] fileData = new byte[data.Length - 2];
+			Array.Copy(data, 2, fileData, 0, data.Length - 2);
 			this.OnFileData(fileData);
 		}
 	}

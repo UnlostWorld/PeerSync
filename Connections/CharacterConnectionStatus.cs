@@ -30,7 +30,7 @@ public static class CharacterConnectionStatusExtensions
 			case CharacterConnectionStatus.Initializing: return FontAwesomeIcon.Hourglass;
 			case CharacterConnectionStatus.Indexing: return FontAwesomeIcon.Search;
 			case CharacterConnectionStatus.Offline: return FontAwesomeIcon.None;
-			case CharacterConnectionStatus.Connecting: return FontAwesomeIcon.HandshakeSimple;
+			case CharacterConnectionStatus.Connecting: return FontAwesomeIcon.Link;
 			case CharacterConnectionStatus.HandShaking: return FontAwesomeIcon.Handshake;
 			case CharacterConnectionStatus.Connected: return FontAwesomeIcon.Wifi;
 		}

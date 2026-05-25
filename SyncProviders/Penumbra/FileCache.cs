@@ -170,36 +170,6 @@ public class FileCache : IDisposable
 				ImGui.EndTooltip();
 			}
 		}
-
-		lock (this.deletedFiles)
-		{
-			if (this.deletedFiles.Count > 0)
-			{
-				ImGui.Text("Removed:");
-				if (this.deletedFiles.Count < 10)
-				{
-					foreach ((FileInfo file, FileDeletionReasons reason) in this.deletedFiles)
-					{
-						if (reason == FileDeletionReasons.Age)
-						{
-							ImGuiEx.Icon(FontAwesomeIcon.Clock);
-						}
-						else
-						{
-							ImGuiEx.Icon(FontAwesomeIcon.ExclamationTriangle);
-						}
-
-						ImGui.SameLine();
-						ImGui.Text(file.Name);
-					}
-				}
-				else
-				{
-					ImGui.SameLine();
-					ImGui.Text($"{this.deletedFiles.Count} files from cache");
-				}
-			}
-		}
 	}
 
 	private DirectoryInfo? GetDirectory()

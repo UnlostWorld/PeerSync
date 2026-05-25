@@ -47,6 +47,7 @@ public partial class CharacterConnection : IDisposable
 	private Exception? lastConnectionException;
 	private TransferOverlay? overlay;
 	private ushort objectIndex;
+	private States lastState;
 
 	public CharacterConnection(IPlayerCharacter character)
 	{
@@ -154,6 +155,7 @@ public partial class CharacterConnection : IDisposable
 
 			this.UpdateOverlay();
 
+			this.lastState = States.Found;
 			return States.Found;
 		}
 		else if (this.TimeSinceLastSearch > SearchDelay)
@@ -166,6 +168,7 @@ public partial class CharacterConnection : IDisposable
 					&& tCharacter.GetHomeWorld() == this.CharacterWorld)
 				{
 					this.objectIndex = tCharacter.ObjectIndex;
+					this.lastState = States.Found;
 					return States.Found;
 				}
 			}
@@ -173,9 +176,11 @@ public partial class CharacterConnection : IDisposable
 
 		if (this.TimeSinceLastSeen > Timeout)
 		{
+			this.lastState = States.TimedOut;
 			return States.TimedOut;
 		}
 
+		this.lastState = States.NotFound;
 		return States.NotFound;
 	}
 
@@ -482,6 +487,9 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnCharacterData(CharacterData characterData)
 	{
+		if (this.lastState != States.Found)
+			return;
+
 		// Do not sync characters if the local player is in combat
 		// or is loading areas.
 		if (Plugin.Condition[ConditionFlag.InCombat]
@@ -504,6 +512,9 @@ public partial class CharacterConnection : IDisposable
 		{
 			return;
 		}
+
+		if (this.lastState != States.Found)
+			return;
 
 		this.isApplyingData = true;
 
@@ -550,6 +561,9 @@ public partial class CharacterConnection : IDisposable
 		Dictionary<string, string?>? lastSync,
 		ushort objectIndex)
 	{
+		if (this.lastState != States.Found)
+			return;
+
 		foreach ((string key, string? content) in sync)
 		{
 			try
@@ -565,6 +579,11 @@ public partial class CharacterConnection : IDisposable
 				lastSync?.TryGetValue(key, out lastContent);
 
 				await provider.Deserialize(lastContent, content, this, objectIndex);
+
+				if (this.lastState != States.Found)
+				{
+					return;
+				}
 			}
 			catch (TaskCanceledException)
 			{

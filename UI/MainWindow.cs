@@ -22,7 +22,7 @@ public class MainWindow : Window, IDisposable
 
 	public MainWindow()
 #if DEBUG
-		: base($"Peer Sync - Debug##PeerSyncMainWindow")
+		: base($"Peer Sync - v{Configuration.Current.DebugVersion} (Debug)##PeerSyncMainWindow")
 #else
 		: base($"Peer Sync - v{Plugin.PluginInterface.Manifest.AssemblyVersion}##PeerSyncMainWindow")
 #endif
@@ -107,6 +107,15 @@ public class MainWindow : Window, IDisposable
 
 		if (ImGui.CollapsingHeader($"Settings"))
 		{
+#if DEBUG
+			string debugVer = Configuration.Current.DebugVersion;
+			if (ImGui.InputText("Debug Version", ref debugVer))
+			{
+				Configuration.Current.DebugVersion = debugVer;
+				Configuration.Current.Save();
+			}
+#endif
+
 			int port = Configuration.Current.Port;
 			if (ImGui.InputInt("Custom Port", ref port))
 			{

@@ -44,6 +44,8 @@ public partial class Configuration : IPluginConfiguration
 	public int MaxUploads { get; set; } = 5;
 	public int MaxDownloads { get; set; } = 10;
 
+	public string DebugVersion { get; set; } = "Debug";
+
 	public HashSet<string> IndexServers { get; init; } = new()
 	{
 		"https://peer-sync-index-server-9y4rg.ondigitalocean.app",
@@ -117,7 +119,7 @@ public partial class Configuration : IPluginConfiguration
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 
 #if DEBUG
-				pluginVersion = "Debug";
+				pluginVersion = Configuration.Current.DebugVersion;
 #endif
 
 				string input = $"{this.Name}{this.Password}";
@@ -178,7 +180,7 @@ public partial class Configuration : IPluginConfiguration
 				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
 
 #if DEBUG
-				pluginVersion = "Debug";
+				pluginVersion = Configuration.Current.DebugVersion;
 #endif
 
 				string input = $"{this.CharacterName}{this.World}";

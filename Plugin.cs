@@ -28,6 +28,7 @@ using PeerSync.SyncBlockers;
 using PeerSync.Connections;
 using PeerSync.Index;
 using PeerSync.Characters;
+using PeerSync.Overlays;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
@@ -81,6 +82,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		Characters = new();
 		Dtr = new();
 		Sync = new();
+		Overlays = new();
 
 		Framework.Update += this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
@@ -96,6 +98,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static CharacterService Characters { get; private set; } = null!;
 	public static DtrService Dtr { get; private set; } = null!;
 	public static SyncService Sync { get; private set; } = null!;
+	public static OverlayService Overlays { get; private set; } = null!;
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -109,6 +112,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	[PluginService] public static IDtrBar DtrBar { get; private set; } = null!;
 	[PluginService] public static ICondition Condition { get; private set; } = null!;
 	[PluginService] public static IChatGui ChatGui { get; private set; } = null!;
+	[PluginService] public static IGameGui GameGui { get; private set; } = null!;
 
 	public static Plugin? Instance { get; private set; } = null;
 	public MainWindow MainWindow { get; init; }
@@ -128,6 +132,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		Characters.Dispose();
 		Dtr.Dispose();
 		Sync.Dispose();
+		Overlays.Dispose();
 
 		foreach (string str in this.commandNames)
 		{
@@ -154,6 +159,7 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	private void OnDalamudDrawUI()
 	{
+		Overlays.Draw();
 		this.windowSystem.Draw();
 	}
 

@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
+using PeerSync.Overlays;
 using PeerSync.SyncProviders;
 using PeerSync.UI;
 

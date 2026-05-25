@@ -24,6 +24,7 @@ using PeerSync;
 using PeerSync.Index;
 using PeerSync.Network;
 using PeerSync.Online;
+using PeerSync.Overlays;
 using PeerSync.SyncProviders;
 using PeerSync.UI;
 
@@ -42,6 +43,7 @@ public partial class CharacterConnection : IDisposable
 	private Connection? incomingConnection;
 	private bool isApplyingData = false;
 	private Exception? lastConnectionException;
+	private TransferOverlay? overlay;
 
 	public CharacterConnection(IPlayerCharacter character)
 	{
@@ -87,6 +89,19 @@ public partial class CharacterConnection : IDisposable
 		}
 	}
 
+	public IPlayerCharacter? GetCharacter()
+	{
+		IGameObject? obj = Plugin.ObjectTable[this.objectIndex];
+		if (obj is IPlayerCharacter character
+			&& character.GetName() == this.CharacterName
+			&& character.GetHomeWorld() == this.CharacterWorld)
+		{
+			return character;
+		}
+
+		return null;
+	}
+
 	public States Update()
 	{
 		IGameObject? obj = Plugin.ObjectTable[this.objectIndex];
@@ -105,6 +120,8 @@ public partial class CharacterConnection : IDisposable
 			{
 				Task.Run(this.FingerprintIndexConnect);
 			}
+
+			this.UpdateOverlay();
 
 			return States.Found;
 		}
@@ -185,6 +202,19 @@ public partial class CharacterConnection : IDisposable
 		{
 			this.incomingConnection.Send(type, data);
 			return;
+		}
+	}
+
+	private void UpdateOverlay()
+	{
+		if (this.IsConnected && this.overlay == null)
+		{
+			this.overlay = new(this);
+		}
+		else if (!this.IsConnected && this.overlay != null)
+		{
+			this.overlay.Dispose();
+			this.overlay = null;
 		}
 	}
 

@@ -54,6 +54,7 @@ public partial class CharacterConnection
 				if (ImGui.MenuItem("Unblock"))
 				{
 					Configuration.Current.SetIsBlocked(this.CharacterName, this.CharacterWorld, false);
+					this.Reset();
 				}
 			}
 			else
@@ -61,6 +62,7 @@ public partial class CharacterConnection
 				if (ImGui.MenuItem("Block"))
 				{
 					Configuration.Current.SetIsBlocked(this.CharacterName, this.CharacterWorld, true);
+					this.Reset();
 				}
 			}
 

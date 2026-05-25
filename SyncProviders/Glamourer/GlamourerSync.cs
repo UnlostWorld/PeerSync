@@ -26,10 +26,12 @@ public class GlamourerSync : SyncProviderBase
 
 	public override async Task<string?> Serialize(Configuration.Character character, ushort objectIndex)
 	{
+		await Plugin.Framework.RunOnUpdate();
+
 		if (!this.glamourer.GetIsAvailable())
 			return null;
 
-		return await this.glamourer.GetState(objectIndex);
+		return this.glamourer.GetState(objectIndex);
 	}
 
 	public override async Task Deserialize(
@@ -38,6 +40,8 @@ public class GlamourerSync : SyncProviderBase
 		CharacterConnection character,
 		ushort objectIndex)
 	{
+		await Plugin.Framework.RunOnUpdate();
+
 		if (!this.glamourer.GetIsAvailable())
 		{
 			if (!string.IsNullOrEmpty(content))
@@ -51,20 +55,22 @@ public class GlamourerSync : SyncProviderBase
 
 		if (content == null)
 		{
-			await this.glamourer.RevertState(objectIndex);
+			this.glamourer.RevertState(objectIndex);
 			this.SetStatus(character, SyncProgressStatus.Empty);
 		}
 		else
 		{
-			await this.glamourer.SetState(objectIndex, content);
+			this.glamourer.SetState(objectIndex, content);
 			this.SetStatus(character, SyncProgressStatus.Applied);
 		}
 	}
 
 	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
 	{
+		await Plugin.Framework.RunOnUpdate();
+
 		if (objectIndex != null)
-			await this.glamourer.RevertState(objectIndex.Value);
+			this.glamourer.RevertState(objectIndex.Value);
 
 		this.SetStatus(character, SyncProgressStatus.Empty);
 		await base.Reset(character, objectIndex);

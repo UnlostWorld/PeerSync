@@ -31,7 +31,7 @@ using CharacterData = PeerSync.CharacterData;
 
 public class SyncService : IDisposable
 {
-	public static readonly LightlessCommunicator Lightless = new();
+	public readonly LightlessCommunicator Lightless = new();
 
 	public readonly CharacterData LocalCharacterData = new();
 	public readonly List<SyncProviderBase> Providers = new();

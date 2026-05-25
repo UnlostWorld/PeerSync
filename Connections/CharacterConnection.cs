@@ -486,7 +486,7 @@ public partial class CharacterConnection : IDisposable
 		if (this.isApplyingData)
 			return;
 
-		if (await Plugin.Lightless.GetIsGameObjectHandled(this.objectIndex))
+		if (await Plugin.Sync.Lightless.GetIsGameObjectHandled(this.objectIndex))
 		{
 			return;
 		}

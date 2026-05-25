@@ -57,7 +57,9 @@ jobs:
         $new_path = './repo.json'
         $content = get-content -path $path
         $content = $content -replace '{testing_version}','${{vars.VERSION}}.${{github.run_number}}'
-        $content = $content -replace '{stable_version}','${{vars.VERSION}}.${{vars.STABLE_BUILD }}'
+        $content = $content -replace '{stable_version}','${{vars.VERSION}}.${{vars.STABLE_BUILD}}'
+        $content = $content -replace '{stable_build}','${{vars.STABLE_BUILD}}'
+        $content = $content -replace '{testing_build}','${{github.run_number}}'
         set-content -Path $new_path -Value $content
         git add repo.json
         git commit -m "[CI] Updating versions for v${{ github.run_number }}" || true

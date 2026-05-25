@@ -42,6 +42,7 @@ public partial class CharacterConnection : IDisposable
 	private Connection? outgoingConnection;
 	private Connection? incomingConnection;
 	private bool isApplyingData = false;
+	private bool isResetting = false;
 	private Exception? lastConnectionException;
 	private TransferOverlay? overlay;
 
@@ -84,11 +85,34 @@ public partial class CharacterConnection : IDisposable
 
 	public void Reset()
 	{
+		if (this.isResetting == true)
+			return;
+
+		Task.Run(this.ResetAsync);
+	}
+
+	public async Task ResetAsync()
+	{
+		if (this.isResetting == true)
+			return;
+
+		this.isResetting = true;
 		this.LastData = null;
 
-		foreach (SyncProviderBase provider in Plugin.Sync.Providers)
+		try
 		{
-			provider.Reset(this, this.objectIndex);
+			foreach (SyncProviderBase provider in Plugin.Sync.Providers)
+			{
+				await provider.Reset(this, this.objectIndex);
+			}
+		}
+		catch (Exception ex)
+		{
+			Plugin.Log.Error(ex, "Error resetting character");
+		}
+		finally
+		{
+			this.isResetting = false;
 		}
 	}
 
@@ -145,6 +169,8 @@ public partial class CharacterConnection : IDisposable
 		}
 
 		this.cancellationTokenSource.Cancel();
+
+		this.Reset();
 	}
 
 	public void SetOutgoingNetworkConnection(Connection connection)

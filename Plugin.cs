@@ -8,11 +8,9 @@
 
 namespace PeerSync;
 
-using Dalamud.Game;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Gui.ContextMenu;
-using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
@@ -28,8 +26,6 @@ using PeerSync.SyncProviders.Penumbra;
 using System.Text;
 using System.Threading;
 using SharpOpenNat;
-using PeerSync.Online;
-using PeerSync.Network;
 using PeerSync.SyncProviders.CustomizePlus;
 using PeerSync.SyncProviders.Moodles;
 using PeerSync.SyncProviders.Honorific;
@@ -39,7 +35,6 @@ using PeerSync.SyncProviders;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Dalamud.Game.ClientState.Conditions;
 using System.Diagnostics;
-using Dalamud.Game.Text;
 using PeerSync.SyncBlockers;
 using PeerSync.Connections;
 using Newtonsoft.Json;
@@ -245,50 +240,10 @@ public sealed partial class Plugin : IDalamudPlugin
 		if (args.Target is not MenuTargetDefault target)
 			return;
 
-		if (target.TargetObject is not IPlayerCharacter character)
-			return;
-
-		// TODO
-		/*string characterName = character.Name.ToString();
-		string world = character.HomeWorld.Value.Name.ToString();
-		Configuration.Peer? peer = Configuration.Current.GetFriend(characterName, world);
-
-		if (peer == null)
+		if (target.TargetObject is IPlayerCharacter character)
 		{
-			args.AddMenuItem(new MenuItem()
-			{
-				Name = SeStringUtils.ToSeString("Add peer"),
-				OnClicked = (a) => this.AddPeer(character),
-				UseDefaultPrefix = false,
-				PrefixChar = 'S',
-				PrefixColor = 526,
-			});
+			CharacterContextMenu.Show(character, ref args);
 		}
-
-		CharacterConnection? sync = this.GetCharacterSync(characterName, world);
-		if (sync != null && sync.CurrentStatus == CharacterConnection.Status.Connected)
-		{
-			args.AddMenuItem(new MenuItem()
-			{
-				Name = SeStringUtils.ToSeString("Resync with peer"),
-				OnClicked = (a) => this.ResyncPeer(sync, character),
-				UseDefaultPrefix = false,
-				PrefixChar = 'S',
-				PrefixColor = 526,
-			});
-		}*/
-	}
-
-	private void AddPeer(IPlayerCharacter character)
-	{
-		string characterName = character.Name.ToString();
-		string world = character.HomeWorld.Value.Name.ToString();
-		this.AddPeerWindow.Show(characterName, world);
-	}
-
-	private void ResyncPeer(CharacterConnection sync, IPlayerCharacter character)
-	{
-		sync.Reset();
 	}
 
 	private async Task InitializeAsync()

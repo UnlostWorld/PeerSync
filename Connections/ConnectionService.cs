@@ -169,7 +169,7 @@ public partial class ConnectionService : IDisposable
 		}
 	}
 
-	private CharacterConnection GetOrCreate(IPlayerCharacter character)
+	public CharacterConnection GetOrCreate(IPlayerCharacter character)
 	{
 		string id = character.GetId();
 		CharacterConnection? connection = null;

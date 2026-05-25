@@ -11,19 +11,10 @@ namespace PeerSync;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using PeerSync.UI;
-using PeerSync.SyncProviders;
 using PeerSync.SyncBlockers;
-using PeerSync.Connections;
-using PeerSync.Index;
-using PeerSync.Characters;
-using PeerSync.Overlays;
-using PeerSync.Network;
 
 public sealed partial class Plugin : IDalamudPlugin
 {
-	public static readonly LightlessCommunicator Lightless = new();
-
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
 		Plugin.Network = new();
@@ -40,16 +31,16 @@ public sealed partial class Plugin : IDalamudPlugin
 		Plugin.Framework.Update += this.OnFrameworkUpdate;
 	}
 
-	public static ConnectionService Connections { get; private set; } = null!;
-	public static IndexService Index { get; private set; } = null!;
-	public static CharacterService Characters { get; private set; } = null!;
+	public static Connections.ConnectionService Connections { get; private set; } = null!;
+	public static Index.IndexService Index { get; private set; } = null!;
+	public static Characters.CharacterService Characters { get; private set; } = null!;
 	public static DtrService Dtr { get; private set; } = null!;
-	public static SyncService Sync { get; private set; } = null!;
-	public static OverlayService Overlays { get; private set; } = null!;
-	public static UiService Ui { get; private set; } = null!;
+	public static SyncProviders.SyncService Sync { get; private set; } = null!;
+	public static Overlays.OverlayService Overlays { get; private set; } = null!;
+	public static UI.UiService Ui { get; private set; } = null!;
 	public static CommandService Commands { get; private set; } = null!;
-	public static ContextMenuService ContextMenu { get; private set; } = null!;
-	public static NetworkService Network { get; private set; } = null!;
+	public static Characters.ContextMenuService ContextMenu { get; private set; } = null!;
+	public static Network.NetworkService Network { get; private set; } = null!;
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;

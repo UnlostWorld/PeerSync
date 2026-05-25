@@ -10,9 +10,7 @@ namespace PeerSync.SyncProviders;
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.SubKinds;
@@ -20,6 +18,7 @@ using Dalamud.Game.ClientState.Objects.Types;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Newtonsoft.Json;
 using PeerSync.Connections;
+using PeerSync.SyncBlockers;
 using PeerSync.SyncProviders.CustomizePlus;
 using PeerSync.SyncProviders.Glamourer;
 using PeerSync.SyncProviders.Honorific;
@@ -32,6 +31,8 @@ using CharacterData = PeerSync.CharacterData;
 
 public class SyncService : IDisposable
 {
+	public static readonly LightlessCommunicator Lightless = new();
+
 	public readonly CharacterData LocalCharacterData = new();
 	public readonly List<SyncProviderBase> Providers = new();
 

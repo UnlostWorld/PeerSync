@@ -44,14 +44,11 @@ public class MainWindow : Window, IDisposable
 		Plugin.Characters.DrawStatus();
 		Plugin.Connections.DrawStatus();
 
-		if (Plugin.Instance == null)
-			return;
-
 		bool addFriend;
 		ImGuiEx.Header(ref this.expandedFriends, $"Friends", out addFriend);
 		if (addFriend)
 		{
-			Plugin.Instance.AddPeerWindow.Show();
+			Plugin.Ui.AddPeerWindow.Show();
 		}
 
 		if (this.expandedFriends)

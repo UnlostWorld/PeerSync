@@ -56,6 +56,6 @@ public class DtrService : IDisposable
 
 	private void OnDtrClicked(DtrInteractionEvent @evt)
 	{
-		Plugin.Instance?.MainWindow.Toggle();
+		Plugin.Ui.MainWindow.Toggle();
 	}
 }

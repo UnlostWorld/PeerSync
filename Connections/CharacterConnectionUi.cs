@@ -45,7 +45,7 @@ public partial class CharacterConnection
 
 			if (ImGui.MenuItem("Inspect"))
 			{
-				Plugin.Instance?.InspectWindow.Show(this);
+				Plugin.Ui.InspectWindow.Show(this);
 			}
 
 			ImGui.Separator();

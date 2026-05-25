@@ -127,7 +127,7 @@ public partial class IndexService : IDisposable
 		ImGuiEx.Header(ref this.expandedGroups, $"Groups", out addGroup);
 		if (addGroup)
 		{
-			Plugin.Instance?.AddGroupWindow.Show();
+			Plugin.Ui.AddGroupWindow.Show();
 		}
 
 		if (ImGui.BeginTable("GroupsTable", 4))

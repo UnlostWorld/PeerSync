@@ -112,7 +112,7 @@ public class CharacterService : IDisposable
 			{
 				if (ImGui.MenuItem("Inspect"))
 				{
-					Plugin.Instance?.InspectWindow.Show();
+					Plugin.Ui.InspectWindow.Show();
 				}
 
 				ImGui.Separator();

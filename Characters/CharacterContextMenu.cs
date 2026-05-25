@@ -27,7 +27,7 @@ public static class CharacterContextMenu
 		{
 			MenuItem addFriendMenu = new();
 			addFriendMenu.Name = SeStringUtils.ToSeString("Add Friend");
-			addFriendMenu.OnClicked = (a) => Plugin.Instance?.AddPeerWindow.Show(characterName, characterWorld);
+			addFriendMenu.OnClicked = (a) => Plugin.Ui.AddPeerWindow.Show(characterName, characterWorld);
 			menus.Add(addFriendMenu);
 		}
 

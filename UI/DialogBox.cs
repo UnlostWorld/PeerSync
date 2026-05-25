@@ -29,7 +29,7 @@ public static class DialogBox
 		if (Plugin.Instance == null)
 			return;
 
-		Plugin.Instance.DialogBox.Show(
+		Plugin.Ui.DialogBox.Show(
 			title,
 			message,
 			icon,

@@ -45,28 +45,12 @@ public sealed partial class Plugin : IDalamudPlugin
 		"/pissinc",
 		"/pisssync",
 		"/piercesink"];
-	private readonly WindowSystem windowSystem = new("PeerSync");
+
 	private readonly CancellationTokenSource tokenSource = new();
 	private bool isInitialized = false;
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
-		this.MainWindow = new MainWindow();
-		this.AddPeerWindow = new AddPeerWindow();
-		this.AddGroupWindow = new AddGroupWindow();
-		this.DialogBox = new DialogBoxWindow();
-		this.InspectWindow = new InspectWindow();
-
-		this.windowSystem.AddWindow(this.MainWindow);
-		this.windowSystem.AddWindow(this.AddPeerWindow);
-		this.windowSystem.AddWindow(this.AddGroupWindow);
-		this.windowSystem.AddWindow(this.DialogBox);
-		this.windowSystem.AddWindow(this.InspectWindow);
-
-#if DEBUG
-		this.MainWindow.IsOpen = true;
-#endif
-
 		foreach (string str in this.commandNames)
 		{
 			CommandManager.AddHandler(str, new CommandInfo(this.OnCommand)
@@ -83,11 +67,10 @@ public sealed partial class Plugin : IDalamudPlugin
 		Dtr = new();
 		Sync = new();
 		Overlays = new();
+		Ui = new();
 
 		Framework.Update += this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
-		PluginInterface.UiBuilder.Draw += this.OnDalamudDrawUI;
-		PluginInterface.UiBuilder.OpenMainUi += this.OnDalamudOpenMainUi;
 
 		this.tokenSource = new();
 		Task.Run(this.InitializeAsync, this.tokenSource.Token);
@@ -99,6 +82,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static DtrService Dtr { get; private set; } = null!;
 	public static SyncService Sync { get; private set; } = null!;
 	public static OverlayService Overlays { get; private set; } = null!;
+	public static UiService Ui { get; private set; } = null!;
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -115,11 +99,6 @@ public sealed partial class Plugin : IDalamudPlugin
 	[PluginService] public static IGameGui GameGui { get; private set; } = null!;
 
 	public static Plugin? Instance { get; private set; } = null;
-	public MainWindow MainWindow { get; init; }
-	public AddPeerWindow AddPeerWindow { get; init; }
-	public AddGroupWindow AddGroupWindow { get; init; }
-	public DialogBoxWindow DialogBox { get; init; }
-	public InspectWindow InspectWindow { get; init; }
 
 	public string Name => "Peer Sync";
 
@@ -133,6 +112,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		Dtr.Dispose();
 		Sync.Dispose();
 		Overlays.Dispose();
+		Ui.Dispose();
 
 		foreach (string str in this.commandNames)
 		{
@@ -141,26 +121,13 @@ public sealed partial class Plugin : IDalamudPlugin
 
 		Framework.Update -= this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened -= this.OnContextMenuOpened;
-		PluginInterface.UiBuilder.Draw -= this.OnDalamudDrawUI;
-		PluginInterface.UiBuilder.OpenMainUi -= this.OnDalamudOpenMainUi;
 
 		Instance = null;
 	}
 
 	private void OnCommand(string command, string args)
 	{
-		this.MainWindow.Toggle();
-	}
-
-	private void OnDalamudOpenMainUi()
-	{
-		this.MainWindow.Toggle();
-	}
-
-	private void OnDalamudDrawUI()
-	{
-		Overlays.Draw();
-		this.windowSystem.Draw();
+		Plugin.Ui.MainWindow.Toggle();
 	}
 
 	private void OnContextMenuOpened(IMenuOpenedArgs args)

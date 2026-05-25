@@ -73,15 +73,10 @@ public class SimpleHeelsSync : SyncProviderBase
 		}
 	}
 
-	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
+	public override void Reset(CharacterConnection character, ushort? objectIndex)
 	{
-		await base.Reset(character, objectIndex);
-
 		if (objectIndex != null)
-		{
-			await Plugin.Framework.RunOnUpdate();
 			this.simpleHeels.ClearPlayerData(objectIndex.Value);
-		}
 
 		this.SetStatus(character, SyncProgressStatus.Empty);
 	}

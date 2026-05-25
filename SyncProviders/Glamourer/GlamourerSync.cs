@@ -65,15 +65,12 @@ public class GlamourerSync : SyncProviderBase
 		}
 	}
 
-	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
+	public override void Reset(CharacterConnection character, ushort? objectIndex)
 	{
-		await Plugin.Framework.RunOnUpdate();
-
 		if (objectIndex != null)
 			this.glamourer.RevertState(objectIndex.Value);
 
 		this.SetStatus(character, SyncProgressStatus.Empty);
-		await base.Reset(character, objectIndex);
 	}
 
 	public override void DrawInspect(CharacterConnection? character, string content)

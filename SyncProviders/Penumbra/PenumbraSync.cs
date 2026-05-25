@@ -379,11 +379,8 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		}
 	}
 
-	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
+	public override void Reset(CharacterConnection character, ushort? objectIndex)
 	{
-		await base.Reset(character, objectIndex);
-		await Plugin.Framework.RunOnUpdate();
-
 		if (objectIndex != null)
 		{
 			string collectionIdent = this.GetTemporaryCollectionIdentifier(character, objectIndex.Value);

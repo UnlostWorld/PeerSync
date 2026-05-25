@@ -73,13 +73,10 @@ public class PetNamesSync : SyncProviderBase
 		}
 	}
 
-	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
+	public override void Reset(CharacterConnection character, ushort? objectIndex)
 	{
-		await base.Reset(character, objectIndex);
-
 		if (objectIndex != null)
 		{
-			await Plugin.Framework.RunOnUpdate();
 			this.petNames.ClearPlayerData(objectIndex.Value);
 		}
 

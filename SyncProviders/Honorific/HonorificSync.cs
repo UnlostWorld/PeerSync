@@ -60,14 +60,10 @@ public class HonorificSync : SyncProviderBase
 		return this.honorific.GetCharacterTitle(objectIndex);
 	}
 
-	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
+	public override void Reset(CharacterConnection character, ushort? objectIndex)
 	{
-		await base.Reset(character, objectIndex);
-
 		if (!this.honorific.GetIsAvailable())
 			return;
-
-		await Plugin.Framework.RunOnUpdate();
 
 		if (objectIndex != null)
 			this.honorific.ClearCharacterTitle(objectIndex.Value);

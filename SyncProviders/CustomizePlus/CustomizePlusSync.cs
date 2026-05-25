@@ -78,11 +78,8 @@ public class CustomizePlusSync : SyncProviderBase
 		return this.customizePlus.GetProfileByUniqueId(guid.Value);
 	}
 
-	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
+	public override void Reset(CharacterConnection character, ushort? objectIndex)
 	{
-		await base.Reset(character, objectIndex);
-		await Plugin.Framework.RunOnUpdate();
-
 		if (this.appliedProfiles.TryGetValue(character.CharacterId, out Guid guid))
 		{
 			this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);

@@ -90,10 +90,7 @@ public abstract class SyncProviderBase : IDisposable
 		}
 	}
 
-	public virtual Task Reset(CharacterConnection character, ushort? objectIndex)
-	{
-		return Task.CompletedTask;
-	}
+	public abstract void Reset(CharacterConnection character, ushort? objectIndex);
 
 	protected virtual SyncProgressBase CreateProgress(CharacterConnection character)
 	{

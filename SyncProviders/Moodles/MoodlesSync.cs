@@ -71,14 +71,10 @@ public class MoodlesSync : SyncProviderBase
 		return this.moodles.GetStatusManagerByPC(playerCharacter);
 	}
 
-	public override async Task Reset(CharacterConnection character, ushort? objectIndex)
+	public override void Reset(CharacterConnection character, ushort? objectIndex)
 	{
-		await base.Reset(character, objectIndex);
-
 		if (objectIndex != null)
 		{
-			await Plugin.Framework.RunOnUpdate();
-
 			IGameObject? gameObject = Plugin.ObjectTable[objectIndex.Value];
 			if (gameObject is not IPlayerCharacter playerCharacter)
 				return;

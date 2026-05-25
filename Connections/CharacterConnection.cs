@@ -34,17 +34,19 @@ public partial class CharacterConnection : IDisposable
 {
 	private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 	private static readonly TimeSpan ReIndex = TimeSpan.FromSeconds(10);
+	private static readonly TimeSpan SearchDelay = TimeSpan.FromSeconds(1);
 
-	private readonly ushort objectIndex;
 	private readonly CancellationTokenSource cancellationTokenSource = new();
 	private DateTime lastSeen;
 	private DateTime lastIndexAttempt;
+	private DateTime lastSearch;
 	private Connection? outgoingConnection;
 	private Connection? incomingConnection;
 	private bool isApplyingData = false;
 	private bool isResetting = false;
 	private Exception? lastConnectionException;
 	private TransferOverlay? overlay;
+	private ushort objectIndex;
 
 	public CharacterConnection(IPlayerCharacter character)
 	{
@@ -55,6 +57,7 @@ public partial class CharacterConnection : IDisposable
 
 		this.lastSeen = DateTime.Now;
 		this.lastIndexAttempt = DateTime.MinValue;
+		this.lastSearch = DateTime.Now;
 
 		this.IsPeer = false;
 
@@ -81,6 +84,7 @@ public partial class CharacterConnection : IDisposable
 	public bool IsPeer { get; private set; }
 
 	public TimeSpan TimeSinceLastSeen => DateTime.Now - this.lastSeen;
+	public TimeSpan TimeSinceLastSearch => DateTime.Now - this.lastSearch;
 	public TimeSpan TimeSinceLastIndexAttempt => DateTime.Now - this.lastIndexAttempt;
 
 	public void Reset()
@@ -151,6 +155,20 @@ public partial class CharacterConnection : IDisposable
 			this.UpdateOverlay();
 
 			return States.Found;
+		}
+		else if (this.TimeSinceLastSearch > SearchDelay)
+		{
+			this.lastSearch = DateTime.Now;
+
+			foreach (IPlayerCharacter tCharacter in Plugin.ObjectTable.PlayerObjects)
+			{
+				if (tCharacter.GetName() == this.CharacterName
+					&& tCharacter.GetHomeWorld() == this.CharacterWorld)
+				{
+					this.objectIndex = tCharacter.ObjectIndex;
+					return States.Found;
+				}
+			}
 		}
 
 		if (this.TimeSinceLastSeen > Timeout)

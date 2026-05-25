@@ -42,10 +42,6 @@ public class InspectWindow : Window, IDisposable
 
 	public override void Draw()
 	{
-		Plugin? plugin = Plugin.Instance;
-		if (plugin == null)
-			return;
-
 		if (this.character != null)
 		{
 			ImGui.Text($"{this.character.CharacterName} @ {this.character.CharacterWorld}");
@@ -60,7 +56,7 @@ public class InspectWindow : Window, IDisposable
 			ImGui.SameLine();
 			ImGui.Text($"{Plugin.Characters.Current.GetFingerprint()}");
 
-			plugin.LocalCharacterData.DrawInspect();
+			Plugin.Sync.LocalCharacterData.DrawInspect();
 		}
 	}
 }

@@ -340,9 +340,9 @@ public partial class CharacterConnection : IDisposable
 		this.SendIAm();
 
 		// send the most recent version of our character data to this new connection.
-		if (Plugin.Instance.LocalCharacterData != null)
+		if (Plugin.Sync.LocalCharacterData != null)
 		{
-			string json = JsonConvert.SerializeObject(Plugin.Instance.LocalCharacterData);
+			string json = JsonConvert.SerializeObject(Plugin.Sync.LocalCharacterData);
 			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
 			this.Send(PacketTypes.CharacterData, jsonBytes);
 		}

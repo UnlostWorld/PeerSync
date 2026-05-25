@@ -9,7 +9,6 @@
 namespace PeerSync;
 
 using Dalamud.Game.ClientState.Objects.SubKinds;
-using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Gui.ContextMenu;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
@@ -20,17 +19,13 @@ using System;
 using System.Threading.Tasks;
 using System.Net.Sockets;
 using System.Net;
-using System.Text;
 using System.Threading;
 using SharpOpenNat;
 using Dalamud.Game.Command;
 using PeerSync.SyncProviders;
-using FFXIVClientStructs.FFXIV.Client.Game.Character;
-using Dalamud.Game.ClientState.Conditions;
 using System.Diagnostics;
 using PeerSync.SyncBlockers;
 using PeerSync.Connections;
-using Newtonsoft.Json;
 using PeerSync.Index;
 using PeerSync.Characters;
 
@@ -38,8 +33,6 @@ public sealed partial class Plugin : IDalamudPlugin
 {
 	public const int MaxConnectionAttempts = 10;
 	public static readonly LightlessCommunicator Lightless = new();
-
-	public readonly CharacterData LocalCharacterData = new();
 
 	public IPAddress? LocalIpAddress;
 	public ushort LocalPort;
@@ -305,12 +298,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		this.LocalIpAddress = localIp;
 		this.LocalPort = port;
 
-		// Start the main tasks
-		Task updateDataTask = Task.Run(this.UpdateData);
-
 		this.isInitialized = true;
-
-		await updateDataTask;
 	}
 
 	private void OnFrameworkUpdate(IFramework framework)
@@ -322,91 +310,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		Connections.FrameworkUpdate();
 		Index.FrameworkUpdate();
 		Dtr.FrameworkUpdate();
-	}
-
-	private async Task UpdateData()
-	{
-		CharacterData data = new();
-		Stopwatch timeSinceLastSendTimer = new();
-		timeSinceLastSendTimer.Start();
-
-		while (!this.tokenSource.IsCancellationRequested)
-		{
-			await Task.Delay(500);
-
-			data.Clear();
-
-			if (Plugin.Characters.Current == null)
-				continue;
-
-			await Plugin.Framework.RunOnUpdate();
-			if (this.tokenSource.IsCancellationRequested)
-				return;
-
-			// Do not sync character if we are in combat is loading
-			if (Plugin.Condition[ConditionFlag.InCombat]
-				|| Plugin.Condition[ConditionFlag.BetweenAreas]
-				|| Plugin.Condition[ConditionFlag.BetweenAreas51]
-				|| Plugin.Condition[ConditionFlag.LoggingOut])
-			{
-				continue;
-			}
-
-			IPlayerCharacter? player = ObjectTable.LocalPlayer;
-			if (Plugin.Characters.Current == null || player == null)
-				continue;
-
-			IGameObject? mountOrMinion = Plugin.ObjectTable[player.ObjectIndex + 1];
-			data.Fingerprint = Plugin.Characters.Current.GetFingerprint();
-
-			IGameObject? pet = null;
-			unsafe
-			{
-				BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)player.Address);
-				if (pPet != null)
-				{
-					pet = Plugin.ObjectTable[pPet->ObjectIndex];
-				}
-			}
-
-			foreach (SyncProviderBase sync in Plugin.Sync.Providers)
-			{
-				if (this.tokenSource.IsCancellationRequested)
-					return;
-
-				try
-				{
-					string? content = await sync.Serialize(Plugin.Characters.Current, player.ObjectIndex);
-					data.Character.Add(sync.Key, content);
-
-					if (mountOrMinion != null)
-					{
-						content = await sync.Serialize(Plugin.Characters.Current, mountOrMinion.ObjectIndex);
-						data.MountOrMinion.Add(sync.Key, content);
-					}
-
-					if (pet != null)
-					{
-						content = await sync.Serialize(Plugin.Characters.Current, pet.ObjectIndex);
-						data.Pet.Add(sync.Key, content);
-					}
-				}
-				catch (Exception ex)
-				{
-					Plugin.Log.Error(ex, "Error collecting character data");
-				}
-			}
-
-			if (this.LocalCharacterData.IsSame(data) && timeSinceLastSendTimer.ElapsedMilliseconds < ForceSendDataMs)
-				continue;
-
-			timeSinceLastSendTimer.Restart();
-			data.CopyTo(this.LocalCharacterData);
-
-			string json = JsonConvert.SerializeObject(data);
-			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
-			Connections.Send(PacketTypes.CharacterData, jsonBytes);
-		}
+		Sync.FrameworkUpdate();
 	}
 }
 

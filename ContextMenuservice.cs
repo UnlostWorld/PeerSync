@@ -8,14 +8,36 @@
 
 namespace PeerSync.Characters;
 
+using System;
 using System.Collections.Generic;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.Gui.ContextMenu;
 using PeerSync.Connections;
 
-public static class CharacterContextMenu
+public class ContextMenuService : IDisposable
 {
-	public static void Show(IPlayerCharacter character, ref IMenuOpenedArgs args)
+	public ContextMenuService()
+	{
+		Plugin.XivContextMenu.OnMenuOpened += this.OnContextMenuOpened;
+	}
+
+	public void Dispose()
+	{
+		Plugin.XivContextMenu.OnMenuOpened -= this.OnContextMenuOpened;
+	}
+
+	private void OnContextMenuOpened(IMenuOpenedArgs args)
+	{
+		if (args.Target is not MenuTargetDefault target)
+			return;
+
+		if (target.TargetObject is IPlayerCharacter character)
+		{
+			this.Show(character, ref args);
+		}
+	}
+
+	private void Show(IPlayerCharacter character, ref IMenuOpenedArgs args)
 	{
 		List<MenuItem> menus = new();
 

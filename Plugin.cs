@@ -8,9 +8,6 @@
 
 namespace PeerSync;
 
-using Dalamud.Game.ClientState.Objects.SubKinds;
-using Dalamud.Game.Gui.ContextMenu;
-using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -21,7 +18,6 @@ using System.Net.Sockets;
 using System.Net;
 using System.Threading;
 using SharpOpenNat;
-using Dalamud.Game.Command;
 using PeerSync.SyncProviders;
 using System.Diagnostics;
 using PeerSync.SyncBlockers;
@@ -53,9 +49,9 @@ public sealed partial class Plugin : IDalamudPlugin
 		Overlays = new();
 		Ui = new();
 		Commands = new();
+		ContextMenu = new();
 
 		Framework.Update += this.OnFrameworkUpdate;
-		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
 
 		this.tokenSource = new();
 		Task.Run(this.InitializeAsync, this.tokenSource.Token);
@@ -69,6 +65,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static OverlayService Overlays { get; private set; } = null!;
 	public static UiService Ui { get; private set; } = null!;
 	public static CommandService Commands { get; private set; } = null!;
+	public static ContextMenuService ContextMenu { get; private set; } = null!;
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -78,7 +75,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	[PluginService] public static ISigScanner SigScanner { get; private set; } = null!;
 	[PluginService] public static IFramework Framework { get; private set; } = null!;
 	[PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
-	[PluginService] public static IContextMenu ContextMenu { get; private set; } = null!;
+	[PluginService] public static IContextMenu XivContextMenu { get; private set; } = null!;
 	[PluginService] public static IDtrBar DtrBar { get; private set; } = null!;
 	[PluginService] public static ICondition Condition { get; private set; } = null!;
 	[PluginService] public static IChatGui ChatGui { get; private set; } = null!;
@@ -100,22 +97,11 @@ public sealed partial class Plugin : IDalamudPlugin
 		Overlays.Dispose();
 		Ui.Dispose();
 		Commands.Dispose();
+		ContextMenu.Dispose();
 
 		Framework.Update -= this.OnFrameworkUpdate;
-		ContextMenu.OnMenuOpened -= this.OnContextMenuOpened;
 
 		Instance = null;
-	}
-
-	private void OnContextMenuOpened(IMenuOpenedArgs args)
-	{
-		if (args.Target is not MenuTargetDefault target)
-			return;
-
-		if (target.TargetObject is IPlayerCharacter character)
-		{
-			CharacterContextMenu.Show(character, ref args);
-		}
 	}
 
 	private async Task InitializeAsync()

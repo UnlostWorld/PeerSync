@@ -57,7 +57,9 @@ public class TransferOverlay : OverlayBase
 
 			if (p < 1)
 			{
-				ImGuiEx.ThinProgressBar(p);
+				float width = 75;
+				ImGui.SetCursorPosX(ImGui.GetCursorPosX() - (width / 2));
+				ImGuiEx.ThinProgressBar(p, width);
 			}
 		}
 	}

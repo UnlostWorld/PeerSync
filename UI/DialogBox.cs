@@ -26,9 +26,6 @@ public static class DialogBox
 		Action? leftCallback = null,
 		Action? rightCallback = null)
 	{
-		if (Plugin.Instance == null)
-			return;
-
 		Plugin.Ui.DialogBox.Show(
 			title,
 			message,

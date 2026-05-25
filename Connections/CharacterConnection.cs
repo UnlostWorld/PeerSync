@@ -329,9 +329,6 @@ public partial class CharacterConnection : IDisposable
 
 	private async Task<bool> Connect(IPAddress address, IPAddress? localAddress, ushort port)
 	{
-		if (Plugin.Instance == null)
-			return false;
-
 		Connection? outgoingConnection = null;
 
 		try
@@ -389,9 +386,6 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnConnected()
 	{
-		if (Plugin.Instance == null)
-			return;
-
 		if (this.IsConnected)
 			return;
 
@@ -424,9 +418,6 @@ public partial class CharacterConnection : IDisposable
 		Plugin.Log.Debug($"Disconnected from {this.CharacterId}");
 
 		this.IsConnected = false;
-
-		if (Plugin.Instance == null)
-			return;
 
 		foreach (SyncProviderBase sync in Plugin.Sync.Providers)
 		{
@@ -555,9 +546,6 @@ public partial class CharacterConnection : IDisposable
 		{
 			try
 			{
-				if (Plugin.Instance == null)
-					return;
-
 				SyncProviderBase? provider = Plugin.Sync.GetProvider(key);
 				if (provider == null)
 					continue;

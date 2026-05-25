@@ -154,7 +154,7 @@ public class GroupServer
 			ImGui.SetWindowFontScale(1.0f);
 			ImGui.Separator();
 
-			if (Plugin.Instance != null && Plugin.Characters.Current != null)
+			if (Plugin.Characters.Current != null)
 			{
 				ImGui.Text("You:");
 				ImGuiEx.Icon(0xFFFFFFFF, FontAwesomeIcon.Fingerprint, 1.15f);

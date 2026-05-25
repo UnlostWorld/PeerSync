@@ -35,6 +35,8 @@ public partial class ConnectionService : IDisposable
 		this.network.IncomingConnected += this.OnIncomingConnectionConnected;
 	}
 
+	public int Count { get; private set; } = 0;
+
 	public void BeginListen(int port)
 	{
 		this.network.BeginListen(port);
@@ -57,12 +59,18 @@ public partial class ConnectionService : IDisposable
 
 	public void FrameworkUpdate()
 	{
+		this.Count = 0;
+
 		for (int i = this.connections.Count - 1; i >= 0; i--)
 		{
 			CharacterConnection.States state = this.connections[i].Update();
 			if (state == CharacterConnection.States.TimedOut)
 			{
 				this.Remove(this.connections[i]);
+			}
+			else if (this.connections[i].IsConnected)
+			{
+				this.Count++;
 			}
 		}
 

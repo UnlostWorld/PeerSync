@@ -60,7 +60,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		"/pisssync",
 		"/piercesink"];
 	private readonly WindowSystem windowSystem = new("PeerSync");
-	private readonly IDtrBarEntry dtrBarEntry;
 	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
 	private readonly CancellationTokenSource tokenSource = new();
 	private bool isInitialized = false;
@@ -91,16 +90,12 @@ public sealed partial class Plugin : IDalamudPlugin
 			});
 		}
 
-		this.dtrBarEntry = DtrBar.Get("Peer Sync");
-		this.dtrBarEntry.Text = SeStringUtils.ToSeString("\uE0BC");
-		this.dtrBarEntry.Tooltip = SeStringUtils.ToSeString($"Peer Sync");
-		this.dtrBarEntry.OnClick = this.OnDtrClicked;
-
 		Instance = this;
 
 		Connections = new();
 		Index = new();
 		Characters = new();
+		Dtr = new();
 
 		Framework.Update += this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
@@ -132,6 +127,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static ConnectionService Connections { get; private set; } = null!;
 	public static IndexService Index { get; private set; } = null!;
 	public static CharacterService Characters { get; private set; } = null!;
+	public static DtrService Dtr { get; private set; } = null!;
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -201,6 +197,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		Connections.Dispose();
 		Index.Dispose();
 		Characters.Dispose();
+		Dtr.Dispose();
 
 		foreach (string str in this.commandNames)
 		{
@@ -221,11 +218,6 @@ public sealed partial class Plugin : IDalamudPlugin
 	}
 
 	private void OnDalamudOpenMainUi()
-	{
-		this.MainWindow.Toggle();
-	}
-
-	private void OnDtrClicked(DtrInteractionEvent @evt)
 	{
 		this.MainWindow.Toggle();
 	}
@@ -392,6 +384,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		Characters.FrameworkUpdate();
 		Connections.FrameworkUpdate();
 		Index.FrameworkUpdate();
+		Dtr.FrameworkUpdate();
 	}
 
 	private async Task UpdateData()

@@ -64,6 +64,9 @@ public class HonorificSync : SyncProviderBase
 	{
 		await base.Reset(character, objectIndex);
 
+		if (!this.honorific.GetIsAvailable())
+			return;
+
 		await Plugin.Framework.RunOnUpdate();
 
 		if (objectIndex != null)

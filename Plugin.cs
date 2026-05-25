@@ -38,27 +38,11 @@ public sealed partial class Plugin : IDalamudPlugin
 	public IPAddress? LocalIpAddress;
 	public ushort LocalPort;
 
-	private const long ForceSendDataMs = 10000;
-	private readonly string[] commandNames = [
-		"/peersync",
-		"/pissync",
-		"/pissinc",
-		"/pisssync",
-		"/piercesink"];
-
 	private readonly CancellationTokenSource tokenSource = new();
 	private bool isInitialized = false;
 
 	public Plugin(IDalamudPluginInterface pluginInterface)
 	{
-		foreach (string str in this.commandNames)
-		{
-			CommandManager.AddHandler(str, new CommandInfo(this.OnCommand)
-			{
-				HelpMessage = "Show the Peer Sync window.",
-			});
-		}
-
 		Instance = this;
 
 		Connections = new();
@@ -68,6 +52,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		Sync = new();
 		Overlays = new();
 		Ui = new();
+		Commands = new();
 
 		Framework.Update += this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
@@ -83,6 +68,7 @@ public sealed partial class Plugin : IDalamudPlugin
 	public static SyncService Sync { get; private set; } = null!;
 	public static OverlayService Overlays { get; private set; } = null!;
 	public static UiService Ui { get; private set; } = null!;
+	public static CommandService Commands { get; private set; } = null!;
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -113,21 +99,12 @@ public sealed partial class Plugin : IDalamudPlugin
 		Sync.Dispose();
 		Overlays.Dispose();
 		Ui.Dispose();
-
-		foreach (string str in this.commandNames)
-		{
-			CommandManager.RemoveHandler(str);
-		}
+		Commands.Dispose();
 
 		Framework.Update -= this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened -= this.OnContextMenuOpened;
 
 		Instance = null;
-	}
-
-	private void OnCommand(string command, string args)
-	{
-		Plugin.Ui.MainWindow.Toggle();
 	}
 
 	private void OnContextMenuOpened(IMenuOpenedArgs args)

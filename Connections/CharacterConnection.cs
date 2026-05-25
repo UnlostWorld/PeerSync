@@ -55,6 +55,8 @@ public partial class CharacterConnection : IDisposable
 		this.lastSeen = DateTime.Now;
 		this.lastIndexAttempt = DateTime.MinValue;
 
+		this.IsPeer = false;
+
 		Task.Run(this.FingerprintIndexConnect);
 	}
 
@@ -75,6 +77,7 @@ public partial class CharacterConnection : IDisposable
 
 	public CharacterData? LastData { get; private set; }
 	public bool IsConnected { get; private set; }
+	public bool IsPeer { get; private set; }
 
 	public TimeSpan TimeSinceLastSeen => DateTime.Now - this.lastSeen;
 	public TimeSpan TimeSinceLastIndexAttempt => DateTime.Now - this.lastIndexAttempt;
@@ -257,6 +260,7 @@ public partial class CharacterConnection : IDisposable
 
 	private async Task<bool> IndexConnect(GetPeer request)
 	{
+		this.IsPeer = true;
 		GetPeer? response = null;
 
 		// Check each index sever we have configured for this peer request
@@ -361,6 +365,7 @@ public partial class CharacterConnection : IDisposable
 		Plugin.Log.Debug($"Connected to {this.CharacterId}");
 
 		this.IsConnected = true;
+		this.IsPeer = true;
 
 		foreach (SyncProviderBase sync in Plugin.Sync.Providers)
 		{

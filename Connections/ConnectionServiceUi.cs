@@ -31,6 +31,9 @@ public partial class ConnectionService
 				if (!this.connectionLookup.TryGetValue(id, out CharacterConnection? connection) || connection == null)
 					continue;
 
+				if (!connection.IsPeer)
+					continue;
+
 				if (!this.expandedConnections && !connection.IsConnected)
 					continue;
 

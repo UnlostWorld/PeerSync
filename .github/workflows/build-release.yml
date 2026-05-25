@@ -53,11 +53,11 @@ jobs:
         git config --global user.name "Actions User"
         git config --global user.email "actions@github.com"
         git fetch origin main && git checkout main
-        $ver = '${{ github.run_number }}'
         $path = './Resources/Templates/repo.tmpl'
         $new_path = './repo.json'
         $content = get-content -path $path
-        $content = $content -replace '{version}',$ver
+        $content = $content -replace '{testing_version}','${{vars.VERSION}}.${{github.run_number}}'
+        $content = $content -replace '{stable_version}','${{vars.VERSION}}.${{vars.STABLE_BUILD }}'
         set-content -Path $new_path -Value $content
         git add repo.json
         git commit -m "[CI] Updating versions for v${{ github.run_number }}" || true

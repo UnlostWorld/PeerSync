@@ -1,0 +1,29 @@
+name: Make Stable
+
+permissions:
+  contents: write
+
+on:
+ workflow_dispatch: 
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Update repo.json
+      run: |
+        git config --global user.name "Actions User"
+        git config --global user.email "actions@github.com"
+        git fetch origin main && git checkout main
+        $path = './Resources/Templates/repo.tmpl'
+        $new_path = './repo.json'
+        $content = get-content -path $path
+        $content = $content -replace '{testing_version}','${{vars.VERSION}}.${{vars.STABLE_BUILD}}'
+        $content = $content -replace '{stable_version}','${{vars.VERSION}}.${{vars.STABLE_BUILD}}'
+        $content = $content -replace '{stable_build}','${{vars.STABLE_BUILD}}'
+        $content = $content -replace '{testing_build}','${{vars.STABLE_BUILD}}'
+        set-content -Path $new_path -Value $content
+        git add repo.json
+        git commit -m "[CI] Updating versions for v${{ github.run_number }}" || true
+        git push origin main || true

@@ -141,7 +141,7 @@ public class CharacterData()
 			if (content == null)
 				continue;
 
-			SyncProviderBase? provider = Plugin.Instance?.GetSyncProvider(key);
+			SyncProviderBase? provider = Plugin.Sync.GetProvider(key);
 			if (provider == null)
 			{
 				if (ImGui.CollapsingHeader(key))

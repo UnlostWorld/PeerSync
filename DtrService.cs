@@ -45,15 +45,9 @@ public class DtrService : IDisposable
 		if (Plugin.Connections.Count > 0)
 			dtrEntryBuilder.AddText($"{Plugin.Connections.Count}");
 
-		if (Plugin.Instance != null)
+		foreach (SyncProviderBase sync in Plugin.Sync.Providers)
 		{
-			lock (Plugin.Instance.SyncProviders)
-			{
-				foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
-				{
-					sync.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
-				}
-			}
+			sync.GetDtrStatus(ref dtrEntryBuilder, ref dtrTooltipBuilder);
 		}
 
 		this.dtrBarEntry.Text = dtrEntryBuilder.ToString();

@@ -19,7 +19,7 @@ public partial class CharacterConnection
 {
 	public void DrawStatus()
 	{
-		List<SyncProgressBase>? progresses = Plugin.Instance?.GetSyncProgress(this);
+		List<SyncProgressBase>? progresses = Plugin.Sync.GetProgress(this);
 
 		string sId = this.CharacterId;
 

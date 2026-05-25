@@ -6,7 +6,7 @@
 //  \_|   \____/\____/\_| \_| \____/  \_/ \_| \_/\____/
 //  This software is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3
 
-namespace PeerSync.SyncProviders.Moodles;
+namespace PeerSync.SyncProviders.SimpleHeels;
 
 using System;
 

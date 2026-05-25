@@ -81,10 +81,7 @@ public partial class CharacterConnection : IDisposable
 	{
 		this.LastData = null;
 
-		if (Plugin.Instance == null)
-			return;
-
-		foreach (SyncProviderBase provider in Plugin.Instance.SyncProviders)
+		foreach (SyncProviderBase provider in Plugin.Sync.Providers)
 		{
 			provider.Reset(this, this.objectIndex);
 		}
@@ -335,7 +332,7 @@ public partial class CharacterConnection : IDisposable
 
 		this.IsConnected = true;
 
-		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
+		foreach (SyncProviderBase sync in Plugin.Sync.Providers)
 		{
 			sync.OnCharacterConnected(this);
 		}
@@ -363,7 +360,7 @@ public partial class CharacterConnection : IDisposable
 		if (Plugin.Instance == null)
 			return;
 
-		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
+		foreach (SyncProviderBase sync in Plugin.Sync.Providers)
 		{
 			sync.OnCharacterDisconnected(this);
 		}
@@ -481,7 +478,7 @@ public partial class CharacterConnection : IDisposable
 				if (Plugin.Instance == null)
 					return;
 
-				SyncProviderBase? provider = Plugin.Instance?.GetSyncProvider(key);
+				SyncProviderBase? provider = Plugin.Sync.GetProvider(key);
 				if (provider == null)
 					continue;
 

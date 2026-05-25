@@ -17,20 +17,13 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using PeerSync.UI;
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Net.Sockets;
 using System.Net;
-using PeerSync.SyncProviders.Glamourer;
-using PeerSync.SyncProviders.Penumbra;
 using System.Text;
 using System.Threading;
 using SharpOpenNat;
-using PeerSync.SyncProviders.CustomizePlus;
-using PeerSync.SyncProviders.Moodles;
-using PeerSync.SyncProviders.Honorific;
 using Dalamud.Game.Command;
-using Dalamud.Game.Gui.Dtr;
 using PeerSync.SyncProviders;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Dalamud.Game.ClientState.Conditions;
@@ -46,7 +39,6 @@ public sealed partial class Plugin : IDalamudPlugin
 	public const int MaxConnectionAttempts = 10;
 	public static readonly LightlessCommunicator Lightless = new();
 
-	public readonly List<SyncProviderBase> SyncProviders = new();
 	public readonly CharacterData LocalCharacterData = new();
 
 	public IPAddress? LocalIpAddress;
@@ -60,7 +52,6 @@ public sealed partial class Plugin : IDalamudPlugin
 		"/pisssync",
 		"/piercesink"];
 	private readonly WindowSystem windowSystem = new("PeerSync");
-	private readonly Dictionary<string, SyncProviderBase> providerLookup = new();
 	private readonly CancellationTokenSource tokenSource = new();
 	private bool isInitialized = false;
 
@@ -96,6 +87,7 @@ public sealed partial class Plugin : IDalamudPlugin
 		Index = new();
 		Characters = new();
 		Dtr = new();
+		Sync = new();
 
 		Framework.Update += this.OnFrameworkUpdate;
 		ContextMenu.OnMenuOpened += this.OnContextMenuOpened;
@@ -103,31 +95,14 @@ public sealed partial class Plugin : IDalamudPlugin
 		PluginInterface.UiBuilder.OpenMainUi += this.OnDalamudOpenMainUi;
 
 		this.tokenSource = new();
-
-		lock (this.SyncProviders)
-		{
-			this.SyncProviders.Clear();
-			this.SyncProviders.Add(new CustomizePlusSync());
-			this.SyncProviders.Add(new MoodlesSync());
-			this.SyncProviders.Add(new HonorificSync());
-			this.SyncProviders.Add(new GlamourerSync());
-			this.SyncProviders.Add(new PenumbraSync());
-			this.SyncProviders.Add(new PetNamesSync());
-			this.SyncProviders.Add(new SimpleHeelsSync());
-		}
-
 		Task.Run(this.InitializeAsync, this.tokenSource.Token);
-
-		foreach (SyncProviderBase provider in this.SyncProviders)
-		{
-			this.providerLookup.Add(provider.Key, provider);
-		}
 	}
 
 	public static ConnectionService Connections { get; private set; } = null!;
 	public static IndexService Index { get; private set; } = null!;
 	public static CharacterService Characters { get; private set; } = null!;
 	public static DtrService Dtr { get; private set; } = null!;
+	public static SyncService Sync { get; private set; } = null!;
 
 	[PluginService] public static IPluginLog Log { get; private set; } = null!;
 	[PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
@@ -151,53 +126,15 @@ public sealed partial class Plugin : IDalamudPlugin
 
 	public string Name => "Peer Sync";
 
-	public SyncProviderBase? GetSyncProvider(string key)
-	{
-		if (this.providerLookup.TryGetValue(key, out var provider))
-			return provider;
-
-		return null;
-	}
-
-	public List<SyncProgressBase> GetSyncProgress(CharacterConnection character)
-	{
-		List<SyncProgressBase> progresses = new();
-
-		lock (this.SyncProviders)
-		{
-			foreach (SyncProviderBase sync in this.SyncProviders)
-			{
-				SyncProgressBase? progress = sync.GetProgress(character);
-				if (progress != null)
-				{
-					progresses.Add(progress);
-				}
-			}
-		}
-
-		return progresses;
-	}
-
 	public void Dispose()
 	{
 		this.tokenSource.Cancel();
-
-		lock (this.SyncProviders)
-		{
-			foreach (SyncProviderBase sync in this.SyncProviders)
-			{
-				sync.Dispose();
-			}
-
-			this.SyncProviders.Clear();
-		}
-
-		this.providerLookup.Clear();
 
 		Connections.Dispose();
 		Index.Dispose();
 		Characters.Dispose();
 		Dtr.Dispose();
+		Sync.Dispose();
 
 		foreach (string str in this.commandNames)
 		{
@@ -432,13 +369,7 @@ public sealed partial class Plugin : IDalamudPlugin
 				}
 			}
 
-			List<SyncProviderBase> providers;
-			lock (this.SyncProviders)
-			{
-				providers = new(this.SyncProviders);
-			}
-
-			foreach (SyncProviderBase sync in providers)
+			foreach (SyncProviderBase sync in Plugin.Sync.Providers)
 			{
 				if (this.tokenSource.IsCancellationRequested)
 					return;

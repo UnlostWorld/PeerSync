@@ -98,7 +98,7 @@ public class MainWindow : Window, IDisposable
 			}
 		}
 
-		foreach (SyncProviderBase syncProvider in Plugin.Instance.SyncProviders)
+		foreach (SyncProviderBase syncProvider in Plugin.Sync.Providers)
 		{
 			syncProvider.DrawStatus();
 		}
@@ -116,7 +116,7 @@ public class MainWindow : Window, IDisposable
 
 			ImGui.LabelText("Current Port", Configuration.Current.LastPort.ToString());
 
-			foreach (SyncProviderBase syncProvider in Plugin.Instance.SyncProviders)
+			foreach (SyncProviderBase syncProvider in Plugin.Sync.Providers)
 			{
 				syncProvider.DrawSettings();
 			}

@@ -83,6 +83,7 @@ public partial class CharacterConnection : IDisposable
 	public CharacterData? LastData { get; private set; }
 	public bool IsConnected { get; private set; }
 	public bool IsPeer { get; private set; }
+	public bool IsBlocked => Configuration.Current.GetIsBlocked(this.CharacterName, this.CharacterWorld);
 
 	public TimeSpan TimeSinceLastSeen => DateTime.Now - this.lastSeen;
 	public TimeSpan TimeSinceLastSearch => DateTime.Now - this.lastSearch;
@@ -488,6 +489,9 @@ public partial class CharacterConnection : IDisposable
 	private void OnCharacterData(CharacterData characterData)
 	{
 		if (this.lastState != States.Found)
+			return;
+
+		if (this.IsBlocked)
 			return;
 
 		// Do not sync characters if the local player is in combat

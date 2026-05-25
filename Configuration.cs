@@ -94,12 +94,14 @@ public partial class Configuration : IPluginConfiguration
 		if (block)
 		{
 			this.BlockedCharacters.Add(compoundName);
+			this.Save();
 		}
 		else
 		{
 			if (this.BlockedCharacters.Contains(compoundName))
 			{
 				this.BlockedCharacters.Remove(compoundName);
+				this.Save();
 			}
 		}
 	}

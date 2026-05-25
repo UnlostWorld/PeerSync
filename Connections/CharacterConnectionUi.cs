@@ -111,6 +111,14 @@ public partial class CharacterConnection
 				ImGui.Separator();
 			}
 
+			if (this.IsBlocked)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.Stop);
+				ImGui.SameLine();
+				ImGui.Text("Blocked");
+				ImGui.Separator();
+			}
+
 			if (progresses != null)
 			{
 				if (ImGui.BeginTable("PeerProgressInfoTable", 3))
@@ -202,7 +210,11 @@ public partial class CharacterConnection
 
 		// Status
 		ImGui.TableNextColumn();
-		if (this.IsConnected)
+		if (this.IsBlocked)
+		{
+			ImGuiEx.Icon(FontAwesomeIcon.Stop);
+		}
+		else if (this.IsConnected)
 		{
 			ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 		}

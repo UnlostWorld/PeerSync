@@ -30,7 +30,7 @@ public class FileUpload : FileTransfer
 
 	protected override async Task Transfer()
 	{
-		Plugin.Log.Information($"Start upload {this.hash}");
+		Plugin.Log.Debug($"Start upload {this.hash}");
 
 		FileInfo? fileInfo = this.sync.FileCache.GetFileInfo(this.hash);
 		if (fileInfo == null || !fileInfo.Exists)
@@ -41,6 +41,8 @@ public class FileUpload : FileTransfer
 		}
 
 		this.Name = fileInfo.Name;
+
+		byte part = 0;
 
 		FileStream? stream = null;
 		int attempts = 5;
@@ -81,12 +83,14 @@ public class FileUpload : FileTransfer
 			if (bytesLeft <= 0)
 				continue;
 
-			byte[] bytes = new byte[thisChunkSize + 1];
+			byte[] bytes = new byte[thisChunkSize + 2];
 			bytes[0] = this.ClientQueueIndex;
-			stream.ReadExactly(bytes, 1, thisChunkSize);
+			bytes[1] = part;
+			stream.ReadExactly(bytes, 2, thisChunkSize);
 
 			this.Character.Send(PacketTypes.FileData, bytes);
 			this.BytesSent += thisChunkSize;
+			part++;
 			await Task.Delay(10, this.cancellationToken);
 		}
 		while (this.BytesSent < this.BytesToSend && !this.cancellationToken.IsCancellationRequested);

@@ -23,6 +23,7 @@ public abstract class FileTransfer : IDisposable
 
 	private readonly CancellationTokenSource transferTaskTokenSource = new();
 	private bool needsRetry = false;
+	private bool isTransferring = false;
 
 	public FileTransfer(PenumbraSync sync, string hash, CharacterConnection character, byte queueIndex = 255)
 	{
@@ -49,13 +50,20 @@ public abstract class FileTransfer : IDisposable
 
 	public async Task TransferSafe()
 	{
+		if (this.isTransferring)
+		{
+			Plugin.Log.Error("Attempt to initiate a transfer that is already running");
+			return;
+		}
+
 		try
 		{
 			do
 			{
 				this.needsRetry = false;
-
+				this.isTransferring = true;
 				await this.Transfer();
+				this.isTransferring = false;
 
 				if (this.needsRetry)
 				{

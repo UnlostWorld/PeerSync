@@ -10,6 +10,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 
 using System;
 using System.IO;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,6 +24,7 @@ public class FileDownload : FileTransfer
 
 	private FileStream? fileStream;
 	private Exception? receiveError;
+	private byte nextPart = 0;
 
 	public FileDownload(
 		PenumbraSync sync,
@@ -47,7 +49,7 @@ public class FileDownload : FileTransfer
 
 	protected override async Task Transfer()
 	{
-		Plugin.Log.Information($"Start download {this.hash}");
+		Plugin.Log.Debug($"Start download {this.hash}");
 
 		FileInfo? file = this.sync.FileCache.GetFile(this.hash);
 
@@ -125,19 +127,31 @@ public class FileDownload : FileTransfer
 	{
 		if (type == PacketTypes.FileData)
 		{
+			if (data.Length < 2)
+				return;
+
 			byte clientQueueIndex = data[0];
 
 			if (clientQueueIndex != this.ClientQueueIndex)
 				return;
 
-			if (data.Length > PenumbraSync.FileChunkSize + 1)
+			byte part = data[1];
+			if (part != this.nextPart)
 			{
-				Plugin.Log.Warning($"Got file data larger than chunk size. got {data.Length} bytes, maximum {PenumbraSync.FileChunkSize} bytes");
+				Plugin.Log.Warning($"Got parts out of order. Expected part {this.nextPart}, got {part}");
 				return;
 			}
 
-			byte[] fileData = new byte[data.Length - 1];
-			Array.Copy(data, 1, fileData, 0, data.Length - 1);
+			this.nextPart++;
+
+			if (data.Length > PenumbraSync.FileChunkSize + 2)
+			{
+				Plugin.Log.Warning($"Got file data larger than chunk size. got {data.Length} bytes, maximum {PenumbraSync.FileChunkSize + 2} bytes");
+				return;
+			}
+
+			byte[] fileData = new byte[data.Length - 2];
+			Array.Copy(data, 2, fileData, 0, data.Length - 2);
 			this.OnFileData(fileData);
 		}
 	}

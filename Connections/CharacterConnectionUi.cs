@@ -76,32 +76,37 @@ public partial class CharacterConnection
 			ImGui.Text($"{this.CharacterName} @ {this.CharacterWorld}");
 			ImGui.Separator();
 
-			ImGuiEx.Icon(this.CurrentStatus.GetIcon());
+			if (this.IsConnected)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+				ImGui.SameLine();
+				ImGui.Text("(Connected)");
 
-			ImGui.SameLine();
-			ImGui.TextWrapped(this.CurrentStatus.GetMessage());
-
-			// Direction
-			if (this.outgoingConnection?.IsConnected == true && this.incomingConnection?.IsConnected == true)
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.ArrowsUpDown);
-				ImGui.SameLine();
-				ImGui.Text("Duplex");
-			}
-			else if (this.outgoingConnection?.IsConnected == true)
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.ArrowUp);
-				ImGui.SameLine();
-				ImGui.Text("Client");
-			}
-			else if (this.incomingConnection?.IsConnected == true)
-			{
-				ImGuiEx.Icon(FontAwesomeIcon.ArrowDown);
-				ImGui.SameLine();
-				ImGui.Text("Host");
+				// Direction
+				if (this.outgoingConnection?.IsConnected == true && this.incomingConnection?.IsConnected == true)
+				{
+					ImGui.SameLine();
+					ImGui.Text("(Duplex)");
+				}
+				else if (this.outgoingConnection?.IsConnected == true)
+				{
+					ImGui.SameLine();
+					ImGui.Text("(Client)");
+				}
+				else if (this.incomingConnection?.IsConnected == true)
+				{
+					ImGui.SameLine();
+					ImGui.Text("(Host)");
+				}
 			}
 
 			ImGui.Separator();
+
+			if (this.lastConnectionException != null)
+			{
+				ImGui.TextColoredWrapped(0xFF0080FF, this.lastConnectionException.Message);
+				ImGui.Separator();
+			}
 
 			if (progresses != null)
 			{
@@ -194,6 +199,9 @@ public partial class CharacterConnection
 
 		// Status
 		ImGui.TableNextColumn();
-		ImGuiEx.Icon(this.CurrentStatus.GetIcon());
+		if (this.IsConnected)
+		{
+			ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+		}
 	}
 }

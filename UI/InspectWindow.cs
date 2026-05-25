@@ -50,10 +50,6 @@ public class InspectWindow : Window, IDisposable
 		{
 			ImGui.Text($"{this.character.CharacterName} @ {this.character.CharacterWorld}");
 
-			ImGuiEx.Icon(this.character.CurrentStatus.GetIcon());
-			ImGui.SameLine();
-			ImGui.Text(this.character.CurrentStatus.GetMessage());
-
 			this.character.LastData?.DrawInspect();
 		}
 		else if (Plugin.Characters.Current != null)

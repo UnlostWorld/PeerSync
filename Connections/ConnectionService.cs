@@ -111,8 +111,9 @@ public partial class ConnectionService : IDisposable
 
 					if (wideConnection != null)
 					{
+						wideConnection.Name = "Wide Out";
 						connection = wideConnection;
-						wideCancel.Cancel();
+						localCancel.Cancel();
 					}
 				}
 				catch (Exception ex)
@@ -137,6 +138,7 @@ public partial class ConnectionService : IDisposable
 
 						if (localConnection != null)
 						{
+							localConnection.Name = "Local Out";
 							connection = localConnection;
 							wideCancel.Cancel();
 						}
@@ -157,16 +159,12 @@ public partial class ConnectionService : IDisposable
 
 		await wideConnectTask;
 
-		if (connection == null)
+		if (connection == null && exception != null)
 		{
-			if (exception != null)
-				Plugin.Log.Warning(exception, "Failed to connect to peer");
-
-			return null;
+			throw exception;
 		}
 		else
 		{
-			connection.Received += this.OnReceived;
 			return connection;
 		}
 	}
@@ -197,6 +195,7 @@ public partial class ConnectionService : IDisposable
 
 	private void OnIncomingConnectionConnected(Connection connection)
 	{
+		connection.Name = "In";
 		connection.Received += this.OnReceived;
 	}
 

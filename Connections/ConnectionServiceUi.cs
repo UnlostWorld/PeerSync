@@ -31,7 +31,7 @@ public partial class ConnectionService
 				if (!this.connectionLookup.TryGetValue(id, out CharacterConnection? connection) || connection == null)
 					continue;
 
-				if (!this.expandedConnections && connection.CurrentStatus == CharacterConnectionStatus.Offline)
+				if (!this.expandedConnections && !connection.IsConnected)
 					continue;
 
 				connection.DrawStatus();

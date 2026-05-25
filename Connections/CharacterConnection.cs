@@ -41,6 +41,7 @@ public partial class CharacterConnection : IDisposable
 	private Connection? outgoingConnection;
 	private Connection? incomingConnection;
 	private bool isApplyingData = false;
+	private Exception? lastConnectionException;
 
 	public CharacterConnection(IPlayerCharacter character)
 	{
@@ -69,7 +70,7 @@ public partial class CharacterConnection : IDisposable
 	public string CharacterId { get; init; }
 	public string CharacterName { get; init; }
 	public string CharacterWorld { get; init; }
-	public CharacterConnectionStatus CurrentStatus { get; private set; }
+
 	public CharacterData? LastData { get; private set; }
 	public bool IsConnected { get; private set; }
 
@@ -89,21 +90,6 @@ public partial class CharacterConnection : IDisposable
 		}
 	}
 
-	public void OnCharacterData(CharacterData characterData)
-	{
-		// Do not sync characters if the local player is in combat
-		// or is loading areas.
-		if (Plugin.Condition[ConditionFlag.InCombat]
-			|| Plugin.Condition[ConditionFlag.BetweenAreas]
-			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
-			return;
-
-		if (this.isApplyingData)
-			return;
-
-		Task.Run(() => this.ApplyCharacterData(characterData));
-	}
-
 	public States Update()
 	{
 		IGameObject? obj = Plugin.ObjectTable[this.objectIndex];
@@ -115,7 +101,7 @@ public partial class CharacterConnection : IDisposable
 
 			// Begin connecting if this character is offline, enough time has passed,
 			// and the index servers are connected.
-			if ((this.CurrentStatus == CharacterConnectionStatus.Offline || (this.CurrentStatus == CharacterConnectionStatus.Connected && this.outgoingConnection == null))
+			if (this.outgoingConnection == null
 				&& this.TimeSinceLastIndexAttempt > ReIndex
 				&& Plugin.Index.HasInitialIndexingCompleted
 				&& Plugin.Characters.Current != null)
@@ -153,6 +139,9 @@ public partial class CharacterConnection : IDisposable
 			this.outgoingConnection.Dispose();
 		}
 
+		if (connection == this.incomingConnection)
+			throw new Exception($"Attempt to set current incoming connection ({connection.Name}) as outgoing");
+
 		this.outgoingConnection = connection;
 		this.outgoingConnection.Received += this.OnReceived;
 		this.outgoingConnection.Disconnected += this.OnOutgoingDisconnected;
@@ -167,6 +156,9 @@ public partial class CharacterConnection : IDisposable
 			this.incomingConnection.Disconnected -= this.OnIncomingDisconnected;
 			this.incomingConnection.Dispose();
 		}
+
+		if (connection == this.outgoingConnection)
+			throw new Exception($"Attempt to set current outgoing connection ({connection.Name}) as incoming");
 
 		this.incomingConnection = connection;
 		this.incomingConnection.Received += this.OnReceived;
@@ -201,7 +193,6 @@ public partial class CharacterConnection : IDisposable
 
 	private async Task<bool> FingerprintIndexConnect()
 	{
-		this.CurrentStatus = CharacterConnectionStatus.Indexing;
 		this.lastIndexAttempt = DateTime.Now;
 		GetPeer request = new();
 
@@ -234,7 +225,6 @@ public partial class CharacterConnection : IDisposable
 		}
 
 		// We didn't find a valid peer.
-		this.CurrentStatus = CharacterConnectionStatus.Offline;
 		return false;
 	}
 
@@ -278,10 +268,18 @@ public partial class CharacterConnection : IDisposable
 		if (Plugin.Instance == null)
 			return false;
 
-		if (this.CurrentStatus <= CharacterConnectionStatus.Connecting)
-			this.CurrentStatus = CharacterConnectionStatus.Connecting;
+		Connection? outgoingConnection = null;
 
-		Connection? outgoingConnection = await Plugin.Connections.Connect(address, localAddress, port);
+		try
+		{
+			this.lastConnectionException = null;
+			outgoingConnection = await Plugin.Connections.Connect(address, localAddress, port);
+		}
+		catch (Exception ex)
+		{
+			this.lastConnectionException = ex;
+		}
+
 		if (outgoingConnection != null)
 		{
 			if (Plugin.Characters.Current == null)
@@ -330,25 +328,26 @@ public partial class CharacterConnection : IDisposable
 		if (Plugin.Instance == null)
 			return;
 
+		if (this.IsConnected)
+			return;
+
+		Plugin.Log.Debug($"Connected to {this.CharacterId}");
+
+		this.IsConnected = true;
+
+		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
+		{
+			sync.OnCharacterConnected(this);
+		}
+
+		this.SendIAm();
+
 		// send the most recent version of our character data to this new connection.
 		if (Plugin.Instance.LocalCharacterData != null)
 		{
 			string json = JsonConvert.SerializeObject(Plugin.Instance.LocalCharacterData);
 			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
 			this.Send(PacketTypes.CharacterData, jsonBytes);
-		}
-
-		if (this.IsConnected)
-			return;
-
-		Plugin.Log.Information($"Connected to {this.CharacterId}");
-
-		this.IsConnected = true;
-		this.CurrentStatus = CharacterConnectionStatus.Connected;
-
-		foreach (SyncProviderBase sync in Plugin.Instance.SyncProviders)
-		{
-			sync.OnCharacterConnected(this);
 		}
 	}
 
@@ -357,10 +356,9 @@ public partial class CharacterConnection : IDisposable
 		if (!this.IsConnected)
 			return;
 
-		Plugin.Log.Information($"Disconnected from {this.CharacterId}");
+		Plugin.Log.Debug($"Disconnected from {this.CharacterId}");
 
 		this.IsConnected = false;
-		this.CurrentStatus = CharacterConnectionStatus.Offline;
 
 		if (Plugin.Instance == null)
 			return;
@@ -373,6 +371,12 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
 	{
+		if (!this.IsConnected && type != PacketTypes.IAm)
+		{
+			Plugin.Log.Warning($"Received {type} packet from peer who have not identified themselves. Ignoring");
+			return;
+		}
+
 		if (type == PacketTypes.IAm)
 		{
 			string characterId = Encoding.UTF8.GetString(data);
@@ -398,6 +402,21 @@ public partial class CharacterConnection : IDisposable
 		{
 			this.Received?.Invoke(this, type, data);
 		}
+	}
+
+	private void OnCharacterData(CharacterData characterData)
+	{
+		// Do not sync characters if the local player is in combat
+		// or is loading areas.
+		if (Plugin.Condition[ConditionFlag.InCombat]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas]
+			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
+			return;
+
+		if (this.isApplyingData)
+			return;
+
+		Task.Run(() => this.ApplyCharacterData(characterData));
 	}
 
 	private async Task ApplyCharacterData(CharacterData characterData)

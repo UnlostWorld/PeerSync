@@ -153,11 +153,11 @@ public partial class IndexService : IDisposable
 		this.isUpdatingIndexes = true;
 		this.lastIndex = DateTime.Now;
 
-		if (Plugin.Characters.Current == null)
-			return;
-
 		try
 		{
+			if (Plugin.Characters.Current == null)
+				return;
+
 			foreach (IndexServer indexServer in this.Servers)
 			{
 				await indexServer.UpdatePeer(Plugin.Characters.Current, localIp, port);

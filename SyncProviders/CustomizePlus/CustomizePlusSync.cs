@@ -88,7 +88,7 @@ public class CustomizePlusSync : SyncProviderBase
 			}
 			catch (Exception ex)
 			{
-				Plugin.Log.Warning(ex, "Failed to reset peer");
+				Plugin.Log.Error(ex, "Failed to reset peer");
 			}
 
 			this.appliedProfiles.Remove(character.CharacterId);

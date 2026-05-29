@@ -92,16 +92,16 @@ public partial class CharacterConnection : IDisposable
 	{
 		this.LastData = null;
 
-		try
+		foreach (SyncProviderBase provider in Plugin.Sync.Providers)
 		{
-			foreach (SyncProviderBase provider in Plugin.Sync.Providers)
+			try
 			{
 				provider.Reset(this, this.objectIndex);
 			}
-		}
-		catch (Exception ex)
-		{
-			Plugin.Log.Error(ex, "Error resetting character");
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, $"Error resetting character with provider: {provider}");
+			}
 		}
 	}
 

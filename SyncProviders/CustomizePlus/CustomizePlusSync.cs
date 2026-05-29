@@ -82,7 +82,15 @@ public class CustomizePlusSync : SyncProviderBase
 	{
 		if (this.appliedProfiles.TryGetValue(character.CharacterId, out Guid guid))
 		{
-			this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
+			try
+			{
+				this.customizePlus.DeleteTemporaryProfileByUniqueId(guid);
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Warning(ex, "Failed to reset peer");
+			}
+
 			this.appliedProfiles.Remove(character.CharacterId);
 		}
 

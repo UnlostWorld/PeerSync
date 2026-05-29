@@ -64,7 +64,11 @@ public class CustomizePlusCommunicator : PluginCommunicatorBase
 			"CustomizePlus.Profile.DeleteTemporaryProfileByUniqueId",
 			guid);
 
+		// Ignore profile not found.
 		ErrorCodes errorCode = (ErrorCodes)ec;
+		if (errorCode == ErrorCodes.ProfileNotFound)
+			return;
+
 		errorCode.ThrowOnFailure();
 	}
 }

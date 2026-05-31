@@ -16,8 +16,8 @@ using PeerSync.SyncProviders;
 
 public class CharacterData()
 {
-	[JsonProperty("F")]
-	public string? Fingerprint { get; set; }
+	[JsonProperty("I")]
+	public string? CharacterId { get; set; }
 
 	[JsonProperty("C")]
 	public Dictionary<string, string?> Character { get; init; } = new();
@@ -37,7 +37,7 @@ public class CharacterData()
 
 	public void CopyTo(CharacterData other)
 	{
-		other.Fingerprint = this.Fingerprint;
+		other.CharacterId = this.CharacterId;
 
 		other.Clear();
 
@@ -59,7 +59,7 @@ public class CharacterData()
 
 	public bool IsSame(CharacterData other)
 	{
-		if (other.Fingerprint != this.Fingerprint)
+		if (other.CharacterId != this.CharacterId)
 			return false;
 
 		if (this.Character.Count != other.Character.Count)

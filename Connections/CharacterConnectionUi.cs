@@ -110,6 +110,13 @@ public partial class CharacterConnection
 				ImGui.Text("(Offline)");
 			}
 
+			if (this.IsWaitingForData)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
+				ImGui.SameLine();
+				ImGui.Text("(Waiting)");
+			}
+
 			ImGui.Separator();
 
 			if (this.lastConnectionException != null)
@@ -228,6 +235,10 @@ public partial class CharacterConnection
 		else if (this.IsOffline)
 		{
 			ImGuiEx.Icon(FontAwesomeIcon.Bed);
+		}
+		else if (this.IsWaitingForData)
+		{
+			ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
 		}
 	}
 }

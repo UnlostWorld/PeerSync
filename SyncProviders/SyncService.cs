@@ -164,7 +164,7 @@ public class SyncService : IDisposable
 		try
 		{
 			CharacterData data = new();
-			data.Fingerprint = Plugin.Characters.Current.GetFingerprint();
+			data.CharacterId = Plugin.Characters.GetCurrentCharacterId();
 
 			foreach (SyncProviderBase sync in Plugin.Sync.Providers.ToArray())
 			{

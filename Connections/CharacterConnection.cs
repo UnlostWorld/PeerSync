@@ -84,6 +84,7 @@ public partial class CharacterConnection : IDisposable
 	public bool IsPeer { get; private set; }
 	public bool IsBlocked => Configuration.Current.GetIsBlocked(this.CharacterName, this.CharacterWorld);
 	public bool IsOffline { get; private set; }
+	public bool IsWaitingForData { get; private set; }
 
 	public TimeSpan TimeSinceLastSeen => DateTime.Now - this.lastSeen;
 	public TimeSpan TimeSinceLastSearch => DateTime.Now - this.lastSearch;
@@ -196,7 +197,8 @@ public partial class CharacterConnection : IDisposable
 		this.outgoingConnection = connection;
 		this.outgoingConnection.Received += this.OnReceived;
 		this.outgoingConnection.Disconnected += this.OnOutgoingDisconnected;
-		this.SendIAm();
+		this.IsWaitingForData = true;
+		this.SendLatestCharacterData();
 	}
 
 	public void SetIncomingNetworkConnection(Connection connection)
@@ -214,17 +216,8 @@ public partial class CharacterConnection : IDisposable
 		this.incomingConnection = connection;
 		this.incomingConnection.Received += this.OnReceived;
 		this.incomingConnection.Disconnected += this.OnIncomingDisconnected;
-		this.SendIAm();
-	}
-
-	public void SendIAm()
-	{
-		string? localCharacterId = Plugin.Characters.GetCurrentCharacterId();
-		if (localCharacterId == null)
-			throw new Exception("Attempt to send IAm without a current character");
-
-		byte[] data = Encoding.UTF8.GetBytes(localCharacterId);
-		this.Send(PacketTypes.IAm, data);
+		this.IsWaitingForData = true;
+		this.SendLatestCharacterData();
 	}
 
 	public void Send(PacketTypes type, byte[] data)
@@ -406,8 +399,11 @@ public partial class CharacterConnection : IDisposable
 			sync.OnCharacterConnected(this);
 		}
 
-		this.SendIAm();
+		this.SendLatestCharacterData();
+	}
 
+	private void SendLatestCharacterData()
+	{
 		// send the most recent version of our character data to this new connection.
 		if (Plugin.Sync.LocalCharacterData != null)
 		{
@@ -434,25 +430,7 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
 	{
-		if (!this.IsConnected && type != PacketTypes.IAm)
-		{
-			Plugin.Log.Warning($"Received {type} packet from peer who have not identified themselves. Ignoring");
-			return;
-		}
-
-		if (type == PacketTypes.IAm)
-		{
-			string characterId = Encoding.UTF8.GetString(data);
-			if (characterId != this.CharacterId)
-			{
-				Plugin.Log.Warning($"Unrecognized IAm: {characterId} from {connection.EndPoint}, expected {this.CharacterId}");
-			}
-			else
-			{
-				this.OnConnected();
-			}
-		}
-		else if (type == PacketTypes.CharacterData)
+		if (type == PacketTypes.CharacterData)
 		{
 			string json = Encoding.UTF8.GetString(data);
 			CharacterData? characterData = JsonConvert.DeserializeObject<CharacterData>(json);
@@ -461,7 +439,7 @@ public partial class CharacterConnection : IDisposable
 
 			this.OnCharacterData(characterData);
 		}
-		else
+		else if (this.IsConnected)
 		{
 			this.Received?.Invoke(this, type, data);
 		}
@@ -474,6 +452,15 @@ public partial class CharacterConnection : IDisposable
 
 		if (this.IsBlocked)
 			return;
+
+		if (characterData.CharacterId != this.CharacterId)
+		{
+			Plugin.Log.Warning($"Unrecognized Character: {characterData.CharacterId}, expected {this.CharacterId}");
+			return;
+		}
+
+		this.IsWaitingForData = false;
+		this.OnConnected();
 
 		// Do not sync characters if the local player is in combat
 		// or is loading areas.

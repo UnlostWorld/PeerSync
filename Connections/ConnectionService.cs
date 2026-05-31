@@ -18,6 +18,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
+using Newtonsoft.Json;
 using PeerSync;
 using PeerSync.Network;
 
@@ -213,18 +214,24 @@ public partial class ConnectionService : IDisposable
 
 	private void OnReceived(Connection connection, PacketTypes type, byte[] data)
 	{
-		if (type == PacketTypes.IAm)
+		if (type == PacketTypes.CharacterData)
 		{
-			string characterId = Encoding.UTF8.GetString(data);
+			string json = Encoding.UTF8.GetString(data);
+			CharacterData? characterData = JsonConvert.DeserializeObject<CharacterData>(json);
+			if (characterData == null)
+				throw new Exception();
+
 			CharacterConnection? characterConnection = null;
-			if (this.connectionLookup.TryGetValue(characterId, out characterConnection) && characterConnection != null)
+			if (characterData.CharacterId != null
+				&& this.connectionLookup.TryGetValue(characterData.CharacterId, out characterConnection)
+				&& characterConnection != null)
 			{
 				characterConnection.SetIncomingNetworkConnection(connection);
 				connection.Received -= this.OnReceived;
 			}
 			else
 			{
-				Plugin.Log.Warning($"Unrecognized IAm: {characterId} from {connection.EndPoint}");
+				Plugin.Log.Warning($"Unrecognized character: {characterData.CharacterId} from {connection.EndPoint}");
 			}
 		}
 	}

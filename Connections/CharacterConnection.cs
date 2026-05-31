@@ -83,6 +83,7 @@ public partial class CharacterConnection : IDisposable
 	public bool IsConnected { get; private set; }
 	public bool IsPeer { get; private set; }
 	public bool IsBlocked => Configuration.Current.GetIsBlocked(this.CharacterName, this.CharacterWorld);
+	public bool IsOffline { get; private set; }
 
 	public TimeSpan TimeSinceLastSeen => DateTime.Now - this.lastSeen;
 	public TimeSpan TimeSinceLastSearch => DateTime.Now - this.lastSearch;
@@ -304,6 +305,7 @@ public partial class CharacterConnection : IDisposable
 	private async Task<bool> IndexConnect(GetPeer request)
 	{
 		this.IsPeer = true;
+		this.IsOffline = false;
 		GetPeer? response = null;
 
 		// Check each index sever we have configured for this peer request
@@ -334,6 +336,7 @@ public partial class CharacterConnection : IDisposable
 			}
 		}
 
+		this.IsOffline = true;
 		return false;
 	}
 

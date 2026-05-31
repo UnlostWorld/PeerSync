@@ -103,6 +103,13 @@ public partial class CharacterConnection
 				}
 			}
 
+			if (this.IsOffline)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.Bed);
+				ImGui.SameLine();
+				ImGui.Text("(Offline)");
+			}
+
 			ImGui.Separator();
 
 			if (this.lastConnectionException != null)
@@ -217,6 +224,10 @@ public partial class CharacterConnection
 		else if (this.IsConnected)
 		{
 			ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+		}
+		else if (this.IsOffline)
+		{
+			ImGuiEx.Icon(FontAwesomeIcon.Bed);
 		}
 	}
 }

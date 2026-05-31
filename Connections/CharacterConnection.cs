@@ -256,39 +256,47 @@ public partial class CharacterConnection : IDisposable
 
 	private async Task<bool> FingerprintIndexConnect()
 	{
-		this.lastIndexAttempt = DateTime.Now;
-		GetPeer request = new();
-
-		// Check if this character is a friend
-		Configuration.Peer? friend = Configuration.Current.GetFriend(this.CharacterName, this.CharacterWorld);
-		if (friend != null)
+		try
 		{
-			request.MemberFingerprint = friend.GetFingerprint();
-			if (await this.IndexConnect(request))
-			{
-				return true;
-			}
-		}
+			this.lastIndexAttempt = DateTime.Now;
+			GetPeer request = new();
 
-		// If that character is not a friend, or we could not get their details, check if they're a member of
-		// any groups.
-		foreach (GroupServer group in Plugin.Index.Groups)
-		{
-			string memberFingerprint = group.GetMemberFingerprint(this.CharacterName, this.CharacterWorld);
-
-			if (group.IsMember(memberFingerprint))
+			// Check if this character is a friend
+			Configuration.Peer? friend = Configuration.Current.GetFriend(this.CharacterName, this.CharacterWorld);
+			if (friend != null)
 			{
-				request.GroupFingerprint = group.GetFingerprint();
-				request.MemberFingerprint = memberFingerprint;
+				request.MemberFingerprint = friend.GetFingerprint();
 				if (await this.IndexConnect(request))
 				{
 					return true;
 				}
 			}
-		}
 
-		// We didn't find a valid peer.
-		return false;
+			// If that character is not a friend, or we could not get their details, check if they're a member of
+			// any groups.
+			foreach (GroupServer group in Plugin.Index.Groups)
+			{
+				string memberFingerprint = group.GetMemberFingerprint(this.CharacterName, this.CharacterWorld);
+
+				if (group.IsMember(memberFingerprint))
+				{
+					request.GroupFingerprint = group.GetFingerprint();
+					request.MemberFingerprint = memberFingerprint;
+					if (await this.IndexConnect(request))
+					{
+						return true;
+					}
+				}
+			}
+
+			// We didn't find a valid peer.
+			return false;
+		}
+		catch (Exception ex)
+		{
+			Plugin.Log.Error(ex, "Error fingerprinting character");
+			return false;
+		}
 	}
 
 	private async Task<bool> IndexConnect(GetPeer request)

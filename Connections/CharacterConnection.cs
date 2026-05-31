@@ -342,20 +342,11 @@ public partial class CharacterConnection : IDisposable
 
 	private async Task<bool> Connect(IPAddress address, IPAddress? localAddress, ushort port)
 	{
-		Connection? outgoingConnection = null;
-
 		try
 		{
 			this.lastConnectionException = null;
-			outgoingConnection = await Plugin.Connections.Connect(address, localAddress, port);
-		}
-		catch (Exception ex)
-		{
-			this.lastConnectionException = ex;
-		}
+			Connection outgoingConnection = await Plugin.Connections.Connect(address, localAddress, port);
 
-		if (outgoingConnection != null)
-		{
 			if (Plugin.Characters.Current == null)
 			{
 				outgoingConnection.Dispose();
@@ -367,8 +358,11 @@ public partial class CharacterConnection : IDisposable
 				return true;
 			}
 		}
-
-		return false;
+		catch (Exception ex)
+		{
+			this.lastConnectionException = ex;
+			return false;
+		}
 	}
 
 	private void OnIncomingDisconnected(Connection connection)

@@ -99,7 +99,7 @@ public partial class ConnectionService : IDisposable
 		this.network.Dispose();
 	}
 
-	public async Task<Connection?> Connect(IPAddress address, IPAddress? localAddress, int port)
+	public async Task<Connection> Connect(IPAddress address, IPAddress? localAddress, int port)
 	{
 		CancellationTokenSource localCancel = new();
 		CancellationTokenSource wideCancel = new();
@@ -170,6 +170,10 @@ public partial class ConnectionService : IDisposable
 		if (connection == null && exception != null)
 		{
 			throw exception;
+		}
+		else if (connection == null)
+		{
+			throw new Exception("Failed to establish a connection for an unknown reason");
 		}
 		else
 		{

@@ -8,6 +8,7 @@
 
 namespace PeerSync.Connections;
 
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
@@ -79,11 +80,22 @@ public partial class CharacterConnection
 			ImGui.Text($"{this.CharacterName} @ {this.CharacterWorld}");
 			ImGui.Separator();
 
+			if (this.lastState == States.NotFound)
+			{
+				TimeSpan p = Timeout - this.TimeSinceLastSeen;
+
+				ImGuiEx.Icon(FontAwesomeIcon.Binoculars);
+				ImGui.SameLine();
+				ImGui.Text("Looking for character");
+
+				ImGui.Text($"Disconnect in {(int)p.TotalSeconds} seconds");
+			}
+
 			if (this.IsConnected)
 			{
 				ImGuiEx.Icon(FontAwesomeIcon.Wifi);
 				ImGui.SameLine();
-				ImGui.Text("(Connected)");
+				ImGui.Text("Connected");
 
 				// Direction
 				if (this.outgoingConnection?.IsConnected == true && this.incomingConnection?.IsConnected == true)
@@ -107,14 +119,14 @@ public partial class CharacterConnection
 			{
 				ImGuiEx.Icon(FontAwesomeIcon.Bed);
 				ImGui.SameLine();
-				ImGui.Text("(Offline)");
+				ImGui.Text("Offline");
 			}
 
 			if (this.IsWaitingForData)
 			{
 				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
 				ImGui.SameLine();
-				ImGui.Text("(Waiting)");
+				ImGui.Text("Waiting for data");
 			}
 
 			ImGui.Separator();
@@ -224,21 +236,29 @@ public partial class CharacterConnection
 
 		// Status
 		ImGui.TableNextColumn();
-		if (this.IsBlocked)
+
+		if (this.lastState == States.NotFound)
 		{
-			ImGuiEx.Icon(FontAwesomeIcon.Stop);
+			ImGuiEx.Icon(FontAwesomeIcon.Binoculars);
 		}
-		else if (this.IsConnected)
+		else
 		{
-			ImGuiEx.Icon(FontAwesomeIcon.Wifi);
-		}
-		else if (this.IsOffline)
-		{
-			ImGuiEx.Icon(FontAwesomeIcon.Bed);
-		}
-		else if (this.IsWaitingForData)
-		{
-			ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
+			if (this.IsBlocked)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.Stop);
+			}
+			else if (this.IsConnected)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.Wifi);
+			}
+			else if (this.IsOffline)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.Bed);
+			}
+			else if (this.IsWaitingForData)
+			{
+				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
+			}
 		}
 	}
 }

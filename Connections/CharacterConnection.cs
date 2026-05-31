@@ -447,9 +447,6 @@ public partial class CharacterConnection : IDisposable
 
 	private void OnCharacterData(CharacterData characterData)
 	{
-		if (this.lastState != States.Found)
-			return;
-
 		if (this.IsBlocked)
 			return;
 
@@ -460,6 +457,10 @@ public partial class CharacterConnection : IDisposable
 		}
 
 		this.IsWaitingForData = false;
+
+		if (this.lastState != States.Found)
+			return;
+
 		this.OnConnected();
 
 		// Do not sync characters if the local player is in combat

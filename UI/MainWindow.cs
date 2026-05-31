@@ -21,11 +21,7 @@ public class MainWindow : Window, IDisposable
 	private bool expandedFriends = false;
 
 	public MainWindow()
-#if DEBUG
-		: base($"Peer Sync - v{Configuration.Current.DebugVersion} (Debug)##PeerSyncMainWindow")
-#else
 		: base($"Peer Sync - v{Plugin.PluginInterface.Manifest.AssemblyVersion}##PeerSyncMainWindow")
-#endif
 	{
 		this.SizeConstraints = new WindowSizeConstraints
 		{
@@ -104,15 +100,6 @@ public class MainWindow : Window, IDisposable
 
 		if (ImGui.CollapsingHeader($"Settings"))
 		{
-#if DEBUG
-			string debugVer = Configuration.Current.DebugVersion;
-			if (ImGui.InputText("Debug Version", ref debugVer))
-			{
-				Configuration.Current.DebugVersion = debugVer;
-				Configuration.Current.Save();
-			}
-#endif
-
 			int port = Configuration.Current.Port;
 			if (ImGui.InputInt("Custom Port", ref port))
 			{

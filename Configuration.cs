@@ -44,8 +44,6 @@ public partial class Configuration : IPluginConfiguration
 	public int MaxUploads { get; set; } = 5;
 	public int MaxDownloads { get; set; } = 10;
 
-	public string DebugVersion { get; set; } = "Debug";
-
 	public HashSet<string> IndexServers { get; init; } = new()
 	{
 		"https://peer-sync-index-server-9y4rg.ondigitalocean.app",
@@ -118,17 +116,11 @@ public partial class Configuration : IPluginConfiguration
 			{
 				const int iterations = 1000;
 
-				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
-
-#if DEBUG
-				pluginVersion = Configuration.Current.DebugVersion;
-#endif
-
 				string input = $"{this.Name}{this.Password}";
 				for (int i = 0; i < iterations; i++)
 				{
 					HashAlgorithm algorithm = SHA256.Create();
-					input = $"{input}{this.Password}{pluginVersion}";
+					input = $"{input}{this.Password}";
 					byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes(input));
 					input = BitConverter.ToString(bytes);
 					input = input.Replace("-", string.Empty, StringComparison.Ordinal);
@@ -179,17 +171,11 @@ public partial class Configuration : IPluginConfiguration
 
 				// The Fingerprint is sent to the index servers, and it contains the character name and world, so
 				// ensure its cryptographically secure in case of bad actors controlling servers.
-				string pluginVersion = Plugin.PluginInterface.Manifest.AssemblyVersion.ToString();
-
-#if DEBUG
-				pluginVersion = Configuration.Current.DebugVersion;
-#endif
-
 				string input = $"{this.CharacterName}{this.World}";
 				for (int i = 0; i < iterations; i++)
 				{
 					HashAlgorithm algorithm = SHA256.Create();
-					input = $"{input}{this.Password}{pluginVersion}";
+					input = $"{input}{this.Password}";
 					byte[] bytes = algorithm.ComputeHash(Encoding.UTF8.GetBytes(input));
 					input = BitConverter.ToString(bytes);
 					input = input.Replace("-", string.Empty, StringComparison.Ordinal);

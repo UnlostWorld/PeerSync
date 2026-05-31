@@ -258,6 +258,7 @@ public partial class CharacterConnection : IDisposable
 	{
 		try
 		{
+			this.lastConnectionException = null;
 			this.lastIndexAttempt = DateTime.Now;
 			GetPeer request = new();
 
@@ -294,6 +295,7 @@ public partial class CharacterConnection : IDisposable
 		}
 		catch (Exception ex)
 		{
+			this.lastConnectionException = ex;
 			Plugin.Log.Error(ex, "Error fingerprinting character");
 			return false;
 		}

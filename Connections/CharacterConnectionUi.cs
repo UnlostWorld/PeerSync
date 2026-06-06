@@ -21,8 +21,6 @@ public partial class CharacterConnection
 {
 	public void DrawStatus()
 	{
-		List<SyncProgressBase>? progresses = Plugin.Sync.GetProgress(this);
-
 		string sId = this.CharacterId;
 
 		// Tooltip
@@ -145,58 +143,9 @@ public partial class CharacterConnection
 				ImGui.Separator();
 			}
 
-			if (progresses != null)
-			{
-				if (ImGui.BeginTable("PeerProgressInfoTable", 3))
-				{
-					ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
-					ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthFixed);
-					ImGui.TableSetupColumn("Info", ImGuiTableColumnFlags.WidthStretch);
-					ImGui.TableNextRow();
-
-					foreach (SyncProgressBase progress in progresses)
-					{
-						// This user sent no date for this sync progress
-						if (progress.Status == SyncProgressStatus.Empty
-						|| progress.Status == SyncProgressStatus.None
-						|| progress.Status == SyncProgressStatus.NotApplied)
-							continue;
-
-						ImGui.TableNextColumn();
-						progress.DrawStatus();
-
-						ImGui.TableNextColumn();
-						ImGui.Text(progress.Provider.DisplayName);
-
-						ImGui.TableNextColumn();
-						progress.DrawInfo();
-
-						ImGui.TableNextRow();
-					}
-
-					foreach (SyncProgressBase progress in progresses)
-					{
-						// This user sent no date for this sync progress
-						if (progress.Status != SyncProgressStatus.NotApplied)
-							continue;
-
-						ImGui.TableNextColumn();
-						progress.DrawStatus();
-
-						ImGui.TableNextColumn();
-						ImGui.Text(progress.Provider.DisplayName);
-
-						ImGui.TableNextColumn();
-						progress.DrawInfo();
-
-						ImGui.TableNextRow();
-					}
-
-					ImGui.EndTable();
-				}
-
-				ImGui.Spacing();
-			}
+			this.DrawProgressGroup("Character", this.characterProgress);
+			this.DrawProgressGroup("Mount / Minion", this.mountProgress);
+			this.DrawProgressGroup("Pet", this.petProgress);
 
 			ImGui.Spacing();
 
@@ -210,28 +159,10 @@ public partial class CharacterConnection
 
 		// Progress
 		ImGui.TableNextColumn();
-		if (progresses != null)
+		float totalProgress = this.GetTotalProgress();
+		if (totalProgress < 1)
 		{
-			long total = 0;
-			long current = 0;
-
-			foreach (SyncProgressBase progress in progresses)
-			{
-				if (progress.Status == SyncProgressStatus.Syncing)
-				{
-					progress.Combine(ref current, ref total);
-				}
-			}
-
-			float p = (float)current / (float)total;
-
-			if (total <= 0)
-				p = 1;
-
-			if (p < 1)
-			{
-				ImGuiEx.ThinProgressBar(p);
-			}
+			ImGuiEx.ThinProgressBar(totalProgress);
 		}
 
 		// Status
@@ -259,6 +190,86 @@ public partial class CharacterConnection
 			{
 				ImGuiEx.Icon(FontAwesomeIcon.Hourglass);
 			}
+		}
+	}
+
+	public float GetTotalProgress()
+	{
+		long total = 0;
+		long current = 0;
+
+		foreach (SyncProgressBase progress in this.characterProgress.Values)
+		{
+			if (progress.Status == SyncProgressStatus.Syncing)
+			{
+				progress.Combine(ref current, ref total);
+			}
+		}
+
+		foreach (SyncProgressBase progress in this.mountProgress.Values)
+		{
+			if (progress.Status == SyncProgressStatus.Syncing)
+			{
+				progress.Combine(ref current, ref total);
+			}
+		}
+
+		foreach (SyncProgressBase progress in this.petProgress.Values)
+		{
+			if (progress.Status == SyncProgressStatus.Syncing)
+			{
+				progress.Combine(ref current, ref total);
+			}
+		}
+
+		float p = (float)current / (float)total;
+
+		if (total <= 0)
+			p = 1;
+
+		return p;
+	}
+
+	private void DrawProgressGroup(string label, Dictionary<SyncProviderBase, SyncProgressBase> progresses)
+	{
+		if (progresses.Count <= 0)
+			return;
+
+		ImGui.Text(label);
+		if (ImGui.BeginTable($"{label}PeerProgressInfoTable", 3))
+		{
+			ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthFixed);
+			ImGui.TableSetupColumn("Info", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableNextRow();
+
+			foreach (SyncProviderBase provider in Plugin.Sync.Providers)
+			{
+				SyncProgressBase? progress = null;
+				if (!progresses.TryGetValue(provider, out progress) || progress == null)
+					continue;
+
+				// The remote peer sent no data for this provider
+				if (progress.Status == SyncProgressStatus.Empty)
+					continue;
+
+				// The local peer does not support this provider
+				if (progress.Status == SyncProgressStatus.None)
+					continue;
+
+				ImGui.TableNextColumn();
+				progress.DrawStatus();
+
+				ImGui.TableNextColumn();
+				ImGui.Text(progress.Provider.DisplayName);
+
+				ImGui.TableNextColumn();
+				progress.DrawInfo();
+
+				ImGui.TableNextRow();
+			}
+
+			ImGui.EndTable();
 		}
 	}
 }

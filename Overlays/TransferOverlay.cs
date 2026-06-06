@@ -36,31 +36,12 @@ public class TransferOverlay : OverlayBase
 
 	public override void Draw()
 	{
-		List<SyncProgressBase>? progresses = Plugin.Sync.GetProgress(this.connection);
-		if (progresses != null)
+		float totalProgress = this.connection.GetTotalProgress();
+		if (totalProgress < 1)
 		{
-			long total = 0;
-			long current = 0;
-
-			foreach (SyncProgressBase progress in progresses)
-			{
-				if (progress.Status == SyncProgressStatus.Syncing)
-				{
-					progress.Combine(ref current, ref total);
-				}
-			}
-
-			float p = (float)current / (float)total;
-
-			if (total <= 0)
-				p = 1;
-
-			if (p < 1)
-			{
-				float width = 75;
-				ImGui.SetCursorPosX(ImGui.GetCursorPosX() - (width / 2));
-				ImGuiEx.ThinProgressBar(p, width);
-			}
+			float width = 75;
+			ImGui.SetCursorPosX(ImGui.GetCursorPosX() - (width / 2));
+			ImGuiEx.ThinProgressBar(totalProgress, width);
 		}
 	}
 }

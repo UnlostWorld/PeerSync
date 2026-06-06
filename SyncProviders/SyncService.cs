@@ -77,25 +77,6 @@ public class SyncService : IDisposable
 		return null;
 	}
 
-	public List<SyncProgressBase> GetProgress(CharacterConnection character)
-	{
-		List<SyncProgressBase> progresses = new();
-
-		lock (this.Providers)
-		{
-			foreach (SyncProviderBase sync in this.Providers)
-			{
-				SyncProgressBase? progress = sync.GetProgress(character);
-				if (progress != null)
-				{
-					progresses.Add(progress);
-				}
-			}
-		}
-
-		return progresses;
-	}
-
 	public void Dispose()
 	{
 		lock (this.Providers)

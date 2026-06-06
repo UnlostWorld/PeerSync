@@ -38,36 +38,28 @@ public class PetNamesSync : SyncProviderBase
 		return this.petNames.GetPlayerData();
 	}
 
-	public override void Apply(
+	public override SyncProgressStatus Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
 		ushort objectIndex)
 	{
 		if (!this.petNames.GetIsAvailable())
-		{
-			if (!string.IsNullOrEmpty(content))
-				this.SetStatus(character, SyncProgressStatus.NotApplied);
-
-			return;
-		}
-
-		if (lastContent == content)
-			return;
+			return SyncProgressStatus.NotApplied;
 
 		IGameObject? gameObject = Plugin.ObjectTable[objectIndex];
 		if (gameObject is not IPlayerCharacter playerCharacter)
-			return;
+			return SyncProgressStatus.Error;
 
 		if (content == null)
 		{
 			this.petNames.ClearPlayerData(objectIndex);
-			this.SetStatus(character, SyncProgressStatus.Empty);
+			return SyncProgressStatus.Empty;
 		}
 		else
 		{
 			this.petNames.SetPlayerData(content);
-			this.SetStatus(character, SyncProgressStatus.Applied);
+			return SyncProgressStatus.Applied;
 		}
 	}
 
@@ -77,8 +69,6 @@ public class PetNamesSync : SyncProviderBase
 		{
 			this.petNames.ClearPlayerData(objectIndex.Value);
 		}
-
-		this.SetStatus(character, SyncProgressStatus.Empty);
 	}
 
 	public override void DrawInspect(CharacterConnection? character, string content)

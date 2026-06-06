@@ -37,6 +37,9 @@ public partial class CharacterConnection : IDisposable
 	private static readonly TimeSpan SearchDelay = TimeSpan.FromSeconds(1);
 
 	private readonly CancellationTokenSource cancellationTokenSource = new();
+	private readonly Dictionary<SyncProviderBase, SyncProgressBase> characterProgress = new();
+	private readonly Dictionary<SyncProviderBase, SyncProgressBase> mountProgress = new();
+	private readonly Dictionary<SyncProviderBase, SyncProgressBase> petProgress = new();
 	private DateTime lastSeen;
 	private DateTime lastIndexAttempt;
 	private DateTime lastSearch;
@@ -95,6 +98,7 @@ public partial class CharacterConnection : IDisposable
 	public void Reset()
 	{
 		this.LastData = null;
+		this.characterData = null;
 
 		foreach (SyncProviderBase provider in Plugin.Sync.Providers)
 		{
@@ -107,6 +111,38 @@ public partial class CharacterConnection : IDisposable
 				Plugin.Log.Error(ex, $"Error resetting character with provider: {provider}");
 			}
 		}
+
+		foreach (SyncProviderBase provider in Plugin.Sync.Providers)
+		{
+			try
+			{
+				provider.Reset(this, (ushort)(this.objectIndex + 1));
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, $"Error resetting mount / minion with provider: {provider}");
+			}
+		}
+
+		IGameObject? pet = this.GetPet();
+		if (pet != null)
+		{
+			foreach (SyncProviderBase provider in Plugin.Sync.Providers)
+			{
+				try
+				{
+					provider.Reset(this, pet.ObjectIndex);
+				}
+				catch (Exception ex)
+				{
+					Plugin.Log.Error(ex, $"Error resetting mount / minion with provider: {provider}");
+				}
+			}
+		}
+
+		this.characterProgress.Clear();
+		this.mountProgress.Clear();
+		this.petProgress.Clear();
 	}
 
 	public IPlayerCharacter? GetCharacter()
@@ -498,35 +534,25 @@ public partial class CharacterConnection : IDisposable
 		await this.PrepareSyncData(
 			characterData.Character,
 			this.LastData?.Character,
-			this.objectIndex);
+			this.objectIndex,
+			this.characterProgress);
 
 		await this.PrepareSyncData(
 			characterData.MountOrMinion,
 			this.LastData?.MountOrMinion,
-			(ushort)(this.objectIndex + 1));
+			(ushort)(this.objectIndex + 1),
+			this.mountProgress);
 
 		await Plugin.Framework.RunOnUpdate();
-		IGameObject? pet = null;
-		unsafe
-		{
-			IGameObject? character = Plugin.ObjectTable[this.objectIndex];
-			if (character != null)
-			{
-				BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)character.Address);
-				if (pPet != null)
-				{
-					pet = Plugin.ObjectTable[pPet->ObjectIndex];
-				}
-			}
-		}
-
+		IGameObject? pet = this.GetPet();
 		await Plugin.Framework.RunOutsideUpdate();
 		if (pet != null)
 		{
 			await this.PrepareSyncData(
 				characterData.Pet,
 				this.LastData?.Pet,
-				pet.ObjectIndex);
+				pet.ObjectIndex,
+				this.petProgress);
 		}
 
 		this.isPreparingData = false;
@@ -535,7 +561,8 @@ public partial class CharacterConnection : IDisposable
 	private async Task PrepareSyncData(
 		Dictionary<string, string?> sync,
 		Dictionary<string, string?>? lastSync,
-		ushort objectIndex)
+		ushort objectIndex,
+		Dictionary<SyncProviderBase, SyncProgressBase> progresses)
 	{
 		if (this.lastState != States.Found)
 			return;
@@ -544,6 +571,9 @@ public partial class CharacterConnection : IDisposable
 		{
 			try
 			{
+				if (string.IsNullOrEmpty(content))
+					continue;
+
 				SyncProviderBase? provider = Plugin.Sync.GetProvider(key);
 				if (provider == null)
 					continue;
@@ -551,7 +581,20 @@ public partial class CharacterConnection : IDisposable
 				string? lastContent = null;
 				lastSync?.TryGetValue(key, out lastContent);
 
-				await provider.Prepare(lastContent, content, this, objectIndex);
+				SyncProgressBase? progress = null;
+				progresses.TryGetValue(provider, out progress);
+
+				if (progress == null)
+				{
+					progress = provider.CreateProgress(this);
+					progresses.Add(provider, progress);
+				}
+
+				progress.Status = SyncProgressStatus.Syncing;
+				await provider.Prepare(lastContent, content, this, objectIndex, progress);
+
+				if (progress.Status == SyncProgressStatus.Syncing)
+					progress.Status = SyncProgressStatus.None;
 
 				if (this.lastState != States.Found)
 				{
@@ -581,33 +624,23 @@ public partial class CharacterConnection : IDisposable
 		this.ApplySyncData(
 			this.characterData.Character,
 			this.LastData?.Character,
-			this.objectIndex);
+			this.objectIndex,
+			this.characterProgress);
 
 		this.ApplySyncData(
 			this.characterData.MountOrMinion,
 			this.LastData?.MountOrMinion,
-			(ushort)(this.objectIndex + 1));
+			(ushort)(this.objectIndex + 1),
+			this.mountProgress);
 
-		IGameObject? pet = null;
-		unsafe
-		{
-			IGameObject? character = Plugin.ObjectTable[this.objectIndex];
-			if (character != null)
-			{
-				BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)character.Address);
-				if (pPet != null)
-				{
-					pet = Plugin.ObjectTable[pPet->ObjectIndex];
-				}
-			}
-		}
-
+		IGameObject? pet = this.GetPet();
 		if (pet != null)
 		{
 			this.ApplySyncData(
 				this.characterData.Pet,
 				this.LastData?.Pet,
-				pet.ObjectIndex);
+				pet.ObjectIndex,
+				this.petProgress);
 		}
 
 		this.LastData = this.characterData;
@@ -617,7 +650,8 @@ public partial class CharacterConnection : IDisposable
 	private void ApplySyncData(
 		Dictionary<string, string?> sync,
 		Dictionary<string, string?>? lastSync,
-		ushort objectIndex)
+		ushort objectIndex,
+		Dictionary<SyncProviderBase, SyncProgressBase> progresses)
 	{
 		if (this.lastState != States.Found)
 			return;
@@ -633,7 +667,24 @@ public partial class CharacterConnection : IDisposable
 				string? lastContent = null;
 				lastSync?.TryGetValue(key, out lastContent);
 
-				provider.Apply(lastContent, content, this, objectIndex);
+				SyncProgressBase? progress = null;
+				progresses.TryGetValue(provider, out progress);
+
+				if (progress == null)
+				{
+					progress = provider.CreateProgress(this);
+					progresses.Add(provider, progress);
+				}
+
+				if (content == lastContent)
+				{
+					if (content != null)
+						progress.Status = SyncProgressStatus.Applied;
+
+					continue;
+				}
+
+				progress.Status = provider.Apply(lastContent, content, this, objectIndex);
 
 				if (this.lastState != States.Found)
 				{
@@ -648,5 +699,24 @@ public partial class CharacterConnection : IDisposable
 				Plugin.Log.Error(ex, $"Error applying sync data: {key}");
 			}
 		}
+	}
+
+	private IGameObject? GetPet()
+	{
+		IGameObject? pet = null;
+		unsafe
+		{
+			IGameObject? character = Plugin.ObjectTable[this.objectIndex];
+			if (character != null)
+			{
+				BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)character.Address);
+				if (pPet != null)
+				{
+					pet = Plugin.ObjectTable[pPet->ObjectIndex];
+				}
+			}
+		}
+
+		return pet;
 	}
 }

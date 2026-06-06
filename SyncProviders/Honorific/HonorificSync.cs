@@ -20,32 +20,24 @@ public class HonorificSync : SyncProviderBase
 	public override string DisplayName => "Honorific";
 	public override string Key => "h";
 
-	public override void Apply(
+	public override SyncProgressStatus Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
 		ushort objectIndex)
 	{
 		if (!this.honorific.GetIsAvailable())
-		{
-			if (!string.IsNullOrEmpty(content))
-				this.SetStatus(character, SyncProgressStatus.NotApplied);
-
-			return;
-		}
-
-		if (lastContent == content)
-			return;
+			return SyncProgressStatus.NotApplied;
 
 		if (content == null)
 		{
 			this.honorific.ClearCharacterTitle(objectIndex);
-			this.SetStatus(character, SyncProgressStatus.Empty);
+			return SyncProgressStatus.Empty;
 		}
 		else
 		{
 			this.honorific.SetCharacterTitle(objectIndex, content);
-			this.SetStatus(character, SyncProgressStatus.Applied);
+			return SyncProgressStatus.Applied;
 		}
 	}
 
@@ -64,9 +56,9 @@ public class HonorificSync : SyncProviderBase
 			return;
 
 		if (objectIndex != null)
+		{
 			this.honorific.ClearCharacterTitle(objectIndex.Value);
-
-		this.SetStatus(character, SyncProgressStatus.Empty);
+		}
 	}
 
 	public override void DrawInspect(CharacterConnection? character, string content)

@@ -34,7 +34,7 @@ public class GlamourerSync : SyncProviderBase
 		return this.glamourer.GetState(objectIndex);
 	}
 
-	public override void Apply(
+	public override SyncProgressStatus Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
@@ -42,33 +42,27 @@ public class GlamourerSync : SyncProviderBase
 	{
 		if (!this.glamourer.GetIsAvailable())
 		{
-			if (!string.IsNullOrEmpty(content))
-				this.SetStatus(character, SyncProgressStatus.NotApplied);
-
-			return;
+			return SyncProgressStatus.NotApplied;
 		}
-
-		if (lastContent == content)
-			return;
 
 		if (content == null)
 		{
 			this.glamourer.RevertState(objectIndex);
-			this.SetStatus(character, SyncProgressStatus.Empty);
+			return SyncProgressStatus.Empty;
 		}
 		else
 		{
 			this.glamourer.SetState(objectIndex, content);
-			this.SetStatus(character, SyncProgressStatus.Applied);
+			return SyncProgressStatus.Applied;
 		}
 	}
 
 	public override void Reset(CharacterConnection character, ushort? objectIndex)
 	{
 		if (objectIndex != null)
+		{
 			this.glamourer.RevertState(objectIndex.Value);
-
-		this.SetStatus(character, SyncProgressStatus.Empty);
+		}
 	}
 
 	public override void DrawInspect(CharacterConnection? character, string content)

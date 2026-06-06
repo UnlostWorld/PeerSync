@@ -24,7 +24,7 @@ public class CustomizePlusSync : SyncProviderBase
 	public override string DisplayName => "Customize+";
 	public override string Key => "c";
 
-	public override void Apply(
+	public override SyncProgressStatus Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
@@ -32,14 +32,8 @@ public class CustomizePlusSync : SyncProviderBase
 	{
 		if (!this.customizePlus.GetIsAvailable())
 		{
-			if (!string.IsNullOrEmpty(content))
-				this.SetStatus(character, SyncProgressStatus.NotApplied);
-
-			return;
+			return SyncProgressStatus.NotApplied;
 		}
-
-		if (lastContent == content)
-			return;
 
 		if (content == null)
 		{
@@ -49,16 +43,16 @@ public class CustomizePlusSync : SyncProviderBase
 				this.appliedProfiles.Remove(character.CharacterId);
 			}
 
-			this.SetStatus(character, SyncProgressStatus.Empty);
+			return SyncProgressStatus.Empty;
 		}
 		else
 		{
 			Guid? guid = this.customizePlus.SetTemporaryProfileOnCharacter(objectIndex, content);
 			if (guid == null)
-				return;
+				return SyncProgressStatus.Error;
 
 			this.appliedProfiles[character.CharacterId] = guid.Value;
-			this.SetStatus(character, SyncProgressStatus.Applied);
+			return SyncProgressStatus.Applied;
 		}
 	}
 
@@ -91,8 +85,6 @@ public class CustomizePlusSync : SyncProviderBase
 
 			this.appliedProfiles.Remove(character.CharacterId);
 		}
-
-		this.SetStatus(character, SyncProgressStatus.Empty);
 	}
 
 	public override void DrawInspect(CharacterConnection? character, string content)

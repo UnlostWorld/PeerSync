@@ -38,44 +38,36 @@ public class SimpleHeelsSync : SyncProviderBase
 		return this.simpleHeels.GetPlayerData();
 	}
 
-	public override void Apply(
+	public override SyncProgressStatus Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
 		ushort objectIndex)
 	{
 		if (!this.simpleHeels.GetIsAvailable())
-		{
-			if (!string.IsNullOrEmpty(content))
-				this.SetStatus(character, SyncProgressStatus.NotApplied);
-
-			return;
-		}
-
-		if (lastContent == content)
-			return;
+			return SyncProgressStatus.NotApplied;
 
 		IGameObject? gameObject = Plugin.ObjectTable[objectIndex];
 		if (gameObject is not IPlayerCharacter playerCharacter)
-			return;
+			return SyncProgressStatus.Error;
 
 		if (content == null)
 		{
 			this.simpleHeels.ClearPlayerData(objectIndex);
-			this.SetStatus(character, SyncProgressStatus.Empty);
+			return SyncProgressStatus.Empty;
 		}
 		else
 		{
 			this.simpleHeels.SetPlayerData(objectIndex, content);
-			this.SetStatus(character, SyncProgressStatus.Applied);
+			return SyncProgressStatus.Applied;
 		}
 	}
 
 	public override void Reset(CharacterConnection character, ushort? objectIndex)
 	{
 		if (objectIndex != null)
+		{
 			this.simpleHeels.ClearPlayerData(objectIndex.Value);
-
-		this.SetStatus(character, SyncProgressStatus.Empty);
+		}
 	}
 }

@@ -20,7 +20,6 @@ using PeerSync.Connections;
 
 public abstract class SyncProviderBase : IDisposable
 {
-	private readonly Dictionary<CharacterConnection, SyncProgressBase> perCharacterProgress = new();
 	private readonly CancellationTokenSource tokenSource = new();
 
 	public abstract string DisplayName { get; }
@@ -34,12 +33,13 @@ public abstract class SyncProviderBase : IDisposable
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
-		ushort objectIndex)
+		ushort objectIndex,
+		SyncProgressBase progress)
 	{
 		return Task.CompletedTask;
 	}
 
-	public abstract void Apply(
+	public abstract SyncProgressStatus Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
@@ -77,32 +77,15 @@ public abstract class SyncProviderBase : IDisposable
 
 	public virtual void OnCharacterConnected(CharacterConnection character)
 	{
-		this.perCharacterProgress[character] = this.CreateProgress(character);
 	}
 
 	public virtual void OnCharacterDisconnected(CharacterConnection character)
 	{
-		this.perCharacterProgress.Remove(character);
-	}
-
-	public virtual SyncProgressBase? GetProgress(CharacterConnection character)
-	{
-		this.perCharacterProgress.TryGetValue(character, out SyncProgressBase? value);
-		return value;
-	}
-
-	public void SetStatus(CharacterConnection character, SyncProgressStatus status)
-	{
-		SyncProgressBase? progress = this.GetProgress(character);
-		if (progress != null)
-		{
-			progress.Status = status;
-		}
 	}
 
 	public abstract void Reset(CharacterConnection character, ushort? objectIndex);
 
-	protected virtual SyncProgressBase CreateProgress(CharacterConnection character)
+	public virtual SyncProgressBase CreateProgress(CharacterConnection character)
 	{
 		return new SyncProgressBase(this, character);
 	}
@@ -111,17 +94,35 @@ public abstract class SyncProviderBase : IDisposable
 public abstract class SyncProviderBase<T> : SyncProviderBase
 	where T : SyncProgressBase
 {
-	public new T? GetProgress(CharacterConnection character)
-	{
-		return base.GetProgress(character) as T;
-	}
-
-	protected sealed override SyncProgressBase CreateProgress(CharacterConnection character)
+	public sealed override SyncProgressBase CreateProgress(CharacterConnection character)
 	{
 		SyncProgressBase? progress = Activator.CreateInstance(typeof(T), [this, character]) as SyncProgressBase;
 		if (progress == null)
 			throw new Exception("Failed to create progress type");
 
 		return progress;
+	}
+
+	public sealed override Task Prepare(
+		string? lastContent,
+		string? content,
+		CharacterConnection character,
+		ushort objectIndex,
+		SyncProgressBase progress)
+	{
+		if (progress is not T tProgress)
+			throw new Exception("Wrong progress type for provider");
+
+		return this.Prepare(lastContent, content, character, objectIndex, tProgress);
+	}
+
+	public virtual Task Prepare(
+		string? lastContent,
+		string? content,
+		CharacterConnection character,
+		ushort objectIndex,
+		T progress)
+	{
+		return Task.CompletedTask;
 	}
 }

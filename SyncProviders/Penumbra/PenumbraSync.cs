@@ -226,15 +226,11 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
-		ushort objectIndex)
+		ushort objectIndex,
+		PenumbraProgress progress)
 	{
 		if (!this.penumbra.GetIsAvailable())
-		{
-			if (!string.IsNullOrEmpty(content))
-				this.SetStatus(character, SyncProgressStatus.NotApplied);
-
 			return;
-		}
 
 		if (!this.FileCache.IsValid())
 			return;
@@ -250,8 +246,6 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		if (!character.IsConnected)
 			return;
-
-		this.SetStatus(character, SyncProgressStatus.Syncing);
 
 		foreach ((string gamePath, string hash) in data.Files)
 		{
@@ -280,22 +274,14 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		}
 	}
 
-	public override void Apply(
+	public override SyncProgressStatus Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
 		ushort objectIndex)
 	{
 		if (!this.penumbra.GetIsAvailable())
-		{
-			if (!string.IsNullOrEmpty(content))
-				this.SetStatus(character, SyncProgressStatus.NotApplied);
-
-			return;
-		}
-
-		if (lastContent == content)
-			return;
+			return SyncProgressStatus.NotApplied;
 
 		string collectionIdent = this.GetTemporaryCollectionIdentifier(character, objectIndex);
 
@@ -307,8 +293,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				this.appliedCollections.Remove(collectionIdent);
 			}
 
-			this.SetStatus(character, SyncProgressStatus.Empty);
-			return;
+			return SyncProgressStatus.Empty;
 		}
 
 		Guid collectionId;
@@ -342,10 +327,10 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(content);
 		if (data == null)
-			return;
+			return SyncProgressStatus.Empty;
 
 		if (lastData != null && data.IsSame(lastData))
-			return;
+			return SyncProgressStatus.Applied;
 
 		Dictionary<string, string> paths = new();
 		foreach ((string gamePath, string hash) in data.Files)
@@ -356,8 +341,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			if (file == null || !file.Exists)
 			{
 				Plugin.Log.Error($"Failed to download file: {gamePath} ({hash})");
-				this.SetStatus(character, SyncProgressStatus.Error);
-				return;
+				return SyncProgressStatus.Error;
 			}
 
 			paths[gamePath] = file.FullName;
@@ -380,12 +364,12 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				0).ThrowOnFailure();
 
 			this.penumbra.RedrawObject.Invoke(objectIndex);
-			this.SetStatus(character, SyncProgressStatus.Applied);
+			return SyncProgressStatus.Applied;
 		}
 		catch (Exception ex)
 		{
 			Plugin.Log.Error(ex, "Error applying penumbra collection");
-			this.SetStatus(character, SyncProgressStatus.Error);
+			return SyncProgressStatus.Error;
 		}
 	}
 
@@ -418,8 +402,6 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 
 			this.appliedCollections.Clear();
 		}
-
-		this.SetStatus(character, SyncProgressStatus.Empty);
 	}
 
 	public override void DrawSettings()

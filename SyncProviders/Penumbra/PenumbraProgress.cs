@@ -31,13 +31,13 @@ public class PenumbraProgress(PenumbraSync provider, CharacterConnection charact
 		if (uploadTotal > 0 && downloadTotal > 0)
 		{
 			float p = (float)uploadCurrent / (float)uploadTotal;
-			ImGui.Text("↑");
+			ImGui.Text($"↑{uploadTotal}");
 			ImGui.SameLine();
 			ImGuiEx.ThinProgressBar(p, 32);
 			ImGui.SameLine();
 
 			p = (float)downloadCurrent / (float)downloadTotal;
-			ImGui.Text("↓");
+			ImGui.Text($"↓{downloadTotal}");
 			ImGui.SameLine();
 			ImGuiEx.ThinProgressBar(p, 32);
 		}

@@ -42,11 +42,13 @@ public partial class CharacterConnection : IDisposable
 	private DateTime lastSearch;
 	private Connection? outgoingConnection;
 	private Connection? incomingConnection;
+	private bool isPreparingData = false;
 	private bool isApplyingData = false;
 	private Exception? lastConnectionException;
 	private TransferOverlay? overlay;
 	private ushort objectIndex;
 	private States lastState;
+	private CharacterData? characterData;
 
 	public CharacterConnection(IPlayerCharacter character)
 	{
@@ -139,9 +141,11 @@ public partial class CharacterConnection : IDisposable
 				Task.Run(this.FingerprintIndexConnect);
 			}
 
-			this.UpdateOverlay();
-
 			this.lastState = States.Found;
+
+			this.UpdateOverlay();
+			this.ApplySyncData();
+
 			return States.Found;
 		}
 		else if (this.TimeSinceLastSearch > SearchDelay)
@@ -463,6 +467,11 @@ public partial class CharacterConnection : IDisposable
 
 		this.OnConnected();
 
+		if (Plugin.Sync.Lightless.GetIsGameObjectHandled(this.objectIndex))
+			return;
+
+		this.characterData = characterData;
+
 		// Do not sync characters if the local player is in combat
 		// or is loading areas.
 		if (Plugin.Condition[ConditionFlag.InCombat]
@@ -470,33 +479,28 @@ public partial class CharacterConnection : IDisposable
 			|| Plugin.Condition[ConditionFlag.BetweenAreas51])
 			return;
 
-		if (this.isApplyingData)
+		if (this.isPreparingData)
 			return;
 
-		Task.Run(() => this.ApplyCharacterData(characterData));
+		Task.Run(() => this.PrepareCharacterData(characterData));
 	}
 
-	private async Task ApplyCharacterData(CharacterData characterData)
+	private async Task PrepareCharacterData(CharacterData characterData)
 	{
-		if (this.isApplyingData)
+		if (this.isPreparingData)
 			return;
 
-		if (await Plugin.Sync.Lightless.GetIsGameObjectHandled(this.objectIndex))
-		{
-			return;
-		}
+		this.isPreparingData = true;
 
-		if (this.lastState != States.Found)
-			return;
+		while (this.isApplyingData)
+			await Task.Delay(100);
 
-		this.isApplyingData = true;
-
-		await this.ApplySyncData(
+		await this.PrepareSyncData(
 			characterData.Character,
 			this.LastData?.Character,
 			this.objectIndex);
 
-		await this.ApplySyncData(
+		await this.PrepareSyncData(
 			characterData.MountOrMinion,
 			this.LastData?.MountOrMinion,
 			(ushort)(this.objectIndex + 1));
@@ -519,17 +523,16 @@ public partial class CharacterConnection : IDisposable
 		await Plugin.Framework.RunOutsideUpdate();
 		if (pet != null)
 		{
-			await this.ApplySyncData(
+			await this.PrepareSyncData(
 				characterData.Pet,
 				this.LastData?.Pet,
 				pet.ObjectIndex);
 		}
 
-		this.isApplyingData = false;
-		this.LastData = characterData;
+		this.isPreparingData = false;
 	}
 
-	private async Task ApplySyncData(
+	private async Task PrepareSyncData(
 		Dictionary<string, string?> sync,
 		Dictionary<string, string?>? lastSync,
 		ushort objectIndex)
@@ -548,7 +551,89 @@ public partial class CharacterConnection : IDisposable
 				string? lastContent = null;
 				lastSync?.TryGetValue(key, out lastContent);
 
-				await provider.Deserialize(lastContent, content, this, objectIndex);
+				await provider.Prepare(lastContent, content, this, objectIndex);
+
+				if (this.lastState != States.Found)
+				{
+					return;
+				}
+			}
+			catch (TaskCanceledException)
+			{
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log.Error(ex, $"Error preparing sync data: {key}");
+			}
+		}
+	}
+
+	private void ApplySyncData()
+	{
+		if (this.isPreparingData)
+			return;
+
+		if (this.characterData == null)
+			return;
+
+		this.isApplyingData = true;
+
+		this.ApplySyncData(
+			this.characterData.Character,
+			this.LastData?.Character,
+			this.objectIndex);
+
+		this.ApplySyncData(
+			this.characterData.MountOrMinion,
+			this.LastData?.MountOrMinion,
+			(ushort)(this.objectIndex + 1));
+
+		IGameObject? pet = null;
+		unsafe
+		{
+			IGameObject? character = Plugin.ObjectTable[this.objectIndex];
+			if (character != null)
+			{
+				BattleChara* pPet = CharacterManager.Instance()->LookupPetByOwnerObject((BattleChara*)character.Address);
+				if (pPet != null)
+				{
+					pet = Plugin.ObjectTable[pPet->ObjectIndex];
+				}
+			}
+		}
+
+		if (pet != null)
+		{
+			this.ApplySyncData(
+				this.characterData.Pet,
+				this.LastData?.Pet,
+				pet.ObjectIndex);
+		}
+
+		this.LastData = this.characterData;
+		this.isApplyingData = false;
+	}
+
+	private void ApplySyncData(
+		Dictionary<string, string?> sync,
+		Dictionary<string, string?>? lastSync,
+		ushort objectIndex)
+	{
+		if (this.lastState != States.Found)
+			return;
+
+		foreach ((string key, string? content) in sync)
+		{
+			try
+			{
+				SyncProviderBase? provider = Plugin.Sync.GetProvider(key);
+				if (provider == null)
+					continue;
+
+				string? lastContent = null;
+				lastSync?.TryGetValue(key, out lastContent);
+
+				provider.Apply(lastContent, content, this, objectIndex);
 
 				if (this.lastState != States.Found)
 				{

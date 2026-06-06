@@ -222,7 +222,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		return JsonConvert.SerializeObject(data);
 	}
 
-	public override async Task Deserialize(
+	public override async Task Prepare(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
@@ -239,36 +239,13 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		if (!this.FileCache.IsValid())
 			return;
 
-		if (lastContent == content)
-			return;
-
-		string collectionIdent = this.GetTemporaryCollectionIdentifier(character, objectIndex);
-
 		if (content == null)
-		{
-			await Plugin.Framework.RunOnUpdate();
-
-			if (this.appliedCollections.TryGetValue(collectionIdent, out Guid existingCollectionId))
-			{
-				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
-				this.appliedCollections.Remove(collectionIdent);
-			}
-
-			this.SetStatus(character, SyncProgressStatus.Empty);
 			return;
-		}
 
 		await Plugin.Framework.RunOutsideUpdate();
 
-		PenumbraData? lastData = null;
-		if (lastContent != null)
-			lastData = JsonConvert.DeserializeObject<PenumbraData>(lastContent);
-
 		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(content);
 		if (data == null)
-			return;
-
-		if (lastData != null && data.IsSame(lastData))
 			return;
 
 		if (!character.IsConnected)
@@ -301,39 +278,38 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 			pending = this.DownloadGroup.IsCharacterPending(character);
 			await Task.Delay(100, this.CancellationToken);
 		}
+	}
 
-		if (this.CancellationToken.IsCancellationRequested)
-			return;
-
-		await Task.Delay(100, this.CancellationToken);
-
-		if (!character.IsConnected)
-			return;
-
-		Dictionary<string, string> paths = new();
-		foreach ((string gamePath, string hash) in data.Files)
+	public override void Apply(
+		string? lastContent,
+		string? content,
+		CharacterConnection character,
+		ushort objectIndex)
+	{
+		if (!this.penumbra.GetIsAvailable())
 		{
-			FileInfo? file = this.FileCache.GetFile(hash);
+			if (!string.IsNullOrEmpty(content))
+				this.SetStatus(character, SyncProgressStatus.NotApplied);
 
-			// Verify that we did get all the files we need.
-			if (file == null || !file.Exists)
+			return;
+		}
+
+		if (lastContent == content)
+			return;
+
+		string collectionIdent = this.GetTemporaryCollectionIdentifier(character, objectIndex);
+
+		if (content == null)
+		{
+			if (this.appliedCollections.TryGetValue(collectionIdent, out Guid existingCollectionId))
 			{
-				Plugin.Log.Error($"Failed to download file: {gamePath} ({hash})");
-				this.SetStatus(character, SyncProgressStatus.Error);
-				return;
+				this.penumbra.DeleteTemporaryCollection.Invoke(existingCollectionId);
+				this.appliedCollections.Remove(collectionIdent);
 			}
 
-			paths[gamePath] = file.FullName;
+			this.SetStatus(character, SyncProgressStatus.Empty);
+			return;
 		}
-
-		foreach ((string gamePath, string redirectPath) in data.Redirects)
-		{
-			paths[gamePath] = redirectPath;
-		}
-
-		this.DownloadGroup.ClearCompleted(character);
-
-		await Plugin.Framework.RunOnUpdate();
 
 		Guid collectionId;
 		if (!this.appliedCollections.ContainsKey(collectionIdent))
@@ -359,6 +335,40 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				collectionId,
 				0).ThrowOnFailure();
 		}
+
+		PenumbraData? lastData = null;
+		if (lastContent != null)
+			lastData = JsonConvert.DeserializeObject<PenumbraData>(lastContent);
+
+		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(content);
+		if (data == null)
+			return;
+
+		if (lastData != null && data.IsSame(lastData))
+			return;
+
+		Dictionary<string, string> paths = new();
+		foreach ((string gamePath, string hash) in data.Files)
+		{
+			FileInfo? file = this.FileCache.GetFile(hash);
+
+			// Verify that we did get all the files we need.
+			if (file == null || !file.Exists)
+			{
+				Plugin.Log.Error($"Failed to download file: {gamePath} ({hash})");
+				this.SetStatus(character, SyncProgressStatus.Error);
+				return;
+			}
+
+			paths[gamePath] = file.FullName;
+		}
+
+		foreach ((string gamePath, string redirectPath) in data.Redirects)
+		{
+			paths[gamePath] = redirectPath;
+		}
+
+		this.DownloadGroup.ClearCompleted(character);
 
 		try
 		{

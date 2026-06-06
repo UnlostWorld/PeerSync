@@ -34,14 +34,12 @@ public class GlamourerSync : SyncProviderBase
 		return this.glamourer.GetState(objectIndex);
 	}
 
-	public override async Task Deserialize(
+	public override void Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
 		ushort objectIndex)
 	{
-		await Plugin.Framework.RunOnUpdate();
-
 		if (!this.glamourer.GetIsAvailable())
 		{
 			if (!string.IsNullOrEmpty(content))

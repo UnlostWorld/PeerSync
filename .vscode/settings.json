@@ -29,5 +29,6 @@
 		"Unlost",
 		"Unpickle",
 		"Upnp"
-	]
+	],
+	"github-actions.workflows.pinned.workflows": [ ]
 }

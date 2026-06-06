@@ -24,12 +24,10 @@ public class LightlessCommunicator : PluginCommunicatorBase
 		return this.InvokeFunc<List<nint>>("LightlessSync.GetHandledAddresses");
 	}
 
-	public async Task<bool> GetIsGameObjectHandled(int objectIndex)
+	public bool GetIsGameObjectHandled(int objectIndex)
 	{
 		if (!this.GetIsAvailable())
 			return false;
-
-		await Plugin.Framework.RunOnUpdate();
 
 		IGameObject? character = Plugin.ObjectTable[objectIndex];
 		if (character == null)

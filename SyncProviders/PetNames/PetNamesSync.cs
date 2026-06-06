@@ -38,7 +38,7 @@ public class PetNamesSync : SyncProviderBase
 		return this.petNames.GetPlayerData();
 	}
 
-	public override async Task Deserialize(
+	public override void Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
@@ -54,8 +54,6 @@ public class PetNamesSync : SyncProviderBase
 
 		if (lastContent == content)
 			return;
-
-		await Plugin.Framework.RunOnUpdate();
 
 		IGameObject? gameObject = Plugin.ObjectTable[objectIndex];
 		if (gameObject is not IPlayerCharacter playerCharacter)

@@ -22,7 +22,7 @@ public class MoodlesSync : SyncProviderBase
 	public override string DisplayName => "Moodles";
 	public override string Key => "m";
 
-	public override async Task Deserialize(
+	public override void Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
@@ -38,8 +38,6 @@ public class MoodlesSync : SyncProviderBase
 
 		if (lastContent == content)
 			return;
-
-		await Plugin.Framework.RunOnUpdate();
 
 		IGameObject? gameObject = Plugin.ObjectTable[objectIndex];
 		if (gameObject is not IPlayerCharacter playerCharacter)

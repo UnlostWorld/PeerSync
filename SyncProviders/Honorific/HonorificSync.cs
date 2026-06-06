@@ -20,7 +20,7 @@ public class HonorificSync : SyncProviderBase
 	public override string DisplayName => "Honorific";
 	public override string Key => "h";
 
-	public override async Task Deserialize(
+	public override void Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
@@ -36,8 +36,6 @@ public class HonorificSync : SyncProviderBase
 
 		if (lastContent == content)
 			return;
-
-		await Plugin.Framework.RunOnUpdate();
 
 		if (content == null)
 		{

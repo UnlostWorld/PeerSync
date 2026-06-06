@@ -24,7 +24,7 @@ public class CustomizePlusSync : SyncProviderBase
 	public override string DisplayName => "Customize+";
 	public override string Key => "c";
 
-	public override async Task Deserialize(
+	public override void Apply(
 		string? lastContent,
 		string? content,
 		CharacterConnection character,
@@ -40,8 +40,6 @@ public class CustomizePlusSync : SyncProviderBase
 
 		if (lastContent == content)
 			return;
-
-		await Plugin.Framework.RunOnUpdate();
 
 		if (content == null)
 		{

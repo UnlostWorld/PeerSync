@@ -47,7 +47,13 @@ public class HonorificSync : SyncProviderBase
 			return null;
 
 		await Plugin.Framework.RunOnUpdate();
-		return this.honorific.GetCharacterTitle(objectIndex);
+		string? result = this.honorific.GetCharacterTitle(objectIndex);
+
+		// Thats a new one.
+		if (result == "null")
+			return null;
+
+		return result;
 	}
 
 	public override void Reset(CharacterConnection character, ushort? objectIndex)

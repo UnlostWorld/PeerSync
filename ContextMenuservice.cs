@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.Gui.ContextMenu;
+using Dalamud.Game.Text;
 using PeerSync.Connections;
 
 public class ContextMenuService : IDisposable
@@ -56,6 +57,11 @@ public class ContextMenuService : IDisposable
 		CharacterConnection connection = Plugin.Connections.GetOrCreate(character);
 		if (connection.IsConnected)
 		{
+			MenuItem inspectMenu = new();
+			inspectMenu.Name = SeStringUtils.ToSeString("Inspect");
+			inspectMenu.OnClicked = (a) => Plugin.Ui.InspectWindow.Show(connection);
+			menus.Add(inspectMenu);
+
 			MenuItem resetMenu = new();
 			resetMenu.Name = SeStringUtils.ToSeString("Reset");
 			resetMenu.OnClicked = (a) => connection.Reset();
@@ -87,8 +93,7 @@ public class ContextMenuService : IDisposable
 		MenuItem item = new();
 		item.Name = SeStringUtils.ToSeString("Peer Sync");
 		item.IsSubmenu = true;
-		item.PrefixChar = 'S';
-		item.PrefixColor = 526;
+		item.Prefix = connection.IsConnected ? SeIconChar.ExperienceFilled : SeIconChar.Experience;
 		item.OnClicked = (e) => e.OpenSubmenu(menus);
 		args.AddMenuItem(item);
 	}

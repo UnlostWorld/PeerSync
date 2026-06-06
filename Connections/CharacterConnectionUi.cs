@@ -42,12 +42,27 @@ public partial class CharacterConnection
 		{
 			ImGui.PushID($"peer_{sId}_contextMenu");
 
+			Configuration.Peer? peer = Configuration.Current.GetFriend(this.CharacterName, this.CharacterWorld);
+			if (peer == null)
+			{
+				if (ImGui.MenuItem("Add Friend"))
+				{
+					Plugin.Ui.AddPeerWindow.Show(this.CharacterName, this.CharacterWorld);
+				}
+			}
+
 			if (ImGui.MenuItem("Inspect"))
 			{
 				Plugin.Ui.InspectWindow.Show(this);
 			}
 
-			ImGui.Separator();
+			if (this.IsConnected)
+			{
+				if (ImGui.MenuItem("Reset"))
+				{
+					this.Reset();
+				}
+			}
 
 			if (Configuration.Current.GetIsBlocked(this.CharacterName, this.CharacterWorld))
 			{

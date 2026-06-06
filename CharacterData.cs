@@ -19,6 +19,9 @@ public class CharacterData()
 	[JsonProperty("I")]
 	public string? CharacterId { get; set; }
 
+	[JsonProperty("V")]
+	public string? PluginVersion { get; set; }
+
 	[JsonProperty("C")]
 	public SortedDictionary<string, string?> Character { get; init; } = new();
 

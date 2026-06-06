@@ -104,6 +104,13 @@ public partial class CharacterConnection
 				ImGui.Text($"Disconnect in {(int)p.TotalSeconds} seconds");
 			}
 
+			if (this.LastData?.PluginVersion != null)
+			{
+				ImGui.SetWindowFontScale(0.75f);
+				ImGui.TextColoredWrapped(0x80FFFFFF, $"{this.LastData.PluginVersion}");
+				ImGui.SetWindowFontScale(1.0f);
+			}
+
 			if (this.IsConnected)
 			{
 				ImGuiEx.Icon(FontAwesomeIcon.Wifi);

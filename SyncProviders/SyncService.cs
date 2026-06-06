@@ -47,6 +47,7 @@ public class SyncService : IDisposable
 	public SyncService()
 	{
 		this.lastSend = DateTime.MinValue;
+		this.LocalCharacterData.PluginVersion = $"Peer Sync - v{Plugin.PluginInterface.Manifest.AssemblyVersion}";
 
 		lock (this.Providers)
 		{

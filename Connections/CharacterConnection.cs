@@ -506,6 +506,9 @@ public partial class CharacterConnection : IDisposable
 		if (Plugin.Sync.Lightless.GetIsGameObjectHandled(this.objectIndex))
 			return;
 
+		if (this.LastData?.IsSame(characterData) == true)
+			return;
+
 		this.characterData = characterData;
 
 		// Do not sync characters if the local player is in combat

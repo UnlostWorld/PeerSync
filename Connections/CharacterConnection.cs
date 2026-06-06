@@ -591,7 +591,7 @@ public partial class CharacterConnection : IDisposable
 				}
 
 				progress.Status = SyncProgressStatus.Syncing;
-				await provider.Prepare(lastContent, content, this, objectIndex, progress);
+				await provider.Prepare(content, this, progress);
 
 				if (progress.Status == SyncProgressStatus.Syncing)
 					progress.Status = SyncProgressStatus.None;

@@ -30,10 +30,8 @@ public abstract class SyncProviderBase : IDisposable
 	public abstract Task<string?> Serialize(Configuration.Character character, ushort objectIndex);
 
 	public virtual Task Prepare(
-		string? lastContent,
 		string? content,
 		CharacterConnection character,
-		ushort objectIndex,
 		SyncProgressBase progress)
 	{
 		return Task.CompletedTask;
@@ -104,23 +102,19 @@ public abstract class SyncProviderBase<T> : SyncProviderBase
 	}
 
 	public sealed override Task Prepare(
-		string? lastContent,
 		string? content,
 		CharacterConnection character,
-		ushort objectIndex,
 		SyncProgressBase progress)
 	{
 		if (progress is not T tProgress)
 			throw new Exception("Wrong progress type for provider");
 
-		return this.Prepare(lastContent, content, character, objectIndex, tProgress);
+		return this.Prepare(content, character, tProgress);
 	}
 
 	public virtual Task Prepare(
-		string? lastContent,
 		string? content,
 		CharacterConnection character,
-		ushort objectIndex,
 		T progress)
 	{
 		return Task.CompletedTask;

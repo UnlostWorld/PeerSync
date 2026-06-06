@@ -223,10 +223,8 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	}
 
 	public override async Task Prepare(
-		string? lastContent,
 		string? content,
 		CharacterConnection character,
-		ushort objectIndex,
 		PenumbraProgress progress)
 	{
 		if (!this.penumbra.GetIsAvailable())
@@ -321,16 +319,9 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				0).ThrowOnFailure();
 		}
 
-		PenumbraData? lastData = null;
-		if (lastContent != null)
-			lastData = JsonConvert.DeserializeObject<PenumbraData>(lastContent);
-
 		PenumbraData? data = JsonConvert.DeserializeObject<PenumbraData>(content);
 		if (data == null)
 			return SyncProgressStatus.Empty;
-
-		if (lastData != null && data.IsSame(lastData))
-			return SyncProgressStatus.Applied;
 
 		Dictionary<string, string> paths = new();
 		foreach ((string gamePath, string hash) in data.Files)

@@ -25,7 +25,7 @@ using PeerSync.Connections;
 using PeerSync.Network;
 using PeerSync.UI;
 
-public class PenumbraSync : SyncProviderBase<PenumbraProgress>
+public class PenumbraSync : SyncProviderBase<PenumbraSyncContext>
 {
 	public const int FileTimeout = 240_000;
 	public const int FileChunkSize = 1024 * 128; // 128kb chunks
@@ -225,7 +225,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 	public override async Task Prepare(
 		string? content,
 		CharacterConnection character,
-		PenumbraProgress progress)
+		PenumbraSyncContext context)
 	{
 		if (!this.penumbra.GetIsAvailable())
 			return;
@@ -254,7 +254,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 				data.FileSizes.TryGetValue(hash, out expectedSize);
 
 				string name = Path.GetFileName(gamePath);
-				FileDownload download = new(this, name, hash, expectedSize, character);
+				FileDownload download = new(this, name, hash, expectedSize, context);
 				this.DownloadGroup.Enqueue(download);
 			}
 			else
@@ -267,7 +267,7 @@ public class PenumbraSync : SyncProviderBase<PenumbraProgress>
 		bool pending = true;
 		while (pending)
 		{
-			pending = this.DownloadGroup.IsCharacterPending(character);
+			pending = this.DownloadGroup.IsPending(context);
 			await Task.Delay(100, this.CancellationToken);
 		}
 	}
@@ -564,7 +564,7 @@ public class TransferGroup
 	{
 		foreach (FileTransfer transfer in this.active)
 		{
-			if (transfer.Character != character)
+			if (transfer.Connection != character)
 				continue;
 
 			transfer.Cancel();
@@ -572,7 +572,7 @@ public class TransferGroup
 
 		foreach (FileTransfer transfer in this.pending)
 		{
-			if (transfer.Character != character)
+			if (transfer.Connection != character)
 				continue;
 
 			transfer.Cancel();
@@ -590,14 +590,14 @@ public class TransferGroup
 		}
 	}
 
-	public void GetCharacterProgress(CharacterConnection character, out long current, out long total)
+	public void GetProgress(PenumbraSyncContext context, out long current, out long total)
 	{
 		total = 0;
 		current = 0;
 
 		foreach (FileTransfer transfer in this.completed)
 		{
-			if (transfer.Character != character)
+			if (transfer.Context != context)
 				continue;
 
 			total += transfer.Total;
@@ -606,7 +606,7 @@ public class TransferGroup
 
 		foreach (FileTransfer transfer in this.active)
 		{
-			if (transfer.Character != character)
+			if (transfer.Context != context)
 				continue;
 
 			total += transfer.Total;
@@ -615,18 +615,50 @@ public class TransferGroup
 
 		foreach (FileTransfer transfer in this.pending)
 		{
-			if (transfer.Character != character)
+			if (transfer.Context != context)
 				continue;
 
 			total += transfer.Total;
 		}
 	}
 
-	public bool IsCharacterPending(CharacterConnection character)
+	public void GetProgress(CharacterConnection connection, out long current, out long total)
+	{
+		total = 0;
+		current = 0;
+
+		foreach (FileTransfer transfer in this.completed)
+		{
+			if (transfer.Connection != connection)
+				continue;
+
+			total += transfer.Total;
+			current += transfer.Current;
+		}
+
+		foreach (FileTransfer transfer in this.active)
+		{
+			if (transfer.Connection != connection)
+				continue;
+
+			total += transfer.Total;
+			current += transfer.Current;
+		}
+
+		foreach (FileTransfer transfer in this.pending)
+		{
+			if (transfer.Connection != connection)
+				continue;
+
+			total += transfer.Total;
+		}
+	}
+
+	public bool IsPending(PenumbraSyncContext context)
 	{
 		foreach (FileTransfer transfer in this.pending)
 		{
-			if (transfer.Character == character)
+			if (transfer.Context == context)
 			{
 				return true;
 			}
@@ -634,7 +666,7 @@ public class TransferGroup
 
 		foreach (FileTransfer transfer in this.active)
 		{
-			if (transfer.Character == character)
+			if (transfer.Context == context)
 			{
 				return true;
 			}
@@ -647,7 +679,7 @@ public class TransferGroup
 	{
 		foreach (FileTransfer transfer in this.completed)
 		{
-			if (transfer.Character == character)
+			if (transfer.Connection == character)
 			{
 				this.completed.TryRemove(transfer);
 			}
@@ -712,7 +744,7 @@ public class TransferGroup
 			ImGui.Text(transfer.Name);
 
 			ImGui.Text($"{(transfer.Progress * 100).ToString("F0")}%");
-			ImGui.Text($"{transfer.Character.CharacterName} @ {transfer.Character.CharacterWorld}");
+			ImGui.Text($"{transfer.Connection.CharacterName} @ {transfer.Connection.CharacterWorld}");
 
 			ImGui.Text($"{transfer.ClientQueueIndex}");
 

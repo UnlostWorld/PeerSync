@@ -13,6 +13,7 @@ using Dalamud.Interface;
 public enum SyncProgressStatus
 {
 	None,
+	Waiting,
 	Syncing,
 	Applied,
 	Empty,
@@ -27,6 +28,7 @@ public static class SyncProgressStatusExtensions
 		switch (status)
 		{
 			case SyncProgressStatus.None: return FontAwesomeIcon.None;
+			case SyncProgressStatus.Waiting: return FontAwesomeIcon.None;
 			case SyncProgressStatus.Syncing: return FontAwesomeIcon.Sync;
 			case SyncProgressStatus.Applied: return FontAwesomeIcon.Check;
 			case SyncProgressStatus.Empty: return FontAwesomeIcon.None;

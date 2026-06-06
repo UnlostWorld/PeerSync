@@ -31,8 +31,8 @@ public class FileDownload : FileTransfer
 		string name,
 		string hash,
 		long expectedSize,
-		CharacterConnection character)
-		: base(sync, hash, character)
+		PenumbraSyncContext context)
+		: base(sync, hash, context, context.Connection)
 	{
 		this.Name = name;
 		this.BytesToReceive = expectedSize;
@@ -44,7 +44,7 @@ public class FileDownload : FileTransfer
 	public override void Dispose()
 	{
 		this.fileStream?.Dispose();
-		this.Character.Received -= this.OnReceived;
+		this.Connection.Received -= this.OnReceived;
 	}
 
 	protected override async Task Transfer()
@@ -64,13 +64,13 @@ public class FileDownload : FileTransfer
 			this.ClientQueueIndex = this.sync.LastQueueIndex++;
 		}
 
-		this.Character.Received += this.OnReceived;
+		this.Connection.Received += this.OnReceived;
 
 		byte[] hashBytes = Encoding.UTF8.GetBytes(this.hash);
 		byte[] objectBytes = new byte[hashBytes.Length + 1];
 		objectBytes[0] = this.ClientQueueIndex;
 		Array.Copy(hashBytes, 0, objectBytes, 1, hashBytes.Length);
-		this.Character.Send(PacketTypes.FileRequest, objectBytes);
+		this.Connection.Send(PacketTypes.FileRequest, objectBytes);
 
 		bool gotAllData = false;
 		while (!gotAllData && !this.cancellationToken.IsCancellationRequested)

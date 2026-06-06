@@ -32,7 +32,7 @@ public abstract class SyncProviderBase : IDisposable
 	public virtual Task Prepare(
 		string? content,
 		CharacterConnection character,
-		SyncProgressBase progress)
+		SyncContext context)
 	{
 		return Task.CompletedTask;
 	}
@@ -83,39 +83,39 @@ public abstract class SyncProviderBase : IDisposable
 
 	public abstract void Reset(CharacterConnection character, ushort? objectIndex);
 
-	public virtual SyncProgressBase CreateProgress(CharacterConnection character)
+	public virtual SyncContext CreateContext(CharacterConnection character)
 	{
-		return new SyncProgressBase(this, character);
+		return new SyncContext(this, character);
 	}
 }
 
 public abstract class SyncProviderBase<T> : SyncProviderBase
-	where T : SyncProgressBase
+	where T : SyncContext
 {
-	public sealed override SyncProgressBase CreateProgress(CharacterConnection character)
+	public sealed override SyncContext CreateContext(CharacterConnection character)
 	{
-		SyncProgressBase? progress = Activator.CreateInstance(typeof(T), [this, character]) as SyncProgressBase;
-		if (progress == null)
-			throw new Exception("Failed to create progress type");
+		SyncContext? context = Activator.CreateInstance(typeof(T), [this, character]) as SyncContext;
+		if (context == null)
+			throw new Exception("Failed to create sync context type");
 
-		return progress;
+		return context;
 	}
 
 	public sealed override Task Prepare(
 		string? content,
 		CharacterConnection character,
-		SyncProgressBase progress)
+		SyncContext context)
 	{
-		if (progress is not T tProgress)
-			throw new Exception("Wrong progress type for provider");
+		if (context is not T tContext)
+			throw new Exception("Wrong context type for provider");
 
-		return this.Prepare(content, character, tProgress);
+		return this.Prepare(content, character, tContext);
 	}
 
 	public virtual Task Prepare(
 		string? content,
 		CharacterConnection character,
-		T progress)
+		T context)
 	{
 		return Task.CompletedTask;
 	}

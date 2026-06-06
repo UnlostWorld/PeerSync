@@ -20,7 +20,7 @@ public class FileUpload : FileTransfer
 	public long BytesToSend = 0;
 
 	public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterConnection character)
-		: base(sync, hash, character, clientQueueIndex)
+		: base(sync, hash, null, character, clientQueueIndex)
 	{
 		this.Name = sync.FileCache.GetFileName(hash);
 	}
@@ -36,7 +36,7 @@ public class FileUpload : FileTransfer
 		if (fileInfo == null || !fileInfo.Exists)
 		{
 			Plugin.Log.Warning($"File: {this.hash} missing!");
-			this.Character.Send(PacketTypes.FileData, [this.ClientQueueIndex]);
+			this.Connection.Send(PacketTypes.FileData, [this.ClientQueueIndex]);
 			return;
 		}
 
@@ -88,7 +88,7 @@ public class FileUpload : FileTransfer
 			bytes[1] = part;
 			stream.ReadExactly(bytes, 2, thisChunkSize);
 
-			this.Character.Send(PacketTypes.FileData, bytes);
+			this.Connection.Send(PacketTypes.FileData, bytes);
 			this.BytesSent += thisChunkSize;
 			part++;
 			await Task.Delay(10, this.cancellationToken);
@@ -96,6 +96,6 @@ public class FileUpload : FileTransfer
 		while (this.BytesSent < this.BytesToSend && !this.cancellationToken.IsCancellationRequested);
 
 		// Send the complete flag
-		this.Character.Send(PacketTypes.FileData, [this.ClientQueueIndex]);
+		this.Connection.Send(PacketTypes.FileData, [this.ClientQueueIndex]);
 	}
 }

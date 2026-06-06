@@ -15,7 +15,8 @@ using PeerSync.Connections;
 
 public abstract class FileTransfer : IDisposable
 {
-	public readonly CharacterConnection Character;
+	public readonly PenumbraSyncContext? Context;
+	public readonly CharacterConnection Connection;
 
 	protected readonly PenumbraSync sync;
 	protected readonly CancellationToken cancellationToken;
@@ -25,12 +26,13 @@ public abstract class FileTransfer : IDisposable
 	private bool needsRetry = false;
 	private bool isTransferring = false;
 
-	public FileTransfer(PenumbraSync sync, string hash, CharacterConnection character, byte queueIndex = 255)
+	public FileTransfer(PenumbraSync sync, string hash, PenumbraSyncContext? context, CharacterConnection connection, byte queueIndex = 255)
 	{
 		this.sync = sync;
 		this.hash = hash;
 		this.cancellationToken = this.transferTaskTokenSource.Token;
-		this.Character = character;
+		this.Context = context;
+		this.Connection = connection;
 		this.ClientQueueIndex = queueIndex;
 	}
 
@@ -91,7 +93,7 @@ public abstract class FileTransfer : IDisposable
 
 	public bool IsSame(FileTransfer other)
 	{
-		return this.hash == other.hash && this.Character == other.Character;
+		return this.hash == other.hash && this.Context == other.Context;
 	}
 
 	protected abstract Task Transfer();

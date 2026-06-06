@@ -198,7 +198,7 @@ public partial class CharacterConnection
 		long total = 0;
 		long current = 0;
 
-		foreach (SyncProgressBase progress in this.characterProgress.Values)
+		foreach (SyncContext progress in this.characterProgress.Values)
 		{
 			if (progress.Status == SyncProgressStatus.Syncing)
 			{
@@ -206,7 +206,7 @@ public partial class CharacterConnection
 			}
 		}
 
-		foreach (SyncProgressBase progress in this.mountProgress.Values)
+		foreach (SyncContext progress in this.mountProgress.Values)
 		{
 			if (progress.Status == SyncProgressStatus.Syncing)
 			{
@@ -214,7 +214,7 @@ public partial class CharacterConnection
 			}
 		}
 
-		foreach (SyncProgressBase progress in this.petProgress.Values)
+		foreach (SyncContext progress in this.petProgress.Values)
 		{
 			if (progress.Status == SyncProgressStatus.Syncing)
 			{
@@ -230,7 +230,7 @@ public partial class CharacterConnection
 		return p;
 	}
 
-	private void DrawProgressGroup(string label, Dictionary<SyncProviderBase, SyncProgressBase> progresses)
+	private void DrawProgressGroup(string label, Dictionary<SyncProviderBase, SyncContext> progresses)
 	{
 		if (progresses.Count <= 0)
 			return;
@@ -245,7 +245,7 @@ public partial class CharacterConnection
 
 			foreach (SyncProviderBase provider in Plugin.Sync.Providers)
 			{
-				SyncProgressBase? progress = null;
+				SyncContext? progress = null;
 				if (!progresses.TryGetValue(provider, out progress) || progress == null)
 					continue;
 

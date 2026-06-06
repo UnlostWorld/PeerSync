@@ -37,9 +37,9 @@ public partial class CharacterConnection : IDisposable
 	private static readonly TimeSpan SearchDelay = TimeSpan.FromSeconds(1);
 
 	private readonly CancellationTokenSource cancellationTokenSource = new();
-	private readonly Dictionary<SyncProviderBase, SyncProgressBase> characterProgress = new();
-	private readonly Dictionary<SyncProviderBase, SyncProgressBase> mountProgress = new();
-	private readonly Dictionary<SyncProviderBase, SyncProgressBase> petProgress = new();
+	private readonly Dictionary<SyncProviderBase, SyncContext> characterProgress = new();
+	private readonly Dictionary<SyncProviderBase, SyncContext> mountProgress = new();
+	private readonly Dictionary<SyncProviderBase, SyncContext> petProgress = new();
 	private DateTime lastSeen;
 	private DateTime lastIndexAttempt;
 	private DateTime lastSearch;
@@ -531,6 +531,10 @@ public partial class CharacterConnection : IDisposable
 		while (this.isApplyingData)
 			await Task.Delay(100);
 
+		this.InitContexts(characterData.Character, this.characterProgress);
+		this.InitContexts(characterData.MountOrMinion, this.mountProgress);
+		this.InitContexts(characterData.Pet, this.petProgress);
+
 		await this.PrepareSyncData(
 			characterData.Character,
 			this.LastData?.Character,
@@ -558,11 +562,35 @@ public partial class CharacterConnection : IDisposable
 		this.isPreparingData = false;
 	}
 
+	private void InitContexts(Dictionary<string, string?> sync, Dictionary<SyncProviderBase, SyncContext> contexts)
+	{
+		foreach ((string key, string? content) in sync)
+		{
+			if (string.IsNullOrEmpty(content))
+				continue;
+
+			SyncProviderBase? provider = Plugin.Sync.GetProvider(key);
+			if (provider == null)
+				continue;
+
+			SyncContext? context = null;
+			contexts.TryGetValue(provider, out context);
+
+			if (context == null)
+			{
+				context = provider.CreateContext(this);
+				contexts.Add(provider, context);
+			}
+
+			context.Status = SyncProgressStatus.Waiting;
+		}
+	}
+
 	private async Task PrepareSyncData(
 		Dictionary<string, string?> sync,
 		Dictionary<string, string?>? lastSync,
 		ushort objectIndex,
-		Dictionary<SyncProviderBase, SyncProgressBase> progresses)
+		Dictionary<SyncProviderBase, SyncContext> contexts)
 	{
 		if (this.lastState != States.Found)
 			return;
@@ -581,20 +609,20 @@ public partial class CharacterConnection : IDisposable
 				string? lastContent = null;
 				lastSync?.TryGetValue(key, out lastContent);
 
-				SyncProgressBase? progress = null;
-				progresses.TryGetValue(provider, out progress);
+				SyncContext? context = null;
+				contexts.TryGetValue(provider, out context);
 
-				if (progress == null)
+				if (context == null)
 				{
-					progress = provider.CreateProgress(this);
-					progresses.Add(provider, progress);
+					context = provider.CreateContext(this);
+					contexts.Add(provider, context);
 				}
 
-				progress.Status = SyncProgressStatus.Syncing;
-				await provider.Prepare(content, this, progress);
+				context.Status = SyncProgressStatus.Syncing;
+				await provider.Prepare(content, this, context);
 
-				if (progress.Status == SyncProgressStatus.Syncing)
-					progress.Status = SyncProgressStatus.None;
+				if (context.Status == SyncProgressStatus.Syncing)
+					context.Status = SyncProgressStatus.Waiting;
 
 				if (this.lastState != States.Found)
 				{
@@ -651,7 +679,7 @@ public partial class CharacterConnection : IDisposable
 		Dictionary<string, string?> sync,
 		Dictionary<string, string?>? lastSync,
 		ushort objectIndex,
-		Dictionary<SyncProviderBase, SyncProgressBase> progresses)
+		Dictionary<SyncProviderBase, SyncContext> progresses)
 	{
 		if (this.lastState != States.Found)
 			return;
@@ -667,12 +695,12 @@ public partial class CharacterConnection : IDisposable
 				string? lastContent = null;
 				lastSync?.TryGetValue(key, out lastContent);
 
-				SyncProgressBase? progress = null;
+				SyncContext? progress = null;
 				progresses.TryGetValue(provider, out progress);
 
 				if (progress == null)
 				{
-					progress = provider.CreateProgress(this);
+					progress = provider.CreateContext(this);
 					progresses.Add(provider, progress);
 				}
 

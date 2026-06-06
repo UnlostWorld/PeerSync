@@ -147,7 +147,7 @@ public class IndexServer
 			return;
 
 		SeStringBuilder str = new();
-		str.AddText("\uE0BC");
+		str.AddText("\uE0BD");
 		str.AddText(" Connected to ");
 		str.AddText(this.Status.ServerName ?? string.Empty);
 

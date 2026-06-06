@@ -20,13 +20,13 @@ public class CharacterData()
 	public string? CharacterId { get; set; }
 
 	[JsonProperty("C")]
-	public Dictionary<string, string?> Character { get; init; } = new();
+	public SortedDictionary<string, string?> Character { get; init; } = new();
 
 	[JsonProperty("M")]
-	public Dictionary<string, string?> MountOrMinion { get; init; } = new();
+	public SortedDictionary<string, string?> MountOrMinion { get; init; } = new();
 
 	[JsonProperty("P")]
-	public Dictionary<string, string?> Pet { get; init; } = new();
+	public SortedDictionary<string, string?> Pet { get; init; } = new();
 
 	public void Clear()
 	{
@@ -134,7 +134,7 @@ public class CharacterData()
 		}
 	}
 
-	private void DrawData(Dictionary<string, string?> data)
+	private void DrawData(IDictionary<string, string?> data)
 	{
 		foreach ((string key, string? content) in data)
 		{

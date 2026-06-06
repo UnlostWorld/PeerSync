@@ -10,6 +10,7 @@ namespace PeerSync.SyncProviders.Penumbra;
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
@@ -48,7 +49,7 @@ public class CharacterCache : IDisposable
 		return result;
 	}
 
-	public void SetRedirects(string fingerprint, Dictionary<string, string> redirects)
+	public void SetRedirects(string fingerprint, IDictionary<string, string> redirects)
 	{
 		DirectoryInfo? dir = this.GetDirectory();
 		if (dir == null)

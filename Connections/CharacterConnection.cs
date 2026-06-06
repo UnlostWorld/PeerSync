@@ -565,7 +565,7 @@ public partial class CharacterConnection : IDisposable
 		this.isPreparingData = false;
 	}
 
-	private void InitContexts(Dictionary<string, string?> sync, Dictionary<SyncProviderBase, SyncContext> contexts)
+	private void InitContexts(IDictionary<string, string?> sync, Dictionary<SyncProviderBase, SyncContext> contexts)
 	{
 		foreach ((string key, string? content) in sync)
 		{
@@ -590,10 +590,10 @@ public partial class CharacterConnection : IDisposable
 	}
 
 	private async Task PrepareSyncData(
-		Dictionary<string, string?> sync,
-		Dictionary<string, string?>? lastSync,
+		IDictionary<string, string?> sync,
+		IDictionary<string, string?>? lastSync,
 		ushort objectIndex,
-		Dictionary<SyncProviderBase, SyncContext> contexts)
+		IDictionary<SyncProviderBase, SyncContext> contexts)
 	{
 		if (this.lastState != States.Found)
 			return;
@@ -679,10 +679,10 @@ public partial class CharacterConnection : IDisposable
 	}
 
 	private void ApplySyncData(
-		Dictionary<string, string?> sync,
-		Dictionary<string, string?>? lastSync,
+		IDictionary<string, string?> sync,
+		IDictionary<string, string?>? lastSync,
 		ushort objectIndex,
-		Dictionary<SyncProviderBase, SyncContext> progresses)
+		IDictionary<SyncProviderBase, SyncContext> progresses)
 	{
 		if (this.lastState != States.Found)
 			return;

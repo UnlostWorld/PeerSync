@@ -16,10 +16,54 @@ using PeerSync.UI;
 
 public class PenumbraData
 {
-	public Dictionary<string, string> Files { get; set; } = new();
-	public Dictionary<string, long> FileSizes { get; set; } = new();
-	public Dictionary<string, string> Redirects { get; set; } = new();
+	public SortedDictionary<string, string> Files { get; set; } = new();
+	public SortedDictionary<string, long> FileSizes { get; set; } = new();
+	public SortedDictionary<string, string> Redirects { get; set; } = new();
 	public string? MetaManipulations { get; set; }
+
+	public void Diff(PenumbraData other)
+	{
+		if (this.Files.Count != other.Files.Count)
+			Plugin.Log.Info("File count");
+
+		if (this.FileSizes.Count != other.FileSizes.Count)
+			Plugin.Log.Info("File sizes count");
+
+		if (this.Redirects.Count != other.Redirects.Count)
+			Plugin.Log.Info("Redirect count");
+
+		if (this.MetaManipulations != other.MetaManipulations)
+			Plugin.Log.Info("Meta manipulations");
+
+		foreach ((string key, string value) in this.Files)
+		{
+			if (!other.Files.TryGetValue(key, out string? otherValue)
+			|| otherValue != value)
+			{
+				Plugin.Log.Info($"File: {key} {value} -> {otherValue}");
+			}
+		}
+
+		foreach ((string key, long value) in this.FileSizes)
+		{
+			if (!other.FileSizes.TryGetValue(key, out long otherValue)
+			|| otherValue != value)
+			{
+				Plugin.Log.Info($"File Size: {key} {value} -> {otherValue}");
+			}
+		}
+
+		foreach ((string key, string value) in this.Redirects)
+		{
+			if (!other.Redirects.TryGetValue(key, out string? otherValue)
+			|| otherValue != value)
+			{
+				Plugin.Log.Info($"Redirect: {key} {value} -> {otherValue}");
+			}
+		}
+
+		Plugin.Log.Info($"Same");
+	}
 
 	public bool IsSame(PenumbraData other)
 	{
@@ -40,7 +84,6 @@ public class PenumbraData
 			if (!other.Files.TryGetValue(key, out string? otherValue)
 			|| otherValue != value)
 			{
-				Plugin.Log.Info("files");
 				return false;
 			}
 		}

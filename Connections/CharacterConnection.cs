@@ -36,6 +36,9 @@ public partial class CharacterConnection : IDisposable
 	private static readonly TimeSpan ReIndex = TimeSpan.FromSeconds(10);
 	private static readonly TimeSpan SearchDelay = TimeSpan.FromSeconds(1);
 
+	// only allow one connection to index at a time.
+	private static bool isIndexing = false;
+
 	private readonly CancellationTokenSource cancellationTokenSource = new();
 	private readonly Dictionary<SyncProviderBase, SyncContext> characterProgress = new();
 	private readonly Dictionary<SyncProviderBase, SyncContext> mountProgress = new();
@@ -290,6 +293,11 @@ public partial class CharacterConnection : IDisposable
 
 	private async Task<bool> FingerprintIndexConnect()
 	{
+		while (isIndexing)
+			await Task.Delay(33);
+
+		isIndexing = true;
+
 		try
 		{
 			this.lastConnectionException = null;
@@ -332,6 +340,10 @@ public partial class CharacterConnection : IDisposable
 			this.lastConnectionException = ex;
 			Plugin.Log.Error(ex, "Error fingerprinting character");
 			return false;
+		}
+		finally
+		{
+			isIndexing = false;
 		}
 	}
 

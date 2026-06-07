@@ -47,7 +47,6 @@ public class SyncService : IDisposable
 	public SyncService()
 	{
 		this.lastSend = DateTime.MinValue;
-		this.LocalCharacterData.PluginVersion = $"Peer Sync - v{Plugin.PluginInterface.Manifest.AssemblyVersion}";
 
 		lock (this.Providers)
 		{
@@ -178,6 +177,7 @@ public class SyncService : IDisposable
 
 			this.lastSend = DateTime.Now;
 			data.CopyTo(this.LocalCharacterData);
+			data.PluginVersion = $"Peer Sync - v{Plugin.PluginInterface.Manifest.AssemblyVersion}";
 
 			string json = JsonConvert.SerializeObject(data);
 			byte[] jsonBytes = Encoding.UTF8.GetBytes(json);

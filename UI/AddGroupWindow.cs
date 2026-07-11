@@ -101,6 +101,8 @@ public class AddGroupWindow : Window, IDisposable
 
 			Configuration.Current.Save();
 			this.IsOpen = false;
+
+			Plugin.Index.Groups.Add(new(group));
 		}
 
 		if (!valid)

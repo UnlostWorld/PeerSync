@@ -23,7 +23,7 @@ public abstract class FileTransfer : IDisposable
 	protected readonly string hash;
 
 	private readonly CancellationTokenSource transferTaskTokenSource = new();
-	private readonly DateTime timeStarted;
+	private DateTime? timeStarted;
 	private bool needsRetry = false;
 	private bool isTransferring = false;
 
@@ -35,8 +35,6 @@ public abstract class FileTransfer : IDisposable
 		this.Context = context;
 		this.Connection = connection;
 		this.ClientQueueIndex = queueIndex;
-
-		this.timeStarted = DateTime.UtcNow;
 	}
 
 	public abstract long Total { get; }
@@ -48,7 +46,7 @@ public abstract class FileTransfer : IDisposable
 
 	public bool IsCanceled => this.transferTaskTokenSource.IsCancellationRequested;
 
-	public TimeSpan Elapsed => DateTime.UtcNow - this.timeStarted;
+	public TimeSpan? Elapsed => DateTime.UtcNow - this.timeStarted;
 
 	public void Cancel()
 	{
@@ -69,6 +67,7 @@ public abstract class FileTransfer : IDisposable
 			{
 				this.needsRetry = false;
 				this.isTransferring = true;
+				this.timeStarted = DateTime.UtcNow;
 				await this.Transfer();
 				this.isTransferring = false;
 

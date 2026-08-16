@@ -141,6 +141,11 @@ public class Connection : IDisposable
 					Plugin.Log.Error(ex, "Error invoking received callbacks");
 				}
 			}
+			catch(ObjectDisposedException)
+			{
+				// Just abort out
+				Plugin.Log.Information($"Connection receive loop disposed.");
+			}
 			catch (OperationCanceledException)
 			{
 				this.Dispose();

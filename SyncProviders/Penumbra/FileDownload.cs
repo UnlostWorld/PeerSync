@@ -22,6 +22,8 @@ public class FileDownload : FileTransfer
 	public long BytesToReceive = 0;
 	public long BytesReceived = 0;
 
+	private static readonly TimeSpan DownloadTimeout = TimeSpan.FromSeconds(30);
+
 	private FileStream? fileStream;
 	private Exception? receiveError;
 	private byte nextPart = 0;
@@ -75,6 +77,11 @@ public class FileDownload : FileTransfer
 		bool gotAllData = false;
 		while (!gotAllData && !this.cancellationToken.IsCancellationRequested)
 		{
+			if (this.Elapsed >= DownloadTimeout)
+			{
+				throw new Exception("Download timed out");
+			}
+
 			lock (this)
 			{
 				gotAllData = this.BytesReceived >= this.BytesToReceive;

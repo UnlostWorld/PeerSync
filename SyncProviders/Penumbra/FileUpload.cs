@@ -19,6 +19,8 @@ public class FileUpload : FileTransfer
 	public long BytesSent = 0;
 	public long BytesToSend = 0;
 
+	private static readonly TimeSpan UploadTimeout = TimeSpan.FromSeconds(30);
+
 	public FileUpload(PenumbraSync sync, byte clientQueueIndex, string hash, CharacterConnection character)
 		: base(sync, hash, null, character, clientQueueIndex)
 	{
@@ -51,6 +53,7 @@ public class FileUpload : FileTransfer
 		{
 			try
 			{
+				attempts--;
 				stream = new(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
 			}
 			catch (IOException ex)
@@ -77,6 +80,11 @@ public class FileUpload : FileTransfer
 
 		do
 		{
+			if (this.Elapsed >= UploadTimeout)
+			{
+			throw new Exception("Upload timed out");
+			}
+
 			long bytesLeft = this.BytesToSend - this.BytesSent;
 			int thisChunkSize = (int)Math.Min(PenumbraSync.FileChunkSize, bytesLeft);
 

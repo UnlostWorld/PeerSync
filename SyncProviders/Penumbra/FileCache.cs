@@ -40,6 +40,7 @@ public class FileCache : IDisposable
 	private bool flushCache = false;
 	private bool scanNow = false;
 	private int scanCount = 0;
+	private bool isScanning = false;
 
 	public FileCache()
 	{
@@ -121,23 +122,40 @@ public class FileCache : IDisposable
 
 	public void DrawInfo()
 	{
-		if (!this.IsValid())
+		ImGui.Separator();
+		ImGui.Text($"File Cache - {this.GetSizeString()}");
+
+		float p = (float)this.scanCount / (float)this.fileCount;
+		if (p < 1)
 		{
-			ImGuiEx.BeginCenter("FileCacheWarningBox");
-			ImGuiEx.Icon(0xFF0080FF, FontAwesomeIcon.ExclamationTriangle);
 			ImGui.SameLine();
-			ImGui.TextColored(0xFF0080FF, $"Invalid file cache directory");
-			ImGuiEx.EndCenter();
+			ImGuiEx.ThinProgressBar(p, -1);
+
+			if (ImGui.IsItemHovered())
+			{
+				ImGui.BeginTooltip();
+				ImGui.Text($"Scanning {this.scanCount} of {this.fileCount} files in cache");
+				ImGui.EndTooltip();
+			}
 		}
 
+		ImGui.BeginDisabled();
+		DirectoryInfo? dir = this.GetDirectory();
+		ImGui.TextWrapped(dir?.FullName ?? string.Empty);
+		ImGui.EndDisabled();
+
 		string cache = Configuration.Current.CacheDirectory ?? string.Empty;
-		if (ImGui.InputText("Cache", ref cache, 512, ImGuiInputTextFlags.EnterReturnsTrue))
+		if (ImGui.InputText("Custom Path", ref cache, 512, ImGuiInputTextFlags.EnterReturnsTrue))
 		{
 			Configuration.Current.CacheDirectory = cache;
 			Configuration.Current.Save();
+			this.ScanCache();
 		}
 
-		if (ImGui.Button($"Flush file cache ({this.GetSizeString()})##files"))
+		if (this.isScanning)
+			ImGui.BeginDisabled();
+
+		if (ImGui.Button($"Flush file cache##files"))
 		{
 			DialogBox.Show(
 				"Confirm",
@@ -154,33 +172,22 @@ public class FileCache : IDisposable
 				null);
 		}
 
-		float p = (float)this.scanCount / (float)this.fileCount;
-		if (p < 1)
-		{
-			ImGui.BeginGroup();
-			ImGui.Text("Scanning");
-			ImGui.SameLine();
-			ImGuiEx.ThinProgressBar(p, -1);
-			ImGui.EndGroup();
-
-			if (ImGui.IsItemHovered())
-			{
-				ImGui.BeginTooltip();
-				ImGui.Text($"Scanning {this.scanCount} of {this.fileCount} files in cache");
-				ImGui.EndTooltip();
-			}
-		}
+		if (this.isScanning)
+			ImGui.EndDisabled();
 	}
 
 	private DirectoryInfo? GetDirectory()
 	{
-		if (string.IsNullOrEmpty(Configuration.Current.CacheDirectory))
-			return null;
+		string? dirPath = Configuration.Current.CacheDirectory;
+		if (string.IsNullOrEmpty(dirPath))
+		{
+			dirPath = Plugin.PluginInterface.ConfigDirectory + "/Cache/";
+		}
 
 		DirectoryInfo dir;
 		try
 		{
-			dir = new(Configuration.Current.CacheDirectory);
+			dir = new(dirPath);
 
 			if (!dir.Exists)
 				dir.Create();
@@ -205,6 +212,8 @@ public class FileCache : IDisposable
 		{
 			this.scanNow = false;
 
+			this.isScanning = true;
+
 			lock (this.deletedFiles)
 			{
 				DirectoryInfo? dir = this.GetDirectory();
@@ -214,7 +223,6 @@ public class FileCache : IDisposable
 					FileInfo[] files = dir.GetFiles();
 					this.fileCount = files.Length;
 					this.scanCount = 0;
-
 					this.deletedFiles.Clear();
 
 					foreach (FileInfo file in files)
@@ -264,6 +272,7 @@ public class FileCache : IDisposable
 				}
 			}
 
+			this.isScanning = false;
 			this.flushCache = false;
 
 			DateTime nextScan = DateTime.UtcNow + ScanDelay;

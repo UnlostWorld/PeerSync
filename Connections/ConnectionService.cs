@@ -76,12 +76,15 @@ public partial class ConnectionService : IDisposable
 		}
 
 		// Find new characters
+		if (Plugin.ObjectTable.LocalPlayer == null)
+			return;
+
 		foreach (IGameObject? tObj in Plugin.ObjectTable)
 		{
 			if (tObj is IPlayerCharacter tCharacter)
 			{
 				// Is this our local character
-				if (tCharacter.ObjectIndex == 0)
+				if (tCharacter == Plugin.ObjectTable.LocalPlayer)
 					continue;
 
 				this.GetOrCreate(tCharacter);

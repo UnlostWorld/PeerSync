@@ -145,7 +145,14 @@ public class NetworkService : IDisposable
 					localIp = ipAddress;
 				}
 			}
+			}
+		catch (Exception ex)
+		{
+			Plugin.Log.Warning($"Error getting local IP from DNS: {ex.Message}");
+		}
 
+		try
+		{
 			// Try opening a UDP socket and getting our IP from it
 			if (localIp == null)
 			{
@@ -159,7 +166,7 @@ public class NetworkService : IDisposable
 		}
 		catch (Exception ex)
 		{
-			Plugin.Log.Warning($"Error getting local IP: {ex.Message}");
+			Plugin.Log.Warning($"Error getting local IP from UDP: {ex.Message}");
 		}
 
 		Plugin.Log.Information($"Got Local Address: {localIp}");

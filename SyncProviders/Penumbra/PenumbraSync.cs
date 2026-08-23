@@ -11,7 +11,6 @@ namespace PeerSync.SyncProviders.Penumbra;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -19,16 +18,16 @@ using System.Threading.Tasks;
 using ConcurrentCollections;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Interface;
 using Newtonsoft.Json;
 using PeerSync.Connections;
-using PeerSync.Network;
 using PeerSync.UI;
 
 public class PenumbraSync : SyncProviderBase<PenumbraSyncContext>
 {
 	public const int FileTimeout = 240_000;
-	public const int FileChunkSize = 1024 * 128; // 128kb chunks
+	public const int FileChunkSize = 1024 * 16; // 16kb chunks *
+	public const int ChunksPerSecond = 50; // 50 Chunks per second = 800Kb / s per transfer
+	public const int MaxFileSize = 1024 * 1024 * 256; // 256Mb max file size.
 
 	public static readonly HashSet<string> AllowedFileExtensions =
 	[
@@ -202,6 +201,12 @@ public class PenumbraSync : SyncProviderBase<PenumbraSyncContext>
 				if (!found)
 				{
 					Plugin.Log.Warning($"File not found for sync: {redirectPath}");
+					continue;
+				}
+
+				if (fileSize > MaxFileSize)
+				{
+					Plugin.Log.Error($"File too big for transfer: {redirectPath} ({fileSize / 1024 / 1024} Mb!)");
 					continue;
 				}
 

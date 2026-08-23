@@ -82,7 +82,7 @@ public class FileUpload : FileTransfer
 		{
 			if (this.Elapsed >= UploadTimeout)
 			{
-			throw new Exception("Upload timed out");
+				throw new Exception("Upload timed out");
 			}
 
 			long bytesLeft = this.BytesToSend - this.BytesSent;
@@ -99,7 +99,10 @@ public class FileUpload : FileTransfer
 			this.Connection.Send(PacketTypes.FileData, bytes);
 			this.BytesSent += thisChunkSize;
 			part++;
-			await Task.Delay(10, this.cancellationToken);
+
+			int delay = 1000 / PenumbraSync.ChunksPerSecond;
+			delay = Math.Min(delay, 10);
+			await Task.Delay(delay, this.cancellationToken);
 		}
 		while (this.BytesSent < this.BytesToSend && !this.cancellationToken.IsCancellationRequested);
 

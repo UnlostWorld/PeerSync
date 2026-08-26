@@ -317,7 +317,8 @@ public partial class CharacterConnection : IDisposable
 
 			// If that character is not a friend, or we could not get their details, check if they're a member of
 			// any groups.
-			foreach (GroupServer group in Plugin.Index.Groups)
+			List<GroupServer> groups = new(Plugin.Index.Groups);
+			foreach (GroupServer group in groups)
 			{
 				string memberFingerprint = group.GetMemberFingerprint(this.CharacterName, this.CharacterWorld);
 

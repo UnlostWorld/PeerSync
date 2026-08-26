@@ -63,8 +63,8 @@ public partial class IndexService : IDisposable
 		if (this.TimeSinceLastIndex < IndexDelay)
 			return;
 
-		if (Plugin.Network.LocalIpAddress == null)
-			return;
+		////if (Plugin.Network.LocalIpAddress == null)
+		////	return;
 
 		Task.Run(async () => await this.UpdateIndex(Plugin.Network.LocalPort, Plugin.Network.LocalIpAddress));
 	}

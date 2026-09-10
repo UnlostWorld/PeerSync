@@ -34,6 +34,9 @@ public class ContextMenuService : IDisposable
 
 		if (target.TargetObject is IPlayerCharacter character)
 		{
+			if (character == Plugin.ObjectTable.LocalPlayer)
+				return;
+
 			this.Show(character, ref args);
 		}
 	}

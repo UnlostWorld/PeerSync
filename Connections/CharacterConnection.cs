@@ -170,6 +170,12 @@ public partial class CharacterConnection : IDisposable
 		{
 			this.lastSeen = DateTime.Now;
 
+			if (character.ObjectIndex == Plugin.ObjectTable.LocalPlayer?.ObjectIndex)
+			{
+				Plugin.Log.Warning("connection found to oneself!");
+				return States.TimedOut;
+			}
+
 			// Begin connecting if this character is offline, enough time has passed,
 			// and the index servers are connected.
 			if (this.outgoingConnection == null

@@ -84,11 +84,7 @@ public partial class ConnectionService : IDisposable
 			if (tObj is IPlayerCharacter tCharacter)
 			{
 				// Is this our local character
-				if (tCharacter == Plugin.ObjectTable.LocalPlayer)
-					continue;
-
-				// Is this really not our local character
-				if (tCharacter.Name.TextValue == Plugin.ObjectTable.LocalPlayer.Name.TextValue)
+				if (tCharacter.ObjectIndex == Plugin.ObjectTable.LocalPlayer.ObjectIndex)
 					continue;
 
 				this.GetOrCreate(tCharacter);

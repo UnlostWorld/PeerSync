@@ -128,7 +128,11 @@ public class SyncService : IDisposable
 			}
 		}
 
-		Task.Run(async () => await this.SerializeAndSend(player.ObjectIndex, mountOrMinion?.ObjectIndex, pet?.ObjectIndex));
+		ushort playerIndex = player.ObjectIndex;
+		ushort? minionIndex = mountOrMinion?.ObjectIndex;
+		ushort? petIndex = pet?.ObjectIndex;
+
+		Task.Run(async () => await this.SerializeAndSend(playerIndex, minionIndex, petIndex));
 	}
 
 	private async Task SerializeAndSend(ushort playerIndex, ushort? mountIndex, ushort? petIndex)
